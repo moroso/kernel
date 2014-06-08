@@ -1,1 +1,16 @@
 #include "bs.mh"
+#include "stdlib.mb"
+// 8MB
+#define MEM_START (8 * 1024 * 1024) 
+/* the next available address in memory */
+static mem_cur: *u8 = MEM_START as *u8;
+
+/* an allocation function that does not need to free */
+fn early_alloc<T>(size: u32) -> *T {
+    let addr = mem_cur;
+    mem_cur += size;
+    mos_memset(addr, 0, size);
+    addr as *T
+}
+
+
