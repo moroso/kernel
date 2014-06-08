@@ -17,11 +17,11 @@
 #include "list.mh"
 #define SLAB_SIZE 4096 /* this really isn't the right size*/
 #define UINT_SIZE 4
-#define CACHE_MIN 4
-#define CACHE_MAX 4096
-
+#define POWER_MIN 2
+#define POWER_MAX 9
 
 fn print_int(x: i32) {}
+fn assert(x: bool) {}
 fn print_uint(x: u32) { print_int(x as i32); }
 fn print_char(x: u32) {}
 fn print_newline() { print_char(10); }
@@ -43,10 +43,13 @@ struct cache_descriptor {
 }
 
 static head: list_head;
+static caches: *cache_descriptor;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
     let slab: *u32 = malloc(SLAB_SIZE);
-    /* TODO return on malloc err */
+    if (slab == null) {
+      return (); 
+    }
     /* divide into elements */    
     let node_prev: *u32 = slab;
     let i: u32;
@@ -76,19 +79,14 @@ fn slab_add(size: u32, cache: *cache_descriptor) {
 }
 
 /* creates a cache with a single slab, full of size-sized elements */
-fn cache_create(size: u32) -> *cache_descriptor {
+fn cache_create(size: u32, cache: *cache_descriptor) {
   /* ensure this is a power of two */
-  if (size&1 == 1 || size < UINT_SIZE) {
-      return null;
-  }
-  let cache: *cache_descriptor = malloc(4000);
+  assert (size&1 != 1 && size >= UINT_SIZE);
   cache->size = size;
   slab_add(size, cache);
   if (cache->slab == null) {
     ERR; // this shouldn't always be true, but is currently useful for debugging 
-    return null;
   }
-  cache    
 }
 
 /* remove an element from the given cache.  if cache is empty, a new slab is
@@ -113,49 +111,52 @@ fn cache_add (element: *u32, cache: *cache_descriptor) {
 }
 
 fn alloc_init(head: *list_head) {
+  caches = malloc(1000 * (POWER_MAX - POWER_MIN));
   let i: u32;
-  for (i = CACHE_MIN; i <= CACHE_MAX; i *= 2) {
-    let cache: *cache_descriptor = cache_create(i);
-    list_insert_before(&(cache->link), head);
-    print_uint(i);
-  }
-  let node: *cache_descriptor;
-  i = 0;
-  list_foreach_entry(node, head, cache_descriptor, link) {
-  
+  for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
+    let cache = &caches[i - POWER_MIN];
+    cache_create(1 << i, cache);
   }
 }
 
-fn slub_alloc(size: u32, head: *list_head) -> *u32 {
-    if (size > CACHE_MAX) {
-        return malloc(size);
+/* returns the index of the correct cache for the given size */
+fn find_cache(size: u32) -> i32 {
+    let power: u32;
+    for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
+        if (size <= (1 << power)) {
+          return (power - POWER_MIN) as i32;
+        }     
     }
-    let cache: *cache_descriptor;
-    /* search through buckets, find best fit */
-    list_foreach_entry(cache, head, cache_descriptor, link) {
-      if cache->size >= size {
-        return cache_remove(cache);
-      }
+    -1
+}
+
+fn slub_alloc(size: u32) -> *u32 {
+    let cache_num: i32 = find_cache(size);
+    print_int(cache_num);
+    if (cache_num == -1) {
+      return malloc(size);
     }
-  null
+    // TODO check bounds 
+    let cache: cache_descriptor = caches[cache_num as u32];
+    cache_remove(&cache)
 }
 
 fn slub_free(head: *list_head, element: *u32, size: u32) {
-    let cache: *cache_descriptor;
-    /* search through buckets, find best fit */
-    list_foreach_entry(cache, head, cache_descriptor, link) {
-        if cache->size >= size {
-          cache_add(element, cache);
-          break;
-        }
+    let cache_num: i32 = find_cache(size);
+    print_int(cache_num);
+    if (cache_num == -1) {
+      //free(element);
+      return ();
     }
-    /* need to handle freeing elements not in caches */
+    cache_add(element, &(caches[cache_num as u32]))
 }
 
 // we probs want some metadata about where each object came from?
 
-fn main() -> u32 {
+fn main() -> i32 {
     list_init_head(&head);
     alloc_init(&head);
+    print_uint(slub_alloc(15) as u32);
+    0
 }
 
