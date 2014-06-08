@@ -1,0 +1,9 @@
+#include "bs.mh"
+
+fn kernel_main() -> u32 {
+    print_int(1337);
+
+    while (true) {};
+
+    0
+}
