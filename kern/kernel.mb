@@ -1,5 +1,10 @@
 #include "bs.mh"
 
+
+// Don't do this at home, kids.
+#include "stdlib.mb"
+#include "early_alloc.mb"
+
 fn kernel_main() -> u32 {
     print_int(1337);
 
