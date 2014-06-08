@@ -1,5 +1,5 @@
 // Could use optimiz - Could maybe asm optimiz
-fn memset<T>(pT: *T, c: u8, n: u32) {
+fn mos_memset<T>(pT: *T, c: u8, n: u32) {
     let p: *u8 = pT as *u8;
     let i: u32;
     for (i = 0; i < n; i += 1) {
@@ -8,7 +8,7 @@ fn memset<T>(pT: *T, c: u8, n: u32) {
 }
 
 // Could use optimiz - Could maybe asm optimiz
-fn memcpy<T>(destT: *T, srcT: *T, n: u32) {
+fn mos_memcpy<T>(destT: *T, srcT: *T, n: u32) {
     let dest: *u8 = destT as *u8;
     let src: *u8 = srcT as *u8;
     let i: u32;
