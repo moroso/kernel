@@ -5,5 +5,6 @@ fn print_int(x: i32) {}
 fn print_uint(x: u32) { print_int(x as i32); }
 fn print_char(x: u32) {}
 fn print_newline() { print_char(10); }
+fn assert(b: bool) {  }
 
 #endif
