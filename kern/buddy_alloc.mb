@@ -1,11 +1,5 @@
 #include "list.mh"
-
-fn print_int(x: i32) {}
-fn print_uint(x: u32) { print_int(x as i32); }
-fn print_char(x: u32) {}
-fn print_newline() { print_char(10); }
-
-fn calloc<T>(i: u32, c: u32) -> *T { 0 as *T }
+#include "bs.mh"
 
 
 // Bitmaps!
@@ -50,9 +44,9 @@ struct buddy_arena {
 fn buddy_init(num_frames: u32) -> *buddy_arena {
     let node_size: u32 = 8;
     let arena_size: u32 = node_size + (4+node_size)*(MAX_ORDER+1);
-    let arena: *buddy_arena = calloc(1, arena_size);
+    let arena: *buddy_arena = early_alloc(arena_size);
 
-    arena->nodes = calloc(num_frames, node_size);
+    arena->nodes = early_alloc(num_frames * node_size);
 
     // We just add 1 instead of bothering to round up only if necessary
     let num_words: u32 = num_frames / BITS + 1;
@@ -62,7 +56,7 @@ fn buddy_init(num_frames: u32) -> *buddy_arena {
         let zone: *buddy_category = &arena->zones[i];
         list_init_head(&zone->free_list);
 
-        zone->bitmap.bits = calloc(4, num_words+1);
+        zone->bitmap.bits = early_alloc(4 * (num_words+1));
 
         num_words /= 2;
     };
@@ -92,7 +86,6 @@ fn _split_block(arena: *buddy_arena, block: u32,
         // Find our buddy
         let buddy_block: u32 = _get_buddy(block, cur_order-1);
         // Add it to the free list
-        // XXX: this next line is the fucked one
         let node: *list_node = _get_node(arena, buddy_block);
         list_insert_head(node, &zone->free_list);
         // Mark it as free
@@ -155,11 +148,71 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
         order += 1;
     };
 
-    //print_char(111); print_uint(order);
+    print_char(111); print_uint(order);
     let zone: *buddy_category = &arena->zones[order];
     let node: *list_node = _get_node(arena, block);
     list_insert_head(node, &zone->free_list);
     bm_set_bit(&zone->bitmap, block);
+}
+
+///////////////////////////////////////////////////////////////////
+// Frame allocator interface
+
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
+
+static frame_arena: *buddy_arena = null;
+
+fn machine_phys_frames() -> u32 { 0 }
+
+// Must be power of two
+#define ROUND_DOWN(n, align) ((n) & ~((align)-1))
+#define ROUND_UP(n, align) ROUND_DOWN(n+(align-1), align)
+
+fn frame_init() {
+    let frames_per_block = 1 << MAX_ORDER;
+
+    // Find how much memory we have and where it ends
+    let num_frames = machine_phys_frames();
+    let frames_rounded_up = ROUND_UP(num_frames, frames_per_block);
+    let frames_rounded_down = ROUND_DOWN(num_frames, frames_per_block);
+
+    // Initialize the arena
+    frame_arena = buddy_init(frames_rounded_up);
+
+    // Figure out where we can start allocating from
+    let last_allocated: *u8 = early_alloc(0); // Lol
+    let next_free_page: u32 = ROUND_UP(last_allocated as u32, PAGE_SIZE);
+    // Round up to the next 4MB bit
+    let first_free_block = ROUND_UP(next_free_page / PAGE_SIZE,
+                                    frames_per_block);
+
+    // Spew
+    print_uint(first_free_block);
+    print_uint(frames_rounded_down);
+
+    // Put blocks into the arena
+    let i: u32;
+    for (i = first_free_block; i < frames_rounded_down;
+         i += frames_per_block) {
+        buddy_free(frame_arena, i, MAX_ORDER);
+    };
+
+}
+
+fn frame_alloc(order: u32) -> *u8 {
+    let frame_num = buddy_alloc(frame_arena, order);
+    if (frame_num < 0) {
+        null
+    } else {
+        (frame_num * PAGE_SIZE) as *u8
+    }
+}
+
+fn frame_free(frame: *u8, order: u32) {
+    let frame_num = (frame as u32) / PAGE_SIZE;
+    buddy_free(frame_arena, frame_num, order);
 }
 
 
@@ -192,7 +245,7 @@ fn small_test(arena: *buddy_arena) {
     buddy_free(arena, n5, 0);
 }
 
-fn main() -> u32 {
+fn buddy_test() {
     let num_big_blocks = 2;
     let small_blocks_per = 1 << MAX_ORDER;
 
@@ -214,6 +267,4 @@ fn main() -> u32 {
     buddy_free(arena, big_stig, MAX_ORDER);
 
     small_test(arena);
-
-    0
 }
