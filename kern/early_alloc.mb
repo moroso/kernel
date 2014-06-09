@@ -1,5 +1,4 @@
 #include "bs.mh"
-#include "stdlib.mb"
 // 8MB
 #define MEM_START (8 * 1024 * 1024) 
 /* the next available address in memory */
