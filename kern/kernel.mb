@@ -2,15 +2,19 @@
 
 
 // Don't do this at home, kids.
+#include "list.mh"
 #include "stdlib.mb"
 #include "early_alloc.mb"
 #include "buddy_alloc.mb"
+#include "../prototypes/slab_alloc.mb"
 
 fn kernel_main() -> u32 {
     print_int(1337);
 
 //    buddy_test();
     frame_init();
+    slub_init();
+    print_int(slub_alloc(25) as i32);
 
     while (true) {};
 

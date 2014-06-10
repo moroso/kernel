@@ -1,4 +1,5 @@
-#include "bs.mh"
+#ifndef EARLY_ALLOC_MB_
+#define EARLY_ALOC_MB_
 // 8MB
 #define MEM_START (8 * 1024 * 1024) 
 /* the next available address in memory */
@@ -12,4 +13,4 @@ fn early_alloc<T>(size: u32) -> *T {
     addr as *T
 }
 
-
+#endif
