@@ -14,17 +14,12 @@
  * TODO remove slabs when they are freed
 */
 
-#include "list.mh"
 #define SLAB_SIZE 4096 /* this really isn't the right size*/
 #define UINT_SIZE 4
 #define POWER_MIN 2
 #define POWER_MAX 9
 
-fn print_int(x: i32) {}
 fn assert(x: bool) {}
-fn print_uint(x: u32) { print_int(x as i32); }
-fn print_char(x: u32) {}
-fn print_newline() { print_char(10); }
 fn malloc<T>(i: u32) -> *T { 0 as *T }
 
 #define ERR (print_int(-1))
@@ -46,7 +41,7 @@ static head: list_head;
 static caches: *cache_descriptor;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
-    let slab: *u32 = malloc(SLAB_SIZE);
+    let slab: *u32 = frame_alloc(1) as *u32;
     if (slab == null) {
       return (); 
     }
@@ -76,6 +71,17 @@ fn slab_add(size: u32, cache: *cache_descriptor) {
         ERR;
     }
     cache->slab = slab;
+}
+
+/* returns the index of the correct cache for the given size */
+fn find_cache(size: u32) -> i32 {
+    let power: u32;
+    for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
+        if (size <= (1 << power)) {
+          return (power - POWER_MIN) as i32;
+        }     
+    }
+    -1
 }
 
 /* creates a cache with a single slab, full of size-sized elements */
@@ -110,8 +116,8 @@ fn cache_add (element: *u32, cache: *cache_descriptor) {
   cache->slab = element;
 }
 
-fn alloc_init(head: *list_head) {
-  caches = malloc(1000 * (POWER_MAX - POWER_MIN));
+fn slub_init() {
+  caches = frame_alloc((POWER_MAX - POWER_MIN)) as *cache_descriptor;
   let i: u32;
   for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
     let cache = &caches[i - POWER_MIN];
@@ -119,22 +125,11 @@ fn alloc_init(head: *list_head) {
   }
 }
 
-/* returns the index of the correct cache for the given size */
-fn find_cache(size: u32) -> i32 {
-    let power: u32;
-    for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
-        if (size <= (1 << power)) {
-          return (power - POWER_MIN) as i32;
-        }     
-    }
-    -1
-}
-
 fn slub_alloc(size: u32) -> *u32 {
     let cache_num: i32 = find_cache(size);
     print_int(cache_num);
     if (cache_num == -1) {
-      return malloc(size);
+      return frame_alloc(size/SLAB_SIZE) as *u32;
     }
     // TODO check bounds 
     let cache: cache_descriptor = caches[cache_num as u32];
@@ -151,12 +146,4 @@ fn slub_free(head: *list_head, element: *u32, size: u32) {
     cache_add(element, &(caches[cache_num as u32]))
 }
 
-// we probs want some metadata about where each object came from?
-
-fn main() -> i32 {
-    list_init_head(&head);
-    alloc_init(&head);
-    print_uint(slub_alloc(15) as u32);
-    0
-}
 
