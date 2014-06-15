@@ -1,6 +1,8 @@
 #ifndef BS_MH
 #define BS_MH
 extern fn print_int(x: u32);
+extern fn print_uint(x: u32);
+extern fn print_newline(x: u32);
 extern fn print_char(x: u32);
 extern fn machine_phys_frames();
 extern fn malloc<T>(i: u32) -> *T;
