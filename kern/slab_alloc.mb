@@ -19,10 +19,7 @@
 #define POWER_MIN 2
 #define POWER_MAX 9
 
-fn assert(x: bool) {}
-fn malloc<T>(i: u32) -> *T { 0 as *T }
-
-#define ERR (print_int(-1))
+#define ERR (print_int(-2))
 
 struct slab_descriptor {
   slab: *u32,
@@ -37,8 +34,8 @@ struct cache_descriptor {
   link: list_node,
 }
 
-static head: list_head;
-static caches: *cache_descriptor;
+static head: list_head = list_head {next: null, prev: null,};
+static caches: *cache_descriptor = null;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
     let slab: *u32 = frame_alloc(1) as *u32;
@@ -60,7 +57,7 @@ fn slab_add(size: u32, cache: *cache_descriptor) {
     i = 0;
     while (node != null) {
         if (*node - (node as u32) != size && *node != 0) {
-            ERR;
+            print_int(-5);
         }
         node = *node as *u32;
         i+=1;
@@ -68,7 +65,7 @@ fn slab_add(size: u32, cache: *cache_descriptor) {
 
     /* should divide evenly */
     if (i != (SLAB_SIZE/size)) {
-        ERR;
+        print_int(-2);
     }
     cache->slab = slab;
 }
@@ -91,7 +88,7 @@ fn cache_create(size: u32, cache: *cache_descriptor) {
   cache->size = size;
   slab_add(size, cache);
   if (cache->slab == null) {
-    ERR; // this shouldn't always be true, but is currently useful for debugging 
+    print_int(-3); // this shouldn't always be true, but is currently useful for debugging 
   }
 }
 
@@ -127,7 +124,6 @@ fn slub_init() {
 
 fn slub_alloc(size: u32) -> *u32 {
     let cache_num: i32 = find_cache(size);
-    print_int(cache_num);
     if (cache_num == -1) {
       return frame_alloc(size/SLAB_SIZE) as *u32;
     }
