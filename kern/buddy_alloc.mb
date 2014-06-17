@@ -85,7 +85,7 @@ fn _split_block(arena: *buddy_arena, block: u32,
         let node: *list_node = _get_node(arena, buddy_block);
         list_insert_head(node, &zone->free_list);
         // Mark it as free
-        //print_char(105); print_uint(buddy_block);
+        //print_char(105); // print_uint(buddy_block);
         bm_set_bit(&zone->bitmap, buddy_block);
 
         cur_order = cur_order - 1;
@@ -144,7 +144,7 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
         order += 1;
     };
 
-    print_char(111); print_uint(order);
+    // print_char(111); print_uint(order);
     let zone: *buddy_category = &arena->zones[order];
     let node: *list_node = _get_node(arena, block);
     list_insert_head(node, &zone->free_list);
@@ -185,8 +185,8 @@ fn frame_init() {
                                     frames_per_block);
 
     // Spew
-    print_uint(first_free_block);
-    print_uint(frames_rounded_down);
+    // print_uint(first_free_block);
+    // print_uint(frames_rounded_down);
 
     // Put blocks into the arena
     let i: u32;
