@@ -15,10 +15,18 @@
 #include "context/context.mb"
 
 fn hello() {
-    printf1_("Our tid: %u\n", get_tcb()->tid);
-    while(true) {};
+    while(true) {
+        printf1_("Thread %u: \"hello!\"\n", get_tcb()->tid);
+        scheduler_update(-1);
+    };
 }
 
+fn reply() {
+    while(true) {
+        printf1_("Thread %u: \"WHAT?\"\n", get_tcb()->tid);
+        scheduler_update(-1);
+    };
+}
 fn kernel_main() -> u32 {
     frame_init();
     slub_init();
@@ -27,6 +35,12 @@ fn kernel_main() -> u32 {
     tcb_init(new_tcb);
     set_addr(new_tcb, &hello as *u8);
     schedule(new_tcb, FRONT);
+
+    let new_tcb2: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
+    tcb_init(new_tcb2);
+    set_addr(new_tcb2, &reply as *u8);
+    schedule(new_tcb2, BACK);
+
     scheduler_update(-1);
     while (true) {};
     0
