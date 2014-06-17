@@ -1,3 +1,6 @@
+/** mut.mb: contains "implementation" of kernel mutex
+  *  Author: Amanda M. Watson
+  */
 #include "mut.mh"
 
 fn kmut_init(km: *kmut) {
