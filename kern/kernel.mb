@@ -26,6 +26,7 @@ fn kernel_main() -> u32 {
     let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
     tcb_init(new_tcb);
     set_addr(new_tcb, &hello as *u8);
+    schedule(new_tcb, FRONT);
     scheduler_update(-1);
     while (true) {};
     0
