@@ -14,7 +14,7 @@
  * denotes the tcb that is currently running, and whether preemption is enabled 
  */
 static run_queue: rq_master = rq_master {
-    head: LIST_HEAD_INIT(run_queue.run_Q), 
+    run_Q: LIST_HEAD_INIT(run_queue.run_Q), 
     running: null,
     preempt_enabled: 0
 }; 
@@ -75,11 +75,11 @@ fn get_tcb() -> *tcb {
  * currently running thread (if a running tcb's state is changed to MUT or COND,
  * for instance, it won't be re-added to the run queue) 
  * State is ignored if state == -1 */
-fn scheduler_update(int state) {
+fn scheduler_update(state: u32) {
     /* preemption must be disabled for this section, but we also want to enable
       * nesting */
-    let pre_enabled = is_preempt_enabled();
-    if (pre_enabled == 1) {
+    let is_pre_enabled = is_preempt_enabled();
+    if (is_pre_enabled == 1) {
       preempt_disable(); 
     }
     
@@ -111,7 +111,7 @@ fn scheduler_update(int state) {
         // TODO insert into sleep queue?
         if (old_running->state == RUNNABLE) {
             // we may want this to be "running" instead
-            list_insert_tail(old_running->link, &(run_queue.run_Q));
+            list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
         }
     } 
