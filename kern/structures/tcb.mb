@@ -1,4 +1,5 @@
-/** tcb.mb: contains implementation of tcb-related functions
+/** tcb.mb: contains implementation of tcb-related functions.  Some changes will
+ *  have to be made if the stack ends up growing up as was discussed 
  *  Author: Amanda M. Watson
  */
 #include "tcb.mh"
@@ -48,7 +49,7 @@ fn set_state(tcb: *tcb, state: u32) {
 /* 
  * Set a return address that the tcb is to return to after a context switch:
  * I predict that this address will invariably some mode-switch function for
- * loading user programs
+ * loading user programs. 
  */
 fn set_addr(tcb: *tcb, function: *u8) {
     assert(tcb->kstack_top != null);

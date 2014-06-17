@@ -1,5 +1,5 @@
 /* cond.mb: contains implementation of kernel condition variables
- * Author: Amanda M Watson
+ * Author: Amanda M. Watson
  */
 
 #include "cond.mh"

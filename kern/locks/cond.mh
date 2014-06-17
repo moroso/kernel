@@ -1,5 +1,5 @@
 /** cond.mh: contains declarations for kernel condition variables
-  * Author: Amanda M Watson
+  * Author: Amanda M. Watson
   */
 
 struct kcond {
