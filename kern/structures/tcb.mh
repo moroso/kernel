@@ -1,6 +1,10 @@
-/* The tcb represents a thread of execution; it maintains its own kernel stack
+/* tcb.mb: contains structures and declarations pertaining to the tcb structure
+ *
+ * The tcb represents a thread of execution; it maintains its own kernel stack
  * and register values.  tcbs are a page in size, with the additional memory serving as
  * its kernel stack.  
+ * 
+ * Author Amanda M. Watson
  */
 
 
@@ -31,7 +35,14 @@ struct context {
 struct tcb {
     tid: u32,
     kstack_top: *u8, 
-    link: list_node,
-    state: u32,
+    link: list_node, // used for putting on run queue
+    /* some functions assign a state to let the program know what
+     * the tcb should or shouldn't be doing (for instance, a TCB with state "COND"
+     * should not be getting scheduled 
+     */
+    state: u32, 
+    /* a pointer to the location on the kstack where the latest context was set
+     * (occurs during context switch) 
+     */
     context: *context,
 }
