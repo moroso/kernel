@@ -1,5 +1,18 @@
+/** schedule.mb: contains implementation of scheduler functions
+  * Currently, there isn't much of a scheduler: you can schedule and 
+  * deschedule things on/off the run queue, but the scheduler has no notion of
+  * who's running.  Some design is in order.
+  *
+  * All scheduler functions will require preemption being disabled
+  *
+  * Author: Amanda M. Watson
+  */
 #include "schedule.mh"
 
+/* 
+ * global data structure: controls the run queue of runnable tcb's, 
+ * denotes the tcb that is currently running, and whether preemption is enabled 
+ */
 static run_queue: rq_master = rq_master {
     head: LIST_HEAD_INIT(run_queue.head), 
     running: null,
@@ -18,7 +31,12 @@ fn is_preempt_enabled() -> u32 {
     run_queue.preempt_enabled
 }
 
-/* add to run queue */
+/* 
+ * add a tcb to the run queue: position should be FRONT if tcb should be run immediately,
+ * BACK if it should patiently wait its turn in the queue. 
+ * Requires that tcb's state be set to NEW or RUNNABLE before insertion, so the
+ * scheduler knows you really mean it.
+ */
 fn schedule(tcb: *tcb, pos: u32) {
     assert(is_preempt_enabled() == 0);
     
@@ -38,6 +56,7 @@ fn schedule(tcb: *tcb, pos: u32) {
     assert(false);
 }
 
+/* Remove a tcb from the run queue */
 fn unschedule(tcb: *tcb) {
     assert(is_preempt_enabled() == 0);
     assert(tcb->state == RUNNABLE);
