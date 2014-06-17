@@ -37,4 +37,4 @@
 {MTC PFLAGS <- r1; p0 <- r0 CMPBS #1; p1 <- r0 CMPBS #2; p2 <- r0 CMPBS <- #4;}
 {r0 <- LW [r30 - 132]; r1 <- LW [r30]; nop; nop;}
 {MTC EPC <- r1; LW r1 <- [r30 - 128]; nop; nop;}
-{ERET; nop; nop; nop;}
+{ERET; LW r30 <- [r30 - 12]; nop; nop;}
