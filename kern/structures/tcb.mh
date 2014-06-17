@@ -1,0 +1,37 @@
+/* The tcb represents a thread of execution; it maintains its own kernel stack
+ * and register values.  tcbs are a page in size, with the additional memory serving as
+ * its kernel stack.  
+ */
+
+
+// enums are for squares and people who read test code
+#define RUNNING 0
+#define DESC 1
+#define SLEEP 2
+#define MUT 3
+#define RUNNABLE 4 
+#define NEW 5
+#define COND 6
+
+/* this will be outmoded as soon as the new arch comes in */
+struct context {
+    // eflags: *u8, we'll want eflags at some point
+    edi: u32,
+    esi: u32,    
+    ebp: u32,
+    esp: u32,
+    ebx: u32,
+    edx: u32,
+    ecx: u32,
+    eax: u32,
+    stored_ebp: u32,
+    return_addr: u32,
+}
+
+struct tcb {
+    tid: u32,
+    kstack_top: *u8, 
+    link: list_node,
+    state: u32,
+    context: *context,
+}

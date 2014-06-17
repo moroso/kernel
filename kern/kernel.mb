@@ -1,17 +1,40 @@
 #include "bs.mh"
-
+#include "defines.mh"
+#include "list.mh"
 
 // Don't do this at home, kids.
-#include "list.mh"
 #include "stdlib.mb"
 #include "early_alloc.mb"
 #include "buddy_alloc.mb"
 #include "slab_alloc.mb"
+#include "locks/mut.mb"
+#include "structures/tcb.mb"
+#include "structures/schedule.mb"
+#include "locks/cond.mb"
+#include "locks/sem.mb"
+#include "locks/rw.mb"
+#include "context/context.mb"
+
+fn hello() {
+    print_uint(get_tcb()->tid);
+    while(true) {};
+}
 
 fn kernel_main() -> u32 {
     frame_init();
     slub_init();
-    while (true) {};
 
+    let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb; 
+    tcb_init(new_tcb);
+    set_addr(new_tcb, &hello as *u8); 
+
+    /* there will be a better interface when the 
+       scheduler is more mature */
+    run_queue.running = new_tcb;  
+    // TODO we want to guarantee preemption is never enabled b/t these two
+    // stages
+    context_switch(null, new_tcb);
+
+    while (true) {};
     0
 }

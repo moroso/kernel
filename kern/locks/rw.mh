@@ -1,0 +1,6 @@
+struct krw {
+    exclusive_sem: ksem,
+    order_mut: kmut,
+    reader_mut: kmut,
+    num_readers: u32, 
+}

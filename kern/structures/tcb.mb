@@ -1,0 +1,61 @@
+#include "tcb.mh"
+
+/* tid-granting structures; ensures uniqueness and atomicity so that
+ * every tcb gets a unique tid 
+ */
+static tid_lock: kmut = kmut { lock_available: 1 };
+static tid_counter: u32 = 0;
+
+/* 
+ * Atomically returns new tid for a tcb; all tids guaranteed to 
+ * be unique (barring overflow, if you wanna be pedantic about it) 
+ */
+fn get_tid() -> u32 {
+    kmut_lock(&tid_lock);
+    let tid: u32 = tid_counter;
+    tid_counter+=1;
+    kmut_unlock(&tid_lock);
+    tid
+}
+
+/* 
+ *   initializes an new tcb: sets top of kstack and assigns a tid.
+ *
+ *   we assume that a tcb allocation is a page in
+ *   size; that way, we can allocate both the tcb and kstack at once, and both
+ *   will comprise exactly one page.  
+ */
+fn tcb_init(tcb: *tcb) {
+    tcb->kstack_top = ((tcb as u32) + PAGE_SIZE) as *u8;
+    tcb->context = null;
+    tcb->state = NEW;
+    tcb->tid = get_tid();
+}
+
+/* 
+ *   assigns a state to the given tcb; states
+ *   give us info about what the tcb is currently doing (MUT, for example, tells
+ *   us the tcb is currently in a mutex), which can be
+ *   helpful for debugging and providing guarantees.
+ */
+fn set_state(tcb: *tcb, state: u32) {
+    tcb->state = state;
+}
+
+/* 
+ * set a return address that the tcb is to return to after a context switch:
+ * I predict that this address will invariably some mode-switch function for
+ * loading programs
+ */
+fn set_addr(tcb: *tcb, function: *u8) {
+    assert(tcb->kstack_top != null);
+
+    // 0x24 = sizeof(context)
+    tcb->context = (tcb->kstack_top as u32 - 0x24) as *context;
+
+    // 4 = sizeof(u32)
+    tcb->context->ebp = (tcb->kstack_top as u32) - 4;
+    tcb->context->return_addr = (function as u32);
+}
+
+

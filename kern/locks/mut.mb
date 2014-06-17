@@ -1,0 +1,16 @@
+#include "mut.mh"
+
+fn kmut_init(km: *kmut) {
+
+
+}
+
+fn kmut_lock(km: *kmut) {
+
+
+}
+
+fn kmut_unlock(km: *kmut) {
+
+
+}

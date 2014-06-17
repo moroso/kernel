@@ -1,0 +1,39 @@
+#include "cond.mh"
+
+fn kcond_init(kc: *kcond) {
+    assert(kc != null); // make sure null is not mapped in VM
+    list_init_head(&(kc->head));
+    kc->active = 1;
+}
+
+fn kcond_destroy(kc: *kcond) {
+    assert(kc != null);
+    assert(kc->active == 1);
+    kc->active = -1;
+    assert(list_is_empty(&(kc->head)) == true);
+}
+
+fn kcond_wait(kc: *kcond, mut: *kmut) {
+    assert(kc != null);
+    assert(kc->active == 1);
+    preempt_disable();
+    kmut_unlock(mut);
+    set_state(get_tcb(), COND);
+    list_insert_tail(&get_tcb()->link, &(kc->head));
+    unschedule(get_tcb());
+    //context_switch();
+    preempt_enable();
+    kmut_lock(mut);
+}
+
+fn kcond_signal(kc: *kcond) {
+    assert(kc != null);
+    assert(kc->active == 1);
+    preempt_disable();
+    let tcb: *tcb = list_head_entry(&kc->head, tcb, link);
+    list_del(&tcb->link);
+    assert(tcb->state == COND);
+    set_state(tcb, RUNNABLE);
+    schedule(tcb, BACK);
+    preempt_enable();
+}
