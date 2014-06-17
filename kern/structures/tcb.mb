@@ -1,3 +1,6 @@
+/** tcb.mb: contains implementation of tcb-related functions
+ *  Author: Amanda M. Watson
+ */
 #include "tcb.mh"
 
 /* tid-granting structures; ensures uniqueness and atomicity so that
