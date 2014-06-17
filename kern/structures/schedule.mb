@@ -6,11 +6,6 @@ static run_queue: rq_master = rq_master {
     preempt_enabled: 0
 }; 
 
-fn rq_init() {
-    list_init_head(&(run_queue.head));  
-    run_queue.preempt_enabled = 0;
-}
-
 fn preempt_disable() {
     run_queue.preempt_enabled = 0;
 }
