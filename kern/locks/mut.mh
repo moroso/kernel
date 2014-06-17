@@ -1,0 +1,3 @@
+struct kmut {
+    lock_available: u32,
+}

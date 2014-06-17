@@ -1,0 +1,27 @@
+#include "sem.mh"
+
+fn ksem_init(ks: *ksem, count: u32) {
+    assert(count >= 0);
+    kcond_init(&ks->cond);
+    kmut_init(&ks->mut);
+    ks->count = count;
+}
+
+fn ksem_wait(ks: *ksem) {
+    kmut_lock(&ks->mut);
+    while (ks->count <= 0) {
+        kcond_wait(&ks->cond, &ks->mut);
+    }
+    ks->count -= 1;
+    kmut_unlock(&ks->mut);
+}
+
+fn ksem_signal(ks: *ksem) {
+    kmut_lock(&ks->mut);
+    ks->count += 1;
+    if (ks->count >= 1) {
+        kcond_signal(&ks->cond);
+    }
+    kmut_unlock(&ks->mut);
+}
+

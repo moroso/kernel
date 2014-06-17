@@ -1,0 +1,56 @@
+#include "schedule.mh"
+
+static run_queue: rq_master = rq_master {
+    head: LIST_HEAD_INIT(run_queue.head), 
+    running: null,
+    preempt_enabled: 0
+}; 
+
+fn rq_init() {
+    list_init_head(&(run_queue.head));  
+    run_queue.preempt_enabled = 0;
+}
+
+fn preempt_disable() {
+    run_queue.preempt_enabled = 0;
+}
+
+fn preempt_enable() {
+    run_queue.preempt_enabled = 1;
+}
+
+fn is_preempt_enabled() -> u32 {
+    run_queue.preempt_enabled
+}
+
+/* add to run queue */
+fn schedule(tcb: *tcb, pos: u32) {
+    assert(is_preempt_enabled() == 0);
+    
+    if (tcb->state == NEW) {
+        set_state(tcb, RUNNABLE);
+    }
+    assert(tcb->state == RUNNABLE);
+    if (pos == FRONT) {
+        list_insert_head(&tcb->link, &(run_queue.head));
+        return ();
+    } 
+    if (pos == BACK) {
+        list_insert_tail(&tcb->link, &(run_queue.head));
+        return ();
+    }
+    // pos should specify either the front or back position 
+    assert(false);
+}
+
+fn unschedule(tcb: *tcb) {
+    assert(is_preempt_enabled() == 0);
+    assert(tcb->state == RUNNABLE);
+    list_del(&(tcb->link))
+} 
+
+/* returns pointer to running tcb: later if we have aligned memory we can find it via TCB; for now, we keep
+   a pointer in the scheduler */
+fn get_tcb() -> *tcb {
+    run_queue.running 
+}

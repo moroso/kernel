@@ -1,0 +1,16 @@
+#include "context.mh"
+
+fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
+    assert(is_preempt_enabled() == 0);
+    /* the scheduler and context switcher
+    should be disjoint; however, I think this is a valid guarantee */
+    assert(run_queue.running == tcb_new);  
+    let dummy_context: *context;
+    let esp_old: **context = &dummy_context;
+    if (tcb_cur != null) {
+        esp_old = &tcb_cur->context;
+    } 
+    
+    actually_switch_contexts_with_asm(tcb_new->context, esp_old);
+    assert(is_preempt_enabled() == 0);
+}

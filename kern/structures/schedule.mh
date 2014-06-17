@@ -1,0 +1,10 @@
+#include "../list.mh"
+
+#define FRONT 0
+#define BACK 1
+
+struct rq_master {
+    head: list_head,
+    running: *tcb,
+    preempt_enabled: u32,
+}
