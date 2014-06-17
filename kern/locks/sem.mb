@@ -1,3 +1,7 @@
+/** sem.mb: implementation of kernel's semaphores 
+ *  Author: Amanda M. Watson
+ */
+
 #include "sem.mh"
 
 fn ksem_init(ks: *ksem, count: u32) {
