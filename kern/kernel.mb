@@ -26,14 +26,7 @@ fn kernel_main() -> u32 {
     let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
     tcb_init(new_tcb);
     set_addr(new_tcb, &hello as *u8);
-
-    /* there will be a better interface when the
-       scheduler is more mature */
-    run_queue.running = new_tcb;
-    // TODO we want to guarantee preemption is never enabled b/t these two
-    // stages
-    context_switch(null, new_tcb);
-
+    scheduler_update(-1);
     while (true) {};
     0
 }
