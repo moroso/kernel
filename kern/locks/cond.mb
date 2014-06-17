@@ -1,3 +1,7 @@
+/* cond.mb: contains implementation of kernel condition variables
+ * Author: Amanda M Watson
+ */
+
 #include "cond.mh"
 
 fn kcond_init(kc: *kcond) {
@@ -21,7 +25,7 @@ fn kcond_wait(kc: *kcond, mut: *kmut) {
     set_state(get_tcb(), COND);
     list_insert_tail(&get_tcb()->link, &(kc->head));
     unschedule(get_tcb());
-    //context_switch();
+    // context_switch(); TODO will require some more scheduling code
     preempt_enable();
     kmut_lock(mut);
 }

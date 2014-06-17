@@ -1,3 +1,6 @@
+/** cond.mh: contains declarations for kernel condition variables
+  * Author: Amanda M Watson
+  */
 
 struct kcond {
   head: list_head,
