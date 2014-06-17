@@ -1,4 +1,3 @@
-#include "bs.mh"
 #include "defines.mh"
 #include "list.mh"
 
@@ -16,7 +15,7 @@
 #include "context/context.mb"
 
 fn hello() {
-    print_uint(get_tcb()->tid);
+    printf1_("Our tid: %u\n", get_tcb()->tid);
     while(true) {};
 }
 
@@ -24,13 +23,13 @@ fn kernel_main() -> u32 {
     frame_init();
     slub_init();
 
-    let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb; 
+    let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
     tcb_init(new_tcb);
-    set_addr(new_tcb, &hello as *u8); 
+    set_addr(new_tcb, &hello as *u8);
 
-    /* there will be a better interface when the 
+    /* there will be a better interface when the
        scheduler is more mature */
-    run_queue.running = new_tcb;  
+    run_queue.running = new_tcb;
     // TODO we want to guarantee preemption is never enabled b/t these two
     // stages
     context_switch(null, new_tcb);
