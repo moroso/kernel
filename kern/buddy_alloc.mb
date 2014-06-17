@@ -1,6 +1,3 @@
-#include "bs.mh"
-
-
 // Bitmaps!
 struct bitmap {
     bits: *u32
@@ -166,6 +163,8 @@ static frame_arena: *buddy_arena = null;
 // Must be power of two
 #define ROUND_DOWN(n, align) ((n) & ~((align)-1))
 #define ROUND_UP(n, align) ROUND_DOWN(n+(align-1), align)
+
+extern fn machine_phys_frames() -> u32;
 
 fn frame_init() {
     let frames_per_block = 1 << MAX_ORDER;
