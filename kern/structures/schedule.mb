@@ -1,8 +1,7 @@
 /** schedule.mb: contains implementation of scheduler functions
-  * Currently, there isn't much of a scheduler: you can schedule and 
-  * deschedule things on/off the run queue, but the scheduler has no notion of
-  * who's running.  Some design is in order.
-  *
+  * schedule() and unschedule() add and remove from the run queue. 
+  * scheduler_update is called to replace the currently running thread with the
+  * next available off the run queue.  
   * All scheduler operations will require preemption to be disabled
   *
   * Author: Amanda M. Watson
@@ -120,7 +119,8 @@ fn scheduler_update(state: i32) {
     list_del(&(new_running->link));
     run_queue.running = new_running;
 
-    // TODO when we have VM in, we will need to switch address spaces
+    // TODO when we have VM in, we will need to switch address spaces in context
+    // switch
 
     context_switch(old_running, new_running); 
     
