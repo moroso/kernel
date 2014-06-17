@@ -75,7 +75,7 @@ fn get_tcb() -> *tcb {
  * currently running thread (if a running tcb's state is changed to MUT or COND,
  * for instance, it won't be re-added to the run queue) 
  * State is ignored if state == -1 */
-fn scheduler_update(state: u32) {
+fn scheduler_update(state: i32) {
     /* preemption must be disabled for this section, but we also want to enable
       * nesting */
     let is_pre_enabled = is_preempt_enabled();
@@ -90,7 +90,7 @@ fn scheduler_update(state: u32) {
      
     /* if there are no other threads in the run queue, continue with current
        thread and do not update */
-    if (new_running != null) {
+    if (new_running == null) {
         
         if (is_pre_enabled == 1) {
             preempt_enable();
@@ -102,7 +102,7 @@ fn scheduler_update(state: u32) {
     /* if a state was provided, assign it to the running thread */
     if (state != -1) {
         assert(old_running != null);
-        old_running->state = state;
+        old_running->state = state as u32;
     }
 
     if (old_running != null) {
