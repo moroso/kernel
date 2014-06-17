@@ -15,7 +15,14 @@
 #include "context/context.mb"
 
 fn hello() {
+    let i: u32 = 0;
     while(true) {
+        i+=1;
+        if (i == 9000) {
+          printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
+          scheduler_update(DESC);
+        }
+
         printf1_("Thread %u: \"hello!\"\n", get_tcb()->tid);
         scheduler_update(-1);
     };

@@ -19,6 +19,9 @@
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.
  */
+#ifndef SCHEDULE_MH
+#define SCHEDULE_MH
+
 #define FRONT 0
 #define BACK 1
 
@@ -28,3 +31,5 @@ struct rq_master {
     running: *tcb, // actively running tcb
     preempt_enabled: u32, // whether preemption is enabled
 }
+
+#endif
