@@ -34,7 +34,7 @@ fn kcond_signal(kc: *kcond) {
     assert(kc != null);
     assert(kc->active == 1);
     preempt_disable();
-    let tcb: *tcb = list_head_entry(&kc->head, tcb, link);
+    let tcb: *tcb = list_head_entry!(&kc->head, tcb, link);
     list_del(&tcb->link);
     assert(tcb->state == COND);
     set_state(tcb, RUNNABLE);

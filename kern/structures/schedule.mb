@@ -1,22 +1,22 @@
 /** schedule.mb: contains implementation of scheduler functions
-  * schedule() and unschedule() add and remove from the run queue. 
+  * schedule() and unschedule() add and remove from the run queue.
   * scheduler_update is called to replace the currently running thread with the
-  * next available off the run queue.  
+  * next available off the run queue.
   * All scheduler operations will require preemption to be disabled
   *
   * Author: Amanda M. Watson
   */
 #include "schedule.mh"
 
-/* 
- * global data structure: controls the run queue of runnable tcb's, 
- * denotes the tcb that is currently running, and whether preemption is enabled 
+/*
+ * global data structure: controls the run queue of runnable tcb's,
+ * denotes the tcb that is currently running, and whether preemption is enabled
  */
 static run_queue: rq_master = rq_master {
-    run_Q: LIST_HEAD_INIT(run_queue.run_Q), 
+    run_Q: LIST_HEAD_INIT!(run_queue.run_Q),
     running: null,
     preempt_enabled: 0
-}; 
+};
 
 fn preempt_disable() {
     run_queue.preempt_enabled = 0;
@@ -30,16 +30,16 @@ fn is_preempt_enabled() -> u32 {
     run_queue.preempt_enabled
 }
 
-/* 
+/*
  * add a tcb to the run queue: position should be FRONT if tcb should be run immediately,
- * BACK if it should patiently wait its turn in the queue. 
+ * BACK if it should patiently wait its turn in the queue.
  * Requires that tcb's state be set to NEW or RUNNABLE before insertion, so the
  * scheduler knows you really mean it.
  */
 fn schedule(tcb: *tcb, pos: u32) {
     assert(is_preempt_enabled() == 0);
-    assert(pos == FRONT || pos == BACK);   
- 
+    assert(pos == FRONT || pos == BACK);
+
     if (tcb->state == NEW) {
         set_state(tcb, RUNNABLE);
     }
@@ -47,12 +47,12 @@ fn schedule(tcb: *tcb, pos: u32) {
     if (pos == FRONT) {
         list_insert_head(&tcb->link, &(run_queue.run_Q));
         return ();
-    } 
+    }
     if (pos == BACK) {
         list_insert_tail(&tcb->link, &(run_queue.run_Q));
         return ();
     }
-    // pos should specify either the front or back position 
+    // pos should specify either the front or back position
     assert(false);
 }
 
@@ -61,36 +61,36 @@ fn unschedule(tcb: *tcb) {
     assert(is_preempt_enabled() == 0);
     assert(tcb->state == RUNNABLE);
     list_del(&(tcb->link))
-} 
+}
 
 /* returns pointer to running tcb: later if we have aligned memory we can find it via TCB; for now, we keep
    a pointer in the scheduler */
 fn get_tcb() -> *tcb {
-    run_queue.running 
+    run_queue.running
 }
 
 /* Replaces the running thread with the next thread in the run queue, and then
  * switches to this latest thread.  optionally takes in a state to assign the
  * currently running thread (if a running tcb's state is changed to MUT or COND,
- * for instance, it won't be re-added to the run queue) 
+ * for instance, it won't be re-added to the run queue)
  * State is ignored if state == -1 */
 fn scheduler_update(state: i32) {
     /* preemption must be disabled for this section, but we also want to enable
       * nesting */
     let is_pre_enabled = is_preempt_enabled();
     if (is_pre_enabled == 1) {
-      preempt_disable(); 
+      preempt_disable();
     }
-    
+
     /* the head of the run queue, if non-null is to be run next.  a
      * non-round-robin scheduler would likely change this */
-    let new_running: *tcb = list_head_entry(&run_queue.run_Q, tcb, link);
+    let new_running: *tcb = list_head_entry!(&run_queue.run_Q, tcb, link);
     let old_running: *tcb = get_tcb();
-     
+
     /* if there are no other threads in the run queue, continue with current
        thread and do not update */
     if (new_running == null) {
-        
+
         if (is_pre_enabled == 1) {
             preempt_enable();
         }
@@ -113,17 +113,17 @@ fn scheduler_update(state: i32) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
         }
-    } 
+    }
 
-    assert(new_running != null); 
+    assert(new_running != null);
     list_del(&(new_running->link));
     run_queue.running = new_running;
 
     // TODO when we have VM in, we will need to switch address spaces in context
     // switch
 
-    context_switch(old_running, new_running); 
-    
+    context_switch(old_running, new_running);
+
     if (is_pre_enabled == 1) {
         preempt_enable();
     }

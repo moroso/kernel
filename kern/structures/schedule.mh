@@ -1,17 +1,17 @@
 /** schedule.mh: contains declarations pertaining to the scheduler
- * The scheduler is a lot of things, but the important things for now are the 
- * run queue and preemption.  
- * 
+ * The scheduler is a lot of things, but the important things for now are the
+ * run queue and preemption.
+ *
  * The run queue is an ordered list storing runnable
  * tcb's: tcbs are removed from the run queue in round robin (NOTE:
  * experimenting with scheduler policies sounds fun) order, with the latest tcb
  * denoted as "running" (a context switch will allow this new tcb to actually be
  * run).  TCB's are added to the run queue using schedule(), and removed with
- * unschedule().  
+ * unschedule().
  *
  * Rather than explicitly enabling/disabling interrupts, we choose to keep a
  * preemption flag; the running thread will only be preempted if the flag is
- * enabled (even if interrupts and enabled).  
+ * enabled (even if interrupts and enabled).
  *
  * Author: Amanda M. Watson
 */
@@ -27,7 +27,7 @@
 
 /* a data structure that manages run queue state */
 struct rq_master {
-    run_Q: list_head, // head of run queue
+    run_Q: list_node/*head*/, // head of run queue
     running: *tcb, // actively running tcb
     preempt_enabled: u32, // whether preemption is enabled
 }
