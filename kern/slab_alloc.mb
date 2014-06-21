@@ -1,18 +1,18 @@
-/* Memory allocator -- whee ("slab allocator") 
- * a very simple slab allocator.  the basic allocation function 
+/* Memory allocator -- whee ("slab allocator")
+ * a very simple slab allocator.  the basic allocation function
  * searches a list of sorted, sized "caches" for the bucket size that is the
- * closest fit to the allocation.  
+ * closest fit to the allocation.
  *
  *   each cache contains a list of elements cut
  * from one or more "slabs": large, contiguous chunks of memory handed to us by
- * the buddy allocator    
+ * the buddy allocator
  *
  * users can also create caches for memory chunks of uniform size; however, we
  * are not currently preserving struct initialization
  *
- * In order for this to actually work, we will need globals 
+ * In order for this to actually work, we will need globals
  * TODO remove slabs when they are freed
- * 
+ *
  * Author: Amanda M. Watson
 */
 
@@ -36,24 +36,24 @@ struct cache_descriptor {
   link: list_node,
 }
 
-static head: list_head = list_head {next: null, prev: null,};
+static head: list_node/*head*/ = LIST_HEAD_INIT!(head);
 static caches: *cache_descriptor = null;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
     let slab: *u32 = frame_alloc(1) as *u32;
     if (slab == null) {
-      return (); 
+      return ();
     }
-    /* divide into elements */    
+    /* divide into elements */
     let node_prev: *u32 = slab;
     let i: u32;
     for (i = size; i < SLAB_SIZE; i+=size) {
         let node: *u32 = ((node_prev as u32) + size) as *u32;
         *node_prev = node as u32;
-        node_prev = node;        
+        node_prev = node;
     }
     *node_prev = 0;
-    let node: *u32 = slab; 
+    let node: *u32 = slab;
     /* ensure that we have the correct number of elements and that they are each
      * an offset of size away from each other */
     i = 0;
@@ -78,7 +78,7 @@ fn find_cache(size: u32) -> i32 {
     for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
         if (size <= (1 << power)) {
           return (power - POWER_MIN) as i32;
-        }     
+        }
     }
     -1
 }
@@ -90,7 +90,7 @@ fn cache_create(size: u32, cache: *cache_descriptor) {
   cache->size = size;
   slab_add(size, cache);
   if (cache->slab == null) {
-    print_int(-3); // this shouldn't always be true, but is currently useful for debugging 
+    print_int(-3); // this shouldn't always be true, but is currently useful for debugging
   }
 }
 
@@ -100,7 +100,7 @@ fn cache_remove (cache: *cache_descriptor) -> *u32 {
   if (cache->slab == null) {
     slab_add(cache->size, cache);
   }
-  
+
   let element: *u32 = cache->slab;
   if (element != null) {
     cache->slab = *element as *u32;
@@ -129,12 +129,12 @@ fn slub_alloc(size: u32) -> *u32 {
     if (cache_num == -1) {
       return frame_alloc(size/SLAB_SIZE) as *u32;
     }
-    // TODO check bounds 
+    // TODO check bounds
     let cache: cache_descriptor = caches[cache_num as u32];
     cache_remove(&cache)
 }
 
-fn slub_free(head: *list_head, element: *u32, size: u32) {
+fn slub_free(head: *list_node/*head*/, element: *u32, size: u32) {
     let cache_num: i32 = find_cache(size);
     if (cache_num == -1) {
       //free(element);
@@ -142,5 +142,3 @@ fn slub_free(head: *list_head, element: *u32, size: u32) {
     }
     cache_add(element, &(caches[cache_num as u32]))
 }
-
-

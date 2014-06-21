@@ -24,7 +24,7 @@ fn bm_clear_bit(bm: *bitmap, n: u32) {
 
 struct buddy_category {
     bitmap: bitmap,
-    free_list: list_head
+    free_list: list_node/*head*/
 }
 
 struct buddy_arena {
@@ -100,7 +100,7 @@ fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
     for (cur_order = order; cur_order <= MAX_ORDER; cur_order += 1) {
         // Do we have a block bigger than us?
         let zone: *buddy_category = &arena->zones[cur_order];
-        let zone_list: *list_head = &zone->free_list;
+        let zone_list: *list_node = &zone->free_list;
 
         if (!list_is_empty(zone_list)) {
             // Pop it off the list

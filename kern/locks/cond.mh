@@ -3,6 +3,6 @@
   */
 
 struct kcond {
-  head: list_head,
+  head: list_node/*head*/,
   active: u32,
 }
