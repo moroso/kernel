@@ -1,0 +1,92 @@
+#include "VM.mh"
+
+/* log_addr must be above KERNEL_MEM_START */
+fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
+
+    let pd_entry: u32 = GET_PD_ENTRY(log_addr);
+    let pt_entry: u32 = GET_PT_ENTRY(log_addr);     
+
+    if (PD->PT_entries == null) {
+        return null;
+    }    
+    let page_table: *u32 = GET_ALIGNED_ADDR(PD->PT_entries[pd_entry]);
+    if (page_table == null) {
+        return null;
+    }
+    page_table[pt_entry] as *u8
+}
+
+/* 
+ * frame: the physical frame being set
+ * log_addr: the logical address getting backed by the frame
+**/
+fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32) -> i32 {
+    assert(PD != null); // TODO if PD is null, use currently loaded one?
+    assert(frame < USER_MEM_START);     
+    assert(PD->PT_entries != null);    
+
+    let pd_entry: u32 = GET_PD_ENTRY(log_addr);
+    let pt_entry: u32 = GET_PT_ENTRY(log_addr);                  
+
+    let page_table_addr: **u32 = &(PD->PT_entries[pd_entry]);
+
+    if (*page_table_addr == null) {
+        *page_table_addr = frame_alloc(0) as *u32;     
+
+        if (*page_table_addr == null) {
+            return -1;
+        }
+
+        *page_table_addr = ((*page_table_addr as u32) | READ_WRITE_BIT |
+          PRESENT_BIT | USER_SUPER_BIT) as *u32; 
+    }
+    assert(*page_table_addr != null);
+    let page_table: *u32 = GET_ALIGNED_ADDR(*page_table_addr);
+
+    /* set the frame entry and flags */
+    page_table[pt_entry] = (frame as u32) | flags | PRESENT_BIT;      
+    /* this isn't really what you're supposed to do, but I'll rethink 
+     * it when we get the new arch */
+    printf2_("%x %x\n", log_addr as u32, log_to_phys(log_addr, PD) as u32);
+    0
+}
+
+/* TODO variable sizes: 4KB, 4MB.  for 4MB, set a bit saying a page table is
+ * actualy just an enormous page */
+fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32) -> i32 {
+    /* TODO let's do some checks to make sure we don't already have a frame
+     * there */
+    assert(log_addr >= USER_MEM_START);
+    let new_frame: *u8 = frame_alloc(0) as *u8;
+
+    if (new_frame == null) {
+        return -1;
+    }
+    set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags))
+}
+
+fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32) -> i32 {
+    assert(log_addr < USER_MEM_START); 
+    let ret = set_page(log_addr, log_addr, PD, flags);   
+    assert(ret >= 0);
+    ret
+}
+
+fn PD_init(PD: *PD_t) -> i32 {
+    assert(PD != null);
+    PD->PT_entries = frame_alloc(0) as **u32; // 4 = sizeof(u32) 
+    let i: u32;
+    for (i = 0; i < PTS_PER_DIR; i+=1) {
+        PD->PT_entries[i] = null;
+    } 
+    let kernel_addr: *u8;
+    /* leave the 0 page unmapped */
+    for (kernel_addr = (PAGE_SIZE as *u8); kernel_addr < USER_MEM_START; kernel_addr+=PAGE_SIZE) {
+        if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT) < 0) {
+            // TODO free prev alloc'd page tables on error 
+            return -1;
+        }                
+    }
+    0
+}
+
