@@ -15,6 +15,7 @@
 #include "context/context.mb"
 #include "structures/VM.mb"
 
+extern fn get_cr0() -> u32;
 extern fn set_cr0(val: u32);
 extern fn set_cr3(val: u32);
 
@@ -51,8 +52,13 @@ fn kernel_main() -> u32 {
     tcb_init(new_tcb2);
     set_addr(new_tcb2, &reply as *u8);
     schedule(new_tcb2, BACK);
-    let PD: PD_t;
-    PD_init(&PD);
+    let PD: *PD_t = frame_alloc(0) as *PD_t; // should be sizeof() 
+    PD_init(PD);
+
+    set_cr3(PD->PT_entries as u32);
+    let cr0: u32 = get_cr0();
+    cr0|= (1 << 31);
+    set_cr0(cr0);
 
     scheduler_update(-1);
     while (true) {};
