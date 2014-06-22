@@ -3,4 +3,14 @@
  *  Author Amanda M. Watson
 **/
 
+#ifndef DEFINES_MH
+#define DEFINES_MH
+
 #define PAGE_SIZE 4096
+/* We give the kernel the first 8MB of space; after that, early_alloc hands out
+ * kernel memory, up until a gigabyte, where user memory starts */
+#define KERNEL_MEM_START (8 * 1024 * 1024) 
+/* start of user memory */
+#define USER_MEM_START (1024 * 1024 * 1024)
+
+#endif
