@@ -1,0 +1,55 @@
+/** VM.mh: contains declarations for the kernel's virtual memory structures 
+We call address spaces in the kernel a "page directory", which contains an array
+of page tables (an array of pages) that aligns with our architecture's 
+
+We plan to use a range lock to ensure atomic updates to the page directory
+structure 
+
+Author: Amanda M. Watson
+*/
+
+#define PAGES_PER_PT 1024
+#define PTS_PER_DIR 1024
+// offset into address where page directory entry is located
+#define PAGE_DIR_OFFSET 22
+// offset into address where page table entry is located 
+#define PAGE_TABLE_OFFSET 12
+/* masks for interpreting portions of a logical address */
+#define PD_MASK 0xFFC00000 
+#define PT_MASK 0x003FF000
+#define FLAG_MASK (~((PD_MASK) | (PT_MASK)))
+/* returns the page directory index from an address */
+#define GET_PD_ENTRY(addr) ((((addr as u32)&PD_MASK) >> PAGE_DIR_OFFSET) as u32)
+/* returns the page table index from an address */
+#define GET_PT_ENTRY(addr) ((((addr as u32)&PT_MASK) >> PAGE_TABLE_OFFSET) as u32)
+/* returns flags from an address */
+#define GET_FLAGS(addr) (((u32)addr)&(FLAG_MASK))
+/* returns whether an address has a particular flag */
+#define HAS_FLAG(addr, flag) ((u32)addr&flag)
+/* places the components of a logial address together appropriately */
+#define MAKE_ENTRY(pd, pt, flags) (((pd) << PAGE_DIR_OFFSET) | \
+        ((pt) << PAGE_TABLE_OFFSET) | (flags))
+
+/* in both tables and entries.  if 0, means that all attempts 
+ * at access should result in a page fault */
+#define PRESENT_BIT (1)
+/* if set, page is writable.  
+ * means different things for directory/page entries */
+#define READ_WRITE_BIT (1 << 1)
+/* if set, page is user-accessible.  This means different things for directory
+ * and table entries  */
+#define USER_SUPER_BIT (1 << 2)
+/* if set, write-through caching is enabled for that page/page table, otherwise,
+ * write-back is used (usually left unset) */
+/* if set in page table entry, virtual-to-physical mapping will not be
+ * automatically flushed from TLB when writing %cr3. Used to prevent kernel
+ * mappings from being flushed on context switches.  To use, %cr4 must be set */
+#define GLOBAL_BIT (1 << 8)
+
+/* page-aligns addr */
+#define GET_ALIGNED_ADDR(addr) (((addr as u32)&(PD_MASK | PT_MASK)) as *u32)
+
+
+struct PD_t {
+    PT_entries: **u32,
+}
