@@ -13,6 +13,10 @@
 #include "locks/sem.mb"
 #include "locks/rw.mb"
 #include "context/context.mb"
+#include "structures/VM.mb"
+
+extern fn set_cr0(val: u32);
+extern fn set_cr3(val: u32);
 
 fn hello() {
     let i: u32 = 0;
@@ -47,6 +51,8 @@ fn kernel_main() -> u32 {
     tcb_init(new_tcb2);
     set_addr(new_tcb2, &reply as *u8);
     schedule(new_tcb2, BACK);
+    let PD: PD_t;
+    PD_init(&PD);
 
     scheduler_update(-1);
     while (true) {};
