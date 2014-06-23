@@ -124,15 +124,12 @@ fn slub_init() {
   }
 }
 
-/* note: does NOT support allocations larger than the size of a page.
- * Frame_alloc should be used instead */
+/* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
+ * use frame_alloc */
 fn slub_alloc(size: u32) -> *u32 {
     let cache_num: i32 = find_cache(size);
     if (cache_num == -1) {
-        if (size == PAGE_SIZE) {
-            return frame_alloc(0) as *u32;
-        }
-        return null;
+      return null;
     }
     // TODO check bounds
     let cache: cache_descriptor = caches[cache_num as u32];
