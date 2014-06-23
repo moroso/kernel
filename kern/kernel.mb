@@ -15,7 +15,7 @@
 #include "context/context.mb"
 #include "structures/VM.mb"
 
-/*** Helpful 410 functions ***/
+/*** Helpful 410 register functions ***/
 extern fn get_cr0() -> u32;
 extern fn get_cr3() -> u32;
 extern fn get_cr4() -> u32;
@@ -50,12 +50,14 @@ fn kernel_main() -> u32 {
     slub_init();
 
     /*** Create two threads and schedule them ***/
-    let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
+    let new_tcb: *tcb = frame_alloc(0) as *tcb;
+    assert(new_tcb != null);
     tcb_init(new_tcb);
     set_addr(new_tcb, &hello as *u8);
     schedule(new_tcb, FRONT);
 
-    let new_tcb2: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
+    let new_tcb2: *tcb = frame_alloc(0) as *tcb;
+    assert(new_tcb2 != null);
     tcb_init(new_tcb2);
     set_addr(new_tcb2, &reply as *u8);
     schedule(new_tcb2, BACK);
@@ -67,7 +69,7 @@ fn kernel_main() -> u32 {
     load_PD(PD);
     enable_paging(); 
 
-    /*** Switch to the first thread in the scheduler and jump to its execution ***/
+    /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};
     0
