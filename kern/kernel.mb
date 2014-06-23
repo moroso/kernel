@@ -16,6 +16,7 @@
 #include "structures/VM.mb"
 
 extern fn get_cr0() -> u32;
+extern fn get_cr3() -> u32;
 extern fn set_cr0(val: u32);
 extern fn set_cr3(val: u32);
 
