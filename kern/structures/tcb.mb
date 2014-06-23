@@ -30,7 +30,7 @@ fn get_tid() -> u32 {
  * will comprise exactly one page.  
  */
 fn tcb_init(tcb: *tcb) {
-    tcb->kstack_top = ((tcb as u32) + PAGE_SIZE) as *u8;
+    tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
     tcb->context = null;
     tcb->state = NEW;
     tcb->tid = get_tid();
