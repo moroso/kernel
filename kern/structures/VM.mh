@@ -1,6 +1,7 @@
 /** VM.mh: contains declarations for the kernel's virtual memory structures 
-We call address spaces in the kernel a "page directory", which contains an array
-of page tables (an array of pages) that aligns with our architecture's 
+We call address spaces in the kernel a "page directory" (for more info see the
+docs).  Page directories are an array of 1024 "page tables", which either point
+to an array of 1024 pages, each 4KB, or a single 4MB page. 
 
 We plan to use a range lock to ensure atomic updates to the page directory
 structure 

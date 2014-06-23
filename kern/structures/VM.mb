@@ -1,5 +1,17 @@
 #include "VM.mh"
 
+fn enable_paging() {
+    let cr4: u32 = get_cr4();
+    set_cr4(cr4 | (1 << 4));
+    let cr0: u32 = get_cr0();
+    cr0|= (1 << 31);
+    set_cr0(cr0);
+}
+
+fn load_PD(PD: *PD_t) {
+    set_cr3(PD->PT_entries as u32);
+}
+
 /* log_addr must be above KERNEL_MEM_START */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
 
@@ -19,7 +31,7 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
 /* 
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
-**/
+ **/
 fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     if (PD == null) {
         PD = get_cr3() as *PD_t;
@@ -80,6 +92,9 @@ fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     ret
 }
 
+/* Ideally, we page-align the PD allocation and have a static array of some
+ * sort.  Until the compiler allows this, though, our init will have a page
+ * table allocation step.  Sorry.  */
 fn PD_init(PD: *PD_t) -> i32 {
     assert(PD != null);
     PD->PT_entries = frame_alloc(0) as **u32; // 4 = sizeof(u32) 
