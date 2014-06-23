@@ -50,12 +50,14 @@ fn kernel_main() -> u32 {
     slub_init();
 
     /*** Create two threads and schedule them ***/
-    let new_tcb: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
+    let new_tcb: *tcb = frame_alloc(0) as *tcb;
+    assert(new_tcb != null);
     tcb_init(new_tcb);
     set_addr(new_tcb, &hello as *u8);
     schedule(new_tcb, FRONT);
 
-    let new_tcb2: *tcb = slub_alloc(PAGE_SIZE) as *tcb;
+    let new_tcb2: *tcb = frame_alloc(0) as *tcb;
+    assert(new_tcb2 != null);
     tcb_init(new_tcb2);
     set_addr(new_tcb2, &reply as *u8);
     schedule(new_tcb2, BACK);
