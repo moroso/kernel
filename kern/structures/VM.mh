@@ -10,6 +10,11 @@ Author: Amanda M. Watson
 
 #define PAGES_PER_PT 1024
 #define PTS_PER_DIR 1024
+
+/* used to distinguish between 4KB and 4MB page sizes */
+#define KB (1024)
+#define MB (KB * 1024)
+
 // offset into address where page directory entry is located
 #define PAGE_DIR_OFFSET 22
 // offset into address where page table entry is located 
@@ -45,6 +50,8 @@ Author: Amanda M. Watson
  * automatically flushed from TLB when writing %cr3. Used to prevent kernel
  * mappings from being flushed on context switches.  To use, %cr4 must be set */
 #define GLOBAL_BIT (1 << 8)
+/* when set, indicates that page table is in fact a 4MB page */
+#define PAGE_SIZE_BIT (1 << 7)
 
 /* page-aligns addr */
 #define GET_ALIGNED_ADDR(addr) (((addr as u32)&(PD_MASK | PT_MASK)) as *u32)
