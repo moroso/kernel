@@ -59,7 +59,7 @@ Author: Amanda M. Watson
 /* page-aligns addr */
 #define GET_ALIGNED_ADDR(addr) (((addr as u32)&(PD_MASK | PT_MASK)) as *u32)
 
-
+/* hosts a page directory and its associated locking */
 struct PD_t {
     PT_entries: **u32,
 }
