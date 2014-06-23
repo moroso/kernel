@@ -5,7 +5,8 @@
  * will.  Pages can be mapped in as a 4KB page table entry (2-level), or a 4MB page directory
  * entry (1-level).  There are plans for a locking scheme, but one does not
  * currently exist.
- * XXX TODO TLB invalidation, freeing pages 
+ * XXX TODO TLB invalidation, freeing pages, single entry for kernel pages
+ * across all PDs 
  *
  * Author: Amanda M. Watson
 */
