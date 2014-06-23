@@ -12,7 +12,9 @@ Author: Amanda M. Watson
 #define PTS_PER_DIR 1024
 
 /* used to distinguish between 4KB and 4MB page sizes */
+// size of a kilobyte
 #define KB (1024)
+// size of a megabyte
 #define MB (KB * 1024)
 
 // offset into address where page directory entry is located
