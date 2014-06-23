@@ -1,18 +1,36 @@
+/**
+ * VM.mb: contains implementations of kernel virtual memory operations
+ * A static region of the address space represents kernel memory, and is
+ * direct-mapped into a PD.  The rest is user memory, and is mapped into a PD at
+ * will.  Pages can be mapped in as a 4KB page table entry (2-level), or a 4MB page directory
+ * entry (1-level).  There are plans for a locking scheme, but one does not
+ * currently exist.
+ * XXX TODO TLB invalidation, freeing pages 
+ *
+ * Author: Amanda M. Watson
+*/
 #include "VM.mh"
 
+/* Used in the main kernel function to turn on paging once a page directory is
+ * loaded.  Paging should probably not be turned off at any point in the kernel */
 fn enable_paging() {
+    // set the Page Size Extension bit in cr4 to enable variable length pages
     let cr4: u32 = get_cr4();
     set_cr4(cr4 | (1 << 4));
+    
+    // set the paging bit in cr0 to enable paging
     let cr0: u32 = get_cr0();
     cr0|= (1 << 31);
     set_cr0(cr0);
 }
 
+/* loads the virtual -> physical mappings from PD into %cr3*/
 fn load_PD(PD: *PD_t) {
     set_cr3(PD->PT_entries as u32);
 }
 
-/* log_addr must be above KERNEL_MEM_START */
+/* Given a valid logical address and a page directory, returns the physical
+ * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
 
     let pd_entry: u32 = GET_PD_ENTRY(log_addr);
