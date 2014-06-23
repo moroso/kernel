@@ -33,7 +33,7 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
 
     let page_table_addr: **u32 = &(PD->PT_entries[pd_entry]);
     /* if the page we're allocating is 4KB */
-    if (size == KB || size == MB) {
+    if (size == KB) {
         if (*page_table_addr == null) {
             *page_table_addr = frame_alloc(0) as *u32;     
 
@@ -53,10 +53,9 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
 
     } else {
         assert(size == MB);
-        
-        *page_table_addr = log_addr as *u32;
-        *page_table_addr = ((*page_table_addr as u32) | READ_WRITE_BIT |
-                PRESENT_BIT | USER_SUPER_BIT | PAGE_SIZE_BIT) as *u32; 
+        *page_table_addr = frame as *u32;
+        *page_table_addr = ((*page_table_addr as u32) | flags | 
+                PRESENT_BIT  | PAGE_SIZE_BIT) as *u32; 
 
     }  
     0
@@ -102,7 +101,7 @@ fn PD_init(PD: *PD_t) -> i32 {
                 // TODO free prev alloc'd page tables on error 
                 return -1;
             } 
-            kernel_addr+= PAGE_SIZE;
+            kernel_addr+= (4 * MB);
         }               
     }
     0
