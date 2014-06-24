@@ -33,7 +33,7 @@ fn hello(n: *u8) {
           scheduler_update(DESC);
         }
 
-        printf1_("Thread %x: \"hello!\"\n", n as u32);
+        printf1_("Thread %x: \"hello!\"\n", *(n as *u32));
         scheduler_update(-1);
     };
 }
