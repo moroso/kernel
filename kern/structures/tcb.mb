@@ -46,37 +46,26 @@ fn set_state(tcb: *tcb, state: u32) {
     tcb->state = state;
 }
 
-/* 
- * Set a return address that the tcb is to return to after a context switch:
- * I predict that this address will invariably some mode-switch function for
- * loading user programs. 
- */
-fn set_addr(tcb: *tcb, function: *u8) {
-    assert(tcb->kstack_top != null);
-
-    // 0x24 = sizeof(context)
-    tcb->context = (tcb->kstack_top as u32 - 0x24) as *context;
-
-    // 4 = sizeof(u32)
-    tcb->context->ebp = (tcb->kstack_top as u32) - 4;
-    tcb->context->return_addr = (function as u32);
-}
-
 
 fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
     let tcb: *tcb = frame_alloc(0) as *tcb; 
     tcb_init(tcb);
+
     if (tcb == null) {
         return null;
     }
+    
     assert(tcb->kstack_top != null);
 
-    // 0x24 = sizeof(context)
+    /* Ok, this has some messy math in it, but once we have sizeof, it will be a
+     * little more reasonable */
+    // 0x24 = sizeof(context), 8 = 2*sizeof(u32)
     tcb->context = (tcb->kstack_top as u32 - 0x24 - len - 8) as *context;
 
     // 4 = sizeof(u32)
     tcb->context->ebp = (&(tcb->context->return_addr) as u32) - 4;
     tcb->context->return_addr = (function as u32);
+    // 8 = 2 * sizeof(u32)
     let arg_addr = ((&(tcb->context->return_addr) as u32) + 8) as *u32; 
     let data_addr = (arg_addr+1) as *u32;
     
