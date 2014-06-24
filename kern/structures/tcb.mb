@@ -1,5 +1,6 @@
 /** tcb.mb: contains implementation of tcb-related functions.  Some changes will
  *  have to be made if the stack ends up growing up as was discussed 
+ *
  *  Author: Amanda M. Watson
  */
 #include "tcb.mh"
@@ -46,8 +47,10 @@ fn set_state(tcb: *tcb, state: u32) {
     tcb->state = state;
 }
 
-
+/* given a function, some data and its length, creates a new tcb that, when
+ * switched to, executes function with a pointer to data as its argument */
 fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
+
     let tcb: *tcb = frame_alloc(0) as *tcb; 
     tcb_init(tcb);
 
@@ -59,17 +62,21 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 
     /* Ok, this has some messy math in it, but once we have sizeof, it will be a
      * little more reasonable */
+
+    /* make some room for the new context, the return function and its args */
     // 0x24 = sizeof(context), 8 = 2*sizeof(u32)
     tcb->context = (tcb->kstack_top as u32 - 0x24 - len - 8) as *context;
 
     // 4 = sizeof(u32)
     tcb->context->ebp = (&(tcb->context->return_addr) as u32) - 4;
     tcb->context->return_addr = (function as u32);
+   
+    /* place data onto the stack a place a pointer to data as an argument to
+     * function */ 
     // 8 = 2 * sizeof(u32)
     let arg_addr = ((&(tcb->context->return_addr) as u32) + 8) as *u32; 
-    let data_addr = (arg_addr+1) as *u32;
-    
     mos_memcpy(data_addr, data as *u32, len);
     *arg_addr = data_addr as u32;
+
     tcb
 }
