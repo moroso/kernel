@@ -79,6 +79,7 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
     tcb->context->return_addr = (function as u32);
     let arg_addr = ((&(tcb->context->return_addr) as u32) + 4) as *u32; 
     let data_addr = (arg_addr+4) as *u32;
+    
     mos_memcpy(data_addr, data as *u32, len);
     *arg_addr = data_addr as u32;
     tcb
