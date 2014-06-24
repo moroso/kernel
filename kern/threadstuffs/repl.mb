@@ -1,0 +1,36 @@
+/* repl.mb: contains kernel-side implementation of repl and thr_repl syscalls
+ *
+ *
+ * Author: Amanda M. Watson
+ * */
+
+
+fn child_repl(parent_ucontext: *context) {
+   // stick context somewhere
+   // add to directory
+   // return 0 
+   while(true) { 
+       printf1_("child %u\n", get_tcb()->tid); 
+       scheduler_update(-1); 
+   }
+}
+
+fn thr_repl(parent_ucontext: *context) -> *tcb {
+  // 0x24 = sizeof(context)
+  let child_tcb = thr_create(((&child_repl) as *u8), (parent_ucontext as *u8), 0x24);
+  child_tcb
+}
+
+fn repl(parent_ucontext: *context) -> i32 {
+    let child_tcb: *tcb = thr_repl(parent_ucontext);
+    if (child_tcb == null) {
+        return -1;
+    }
+    
+    /* create PCB, fill it with stuff */
+
+    schedule(child_tcb, BACK);
+    child_tcb->tid as i32
+}
+
+
