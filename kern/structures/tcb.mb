@@ -31,7 +31,7 @@ fn get_tid() -> u32 {
  */
 fn tcb_init(tcb: *tcb) {
     tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
-    tcb->context = null;
+    tcb->context = tcb->kstack_top as *context;
     tcb->state = NEW;
     tcb->tid = get_tid();
 }
@@ -63,3 +63,19 @@ fn set_addr(tcb: *tcb, function: *u8) {
 }
 
 
+fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
+    let tcb: *tcb = frame_alloc(0) as *tcb; 
+    tcb_init(tcb);
+    if (tcb == null) {
+        return null;
+    }
+    assert(tcb->kstack_top != null);
+
+    // 0x24 = sizeof(context)
+    tcb->context = (tcb->kstack_top as u32 - 0x24) as *context;
+
+    // 4 = sizeof(u32)
+    tcb->context->ebp = (tcb->kstack_top as u32) - 4;
+    tcb->context->return_addr = (function as u32);
+    tcb
+}

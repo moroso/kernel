@@ -14,6 +14,7 @@
 #include "locks/rw.mb"
 #include "context/context.mb"
 #include "structures/VM.mb"
+// #include "threadstuffs/repl.mb"
 
 /*** Helpful 410 register functions ***/
 extern fn get_cr0() -> u32;
@@ -56,10 +57,8 @@ fn kernel_main() -> u32 {
     set_addr(new_tcb, &hello as *u8);
     schedule(new_tcb, FRONT);
 
-    let new_tcb2: *tcb = frame_alloc(0) as *tcb;
+    let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
     assert(new_tcb2 != null);
-    tcb_init(new_tcb2);
-    set_addr(new_tcb2, &reply as *u8);
     schedule(new_tcb2, BACK);
     
     /*** Create an initial page directory and enable paging ***/
