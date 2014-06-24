@@ -16,7 +16,7 @@
 #include "structures/VM.mb"
 // #include "threadstuffs/repl.mb"
 
-/*** Helpful 410 register functions ***/
+/*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
 extern fn get_cr3() -> u32;
 extern fn get_cr4() -> u32;
@@ -24,7 +24,7 @@ extern fn set_cr0(val: u32);
 extern fn set_cr3(val: u32);
 extern fn set_cr4(val: u32);
 
-fn hello() {
+fn hello(n: *u8) {
     let i: u32 = 0;
     while(true) {
         i+=1;
@@ -49,22 +49,21 @@ fn kernel_main() -> u32 {
     /*** Basic util initialization ***/
     frame_init();
     slub_init();
-
+    
+    let var: u32 = 1;
     /*** Create two threads and schedule them ***/
-    let new_tcb: *tcb = frame_alloc(0) as *tcb;
+    let new_tcb: *tcb = thr_create(&hello as *u8, &var as *u8, 4);
     assert(new_tcb != null);
-    tcb_init(new_tcb);
-    set_addr(new_tcb, &hello as *u8);
     schedule(new_tcb, FRONT);
 
     let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
     assert(new_tcb2 != null);
     schedule(new_tcb2, BACK);
-    
+
     /*** Create an initial page directory and enable paging ***/
     let PD: *PD_t = frame_alloc(0) as *PD_t; // should be sizeof() 
     assert(PD_init(PD) >= 0);
-    
+
     load_PD(PD);
     enable_paging(); 
 
