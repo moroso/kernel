@@ -14,7 +14,7 @@
 #include "locks/rw.mb"
 #include "context/context.mb"
 #include "structures/VM.mb"
-// #include "threadstuffs/repl.mb"
+#include "threadstuffs/repl.mb"
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -26,6 +26,8 @@ extern fn set_cr4(val: u32);
 
 fn hello(n: *u8) {
     let i: u32 = 0;
+
+    print_int(repl(get_tcb()->context));
     while(true) {
         i+=1;
         if (i == 9000) {
