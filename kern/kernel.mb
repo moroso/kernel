@@ -33,7 +33,7 @@ fn hello(n: *u8) {
           scheduler_update(DESC);
         }
 
-        printf1_("Thread %u: \"hello!\"\n", get_tcb()->tid);
+        printf1_("Thread %x: \"hello!\"\n", n as u32);
         scheduler_update(-1);
     };
 }
@@ -50,7 +50,7 @@ fn kernel_main() -> u32 {
     frame_init();
     slub_init();
     
-    let var: u32 = 1;
+    let var: u32 = 5;
     /*** Create two threads and schedule them ***/
     let new_tcb: *tcb = thr_create(&hello as *u8, &var as *u8, 4);
     assert(new_tcb != null);
