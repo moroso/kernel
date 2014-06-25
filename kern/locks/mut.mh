@@ -13,4 +13,5 @@
 
 struct kmut {
     lock_available: u32,
+    mut_head: list_node,
 }

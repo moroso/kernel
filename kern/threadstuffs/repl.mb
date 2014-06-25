@@ -13,6 +13,12 @@ fn child_repl(parent_ucontext: *context) {
        printf1_("child %u\n", get_tcb()->tid); 
        scheduler_update(-1); 
    }
+
+   // on success, child returns 0
+   // the parent doesn't do this, but it manually pops
+   // its args, or something. I have not yet thought this through
+   parent_ucontext->eax = 0; 
+   // then we switch back to the user context in some reasonable mode-switch way
 }
 
 fn thr_repl(parent_ucontext: *context) -> *tcb {
@@ -28,6 +34,7 @@ fn repl(parent_ucontext: *context) -> i32 {
     }
     
     /* create PCB, fill it with stuff */
+    /* Take care of address space stuff */
 
     schedule(child_tcb, BACK);
     child_tcb->tid as i32
