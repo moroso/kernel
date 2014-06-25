@@ -13,4 +13,14 @@
 /* start of user memory */
 #define USER_MEM_START (1024 * 1024 * 1024)
 
+/* describes tcb state */
+#define RUNNING 0
+#define DESC 1
+#define SLEEP 2
+#define MUT 3
+#define RUNNABLE 4 
+#define NEW 5
+#define COND 6
+
+
 #endif

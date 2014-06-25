@@ -8,15 +8,6 @@
  */
 
 
-// enums are for squares and people who read test code
-#define RUNNING 0
-#define DESC 1
-#define SLEEP 2
-#define MUT 3
-#define RUNNABLE 4 
-#define NEW 5
-#define COND 6
-
 /* this will be outmoded as soon as the new arch comes in */
 struct context {
     // eflags: *u8, we'll want eflags at some point

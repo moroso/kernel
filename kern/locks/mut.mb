@@ -4,13 +4,20 @@
 #include "mut.mh"
 
 fn kmut_init(km: *kmut) {
-
-
+    km->lock_available = 1;
+    list_init_head(&(km->mut_head));
 }
 
 fn kmut_lock(km: *kmut) {
-
-
+    
+    preempt_disable();
+    
+   /* if (km->lock_available != 1) {
+        list_insert_tail(&(km->mut_head), &(get_tcb()->link));
+        scheduler_update(MUT);    
+    }*/
+    
+    preempt_enable();
 }
 
 fn kmut_unlock(km: *kmut) {
