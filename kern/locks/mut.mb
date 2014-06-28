@@ -10,14 +10,14 @@ fn kmut_init(km: *kmut) {
 
 fn kmut_lock(km: *kmut) {
     
-    preempt_disable();
-    
+   //COND_PREEMPT_DISABLE;
+
    /* if (km->lock_available != 1) {
         list_insert_tail(&(km->mut_head), &(get_tcb()->link));
         scheduler_update(MUT);    
     }*/
     
-    preempt_enable();
+    //COND_PREEMPT_ENABLE;
 }
 
 fn kmut_unlock(km: *kmut) {

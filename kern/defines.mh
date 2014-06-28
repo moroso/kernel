@@ -22,5 +22,4 @@
 #define NEW 5
 #define COND 6
 
-
 #endif
