@@ -4,12 +4,10 @@
 
 struct kcond {
   head: list_node,
-  active: u32,
 }
 
 macro KCOND_INIT!(name) {
     kcond {
-        head: LIST_HEAD_INIT!(name.head),
-        active: 1,
+        head: LIST_HEAD_INIT!(($name).head),
     }
 }

@@ -14,3 +14,12 @@ struct krw {
     reader_mut: kmut,
     num_readers: u32, 
 }
+
+macro KRW_INIT!(name) {
+    krw {
+        exclusive_sem: KSEM_INIT!(($name).exclusive_sem, 1),
+        order_mut: KMUT_INIT!(($name).order_mut),
+        reader_mut: KMUT_INIT!(($name).reader_mut),
+        num_readers: 0,
+    }
+}
