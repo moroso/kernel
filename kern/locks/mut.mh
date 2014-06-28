@@ -15,3 +15,7 @@ struct kmut {
     lock_available: u32,
     mut_head: list_node,
 }
+
+macro KMUT_INIT!(name) {
+    kmut { lock_available: 1 }
+}

@@ -26,7 +26,13 @@ struct context {
 struct tcb {
     tid: u32,
     kstack_top: *u8, 
+
     link: list_node, // used for putting on run queue
+    
+    /*** tcb lookup directory ***/
+    dir_link: list_node, // used for putting in tcb directory
+    dir_ref: u32, // number of times the tcb is referenced via the directory
+
     /* some functions assign a state to let the program know what
      * the tcb should or shouldn't be doing (for instance, a TCB with state "COND"
      * should not be getting scheduled 

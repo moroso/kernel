@@ -6,3 +6,11 @@ struct ksem {
   count: u32,
   mut: kmut,
 }
+
+macro KSEM_INIT!(name) {
+    ksem {
+        cond: KCON_INIT!(name.cond),
+        count: 0,
+        mut: KMUT_INIT!(),
+    }
+}
