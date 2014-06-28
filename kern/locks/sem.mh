@@ -7,10 +7,10 @@ struct ksem {
   mut: kmut,
 }
 
-macro KSEM_INIT!(name) {
+macro KSEM_INIT!(name, count) {
     ksem {
-        cond: KCON_INIT!(name.cond),
-        count: 0,
-        mut: KMUT_INIT!(),
+        cond: KCOND_INIT!(($name).cond),
+        count: $count,
+        mut: KMUT_INIT!(($name).mut),
     }
 }

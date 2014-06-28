@@ -8,7 +8,7 @@
 /* tid-granting structures; ensures uniqueness and atomicity so that
  * every tcb gets a unique tid 
  */
-static tid_lock: kmut = kmut { lock_available: 1 };
+static tid_lock: kmut = KMUT_INIT!(tid_lock);
 static tid_counter: u32 = 0;
 
 /* 
