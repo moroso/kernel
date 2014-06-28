@@ -16,6 +16,7 @@
 #include "context/context.mb"
 #include "structures/VM.mb"
 #include "threadstuffs/repl.mb"
+#include "structures/tcb_dir.mb"
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;

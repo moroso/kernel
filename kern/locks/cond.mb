@@ -22,10 +22,8 @@ fn kcond_wait(kc: *kcond, mut: *kmut) {
     assert(kc->active == 1);
     preempt_disable();
     kmut_unlock(mut);
-    set_state(get_tcb(), COND);
     list_insert_tail(&get_tcb()->link, &(kc->head));
-    unschedule(get_tcb());
-    // context_switch(); TODO will require some more scheduling code
+    scheduler_update(COND)
     preempt_enable();
     kmut_lock(mut);
 }
@@ -38,6 +36,6 @@ fn kcond_signal(kc: *kcond) {
     list_del(&tcb->link);
     assert(tcb->state == COND);
     set_state(tcb, RUNNABLE);
-    schedule(tcb, BACK);
+    schedule(tcb, FRONT);
     preempt_enable();
 }

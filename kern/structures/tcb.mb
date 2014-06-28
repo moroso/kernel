@@ -34,6 +34,7 @@ fn tcb_init(tcb: *tcb) {
     tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
     tcb->context = tcb->kstack_top as *context;
     tcb->state = NEW;
+    tcb->dir_ref = 1; // we decrement by one when tcb goes away
     tcb->tid = get_tid();
 }
 
