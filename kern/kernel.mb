@@ -4,6 +4,7 @@
 // Don't do this at home, kids.
 
 #include "stdlib.mb"
+#include "locks/lol_atomics.mb"
 #include "early_alloc.mb"
 #include "buddy_alloc.mb"
 #include "slab_alloc.mb"

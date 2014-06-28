@@ -12,8 +12,6 @@
 */
 #include "VM.mh"
 
-static rw: krw = KRW_INIT!(rw);
-
 /* Used in the main kernel function to turn on paging once a page directory is
  * loaded.  Paging should probably not be turned off at any point in the kernel */
 fn enable_paging() {
