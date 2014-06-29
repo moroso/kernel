@@ -1,7 +1,5 @@
-#ifndef EARLY_ALLOC_MB_
-#define EARLY_ALOC_MB_
 // 8MB
-#define MEM_START (8 * 1024 * 1024) 
+#define MEM_START (8 * 1024 * 1024)
 /* the next available address in memory */
 static mem_cur: *u8 = MEM_START as *u8;
 
@@ -12,5 +10,3 @@ fn early_alloc<T>(size: u32) -> *T {
     mos_memset(addr, 0, size);
     addr as *T
 }
-
-#endif
