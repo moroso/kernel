@@ -1,0 +1,12 @@
+/* Some placeholder atomic functions that will have to be 100% reworked with the
+ * real architecture, so I didn't feel like digging into asm */
+
+
+fn atomic_add(num: *u32, inc: i32) -> u32 {
+    COND_PREEMPT_DISABLE;
+    let num_ret = *num;
+    *(num as *i32) += inc;
+    COND_PREEMPT_ENABLE;
+    num_ret
+}
+
