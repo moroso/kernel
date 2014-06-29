@@ -1,0 +1,4 @@
+struct tcb_dir_t {
+    dir_head: list_node,
+    dir_lock: krw,
+}
