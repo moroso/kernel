@@ -36,7 +36,7 @@ struct cache_descriptor {
   link: list_node,
 }
 
-static head: list_node/*head*/ = LIST_HEAD_INIT!(head);
+static head: list_head = LIST_HEAD_INIT!(head);
 static caches: *cache_descriptor = null;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
