@@ -3,7 +3,7 @@
   */
 
 struct kcond {
-  head: list_node,
+  head: list_head,
 }
 
 macro KCOND_INIT!(name) {
