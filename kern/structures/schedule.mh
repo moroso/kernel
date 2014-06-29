@@ -27,7 +27,7 @@
 
 /* a data structure that manages run queue state */
 struct rq_master {
-    run_Q: list_node/*head*/, // head of run queue
+    run_Q: list_head, // head of run queue
     running: *tcb, // actively running tcb
     preempt_enabled: u32, // whether preemption is enabled
 }
