@@ -73,9 +73,9 @@ fn get_tcb() -> *tcb {
 #define COND_PREEMPT_DISABLE let is_pre_enable = is_preempt_enabled(); \
     if (is_pre_enable == 1) { \
         preempt_disable(); \
-    } 
+    }
 
-#define COND_PREEMPT_ENABLE \ 
+#define COND_PREEMPT_ENABLE \
     if (is_pre_enable == 1) { \
         preempt_enable(); \
     }
