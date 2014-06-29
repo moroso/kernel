@@ -71,7 +71,7 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
             if (*page_table_addr == null) {
                 return -1;
             }
-
+            mos_memset((*page_table_addr as *u32), 0, PAGE_SIZE);
             *page_table_addr = ((*page_table_addr as u32) | READ_WRITE_BIT |
                     PRESENT_BIT | USER_SUPER_BIT) as *u32; 
         }
@@ -80,13 +80,16 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
         /* we don't want to overwrite shit */
         assert(page_table[pt_entry] == null);
         /* set the frame entry and flags */
+
         page_table[pt_entry] = (frame as u32) | flags | PRESENT_BIT;   
 
     } else {
         assert(size == MB);
         *page_table_addr = frame as *u32;
+
         *page_table_addr = ((*page_table_addr as u32) | flags | 
                 PRESENT_BIT  | PAGE_SIZE_BIT) as *u32; 
+
 
     }  
     0
@@ -106,7 +109,7 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
 
 /* at some point, have all PDs reference the same set of direct-mapped kernel
  * pages 
-*/
+ */
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(log_addr < USER_MEM_START); 
     let success = set_page(log_addr, log_addr, PD, flags, size);   
