@@ -1,0 +1,9 @@
+struct proc {
+    PD: PD_t,
+    pid: u32,
+    peer_tcb_list: list_head,
+    child_proc_list: list_head,
+    
+    child_link: list_node,
+    
+}
