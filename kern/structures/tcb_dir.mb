@@ -1,0 +1,53 @@
+#include "tcb_dir.mh"
+
+static tcb_dir: tcb_dir_t = tcb_dir_t {
+    dir_head: LIST_HEAD_INIT!(tcb_dir.dir_head),
+    dir_lock: KRW_INIT!(tcb_dir.dir_lock),
+};
+
+fn tcb_dir_add(tcb_new: *tcb) {
+    krw_write_lock(&(tcb_dir.dir_lock));
+    list_insert_head(&(tcb_new->dir_link), &(tcb_dir.dir_head));
+    krw_write_unlock(&(tcb_dir.dir_lock));
+}
+
+fn tcb_dir_remove(tcb_old: *tcb) {
+    krw_write_lock(&(tcb_dir.dir_lock));
+    list_del(&(tcb_old->dir_link));
+    krw_write_unlock(&(tcb_dir.dir_lock));
+}
+
+/*** these ref count functions would be in the tcb file if inclusion was sane ***/
+fn increase_ref(tcb: *tcb) {
+    atomic_add(&(tcb->dir_ref), 1);
+}
+
+fn decrease_ref(tcb: *tcb) {
+    let ref_old = atomic_add(&(tcb->dir_ref), -1);
+    if (ref_old == 1) {
+        frame_free(tcb as *u8, 0);
+    }
+}
+
+fn tcb_lookup(tid: u32) -> *tcb {
+    let tcb_node: *tcb;
+    krw_read_lock(&(tcb_dir.dir_lock));
+    list_foreach_entry!(tcb_node, &(tcb_dir.dir_head), tcb, dir_link, { 
+        if (tcb_node->tid == tid) {
+            break;
+        }
+    } );    
+    increase_ref(tcb_node);
+    krw_read_unlock(&(tcb_dir.dir_lock));
+
+    tcb_node
+}
+
+fn tcb_end_lookup(tcb_read: *tcb) {
+    krw_read_lock(&(tcb_dir.dir_lock));
+    decrease_ref(tcb_read);
+    krw_read_unlock(&(tcb_dir.dir_lock));
+}
+
+
+
