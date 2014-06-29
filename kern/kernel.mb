@@ -18,6 +18,7 @@
 #include "structures/VM.mb"
 #include "threadstuffs/repl.mb"
 #include "structures/tcb_dir.mb"
+#include "entry/entry.mb"
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -34,8 +35,8 @@ fn hello(n: *u8) {
     while(true) {
         i+=1;
         if (i == 9000) {
-          printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
-          scheduler_update(DESC);
+            printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
+            scheduler_update(DESC);
         }
 
         printf3_("Thread %u: \"hello!\": %u %u\n", get_tcb()->tid, (n as
@@ -69,11 +70,13 @@ fn kernel_main() -> u32 {
     schedule(new_tcb2, BACK);
 
     /*** Create an initial page directory and enable paging ***/
-    let PD: *PD_t = frame_alloc(0) as *PD_t; // should be sizeof() 
+    let PD: *PD_t = frame_alloc(0) as *PD_t; // should be sizeof()
     assert(PD_init(PD) >= 0);
 
+    entry_setup();
+
     load_PD(PD);
-    enable_paging(); 
+    enable_paging();
 
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);

@@ -1,19 +1,19 @@
 /** tcb.mb: contains implementation of tcb-related functions.  Some changes will
- *  have to be made if the stack ends up growing up as was discussed 
+ *  have to be made if the stack ends up growing up as was discussed
  *
  *  Author: Amanda M. Watson
  */
 #include "tcb.mh"
 
 /* tid-granting structures; ensures uniqueness and atomicity so that
- * every tcb gets a unique tid 
+ * every tcb gets a unique tid
  */
 static tid_lock: kmut = KMUT_INIT!(tid_lock);
 static tid_counter: u32 = 0;
 
-/* 
- * Atomically returns new tid for a tcb; all tids guaranteed to 
- * be unique (barring overflow, if you wanna be all pedantic about it) 
+/*
+ * Atomically returns new tid for a tcb; all tids guaranteed to
+ * be unique (barring overflow, if you wanna be all pedantic about it)
  */
 fn get_tid() -> u32 {
     kmut_lock(&tid_lock);
@@ -23,12 +23,12 @@ fn get_tid() -> u32 {
     tid
 }
 
-/* 
+/*
  * initializes an new tcb: sets top of kstack and assigns a tid.
  *
  * We assume that a tcb allocation is a page in
  * size; that way, we can allocate both the tcb and kstack at once, and both
- * will comprise exactly one page.  
+ * will comprise exactly one page.
  */
 fn tcb_init(tcb: *tcb) {
     tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
@@ -40,7 +40,7 @@ fn tcb_init(tcb: *tcb) {
     list_init_node(&(tcb->dir_link));
 }
 
-/* 
+/*
  * Assigns a state to the given tcb; states
  * give us info about what the tcb is currently doing (MUT, for example, tells
  * us the tcb is currently in a mutex), which can be
@@ -54,13 +54,13 @@ fn set_state(tcb: *tcb, state: u32) {
  * switched to, executes function with a pointer to data as its argument */
 fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 
-    let tcb: *tcb = frame_alloc(0) as *tcb; 
+    let tcb: *tcb = frame_alloc(0) as *tcb;
     tcb_init(tcb);
 
     if (tcb == null) {
         return null;
     }
-    
+
     assert(tcb->kstack_top != null);
 
     /* Ok, this has some messy math in it, but once we have sizeof, it will be a
@@ -71,13 +71,13 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
     tcb->context = (tcb->kstack_top as u32 - 0x24 - len - 8) as *context;
 
     // 4 = sizeof(u32)
-    tcb->context->ebp = (&(tcb->context->return_addr) as u32) - 4;
+    tcb->context->gpregs.ebp = (&(tcb->context->return_addr) as u32) - 4;
     tcb->context->return_addr = (function as u32);
-   
+
     /* place data onto the stack a place a pointer to data as an argument to
-     * function */ 
+     * function */
     // 8 = 2 * sizeof(u32)
-    let arg_addr = ((&(tcb->context->return_addr) as u32) + 8) as *u32; 
+    let arg_addr = ((&(tcb->context->return_addr) as u32) + 8) as *u32;
     let data_addr = (arg_addr+1) as *u32;
 
     mos_memcpy(data_addr, data as *u32, len);
