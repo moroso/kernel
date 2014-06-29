@@ -18,9 +18,8 @@ fn bm_clear_bit(bm: *bitmap, n: u32) {
 }
 
 // The allocator!
-#define BITS 32
-
-#define MAX_ORDER 12
+const BITS: u32 = 32;
+const MAX_ORDER: u32 = 12;
 
 struct buddy_category {
     bitmap: bitmap,
