@@ -1,0 +1,24 @@
+
+.global common_entry_asm
+common_entry_asm:
+    /* Save state */
+    pushl $0
+    pusha
+    pushl %ds
+    pushl %es
+
+    pushl %esp
+    call kernel_entry
+    addl $4, %esp
+    jmp common_exit_asm
+
+.global leave_kernel
+leave_kernel:
+    movl 4(%esp), %esp
+common_exit_asm:
+    popl %es
+    popl %ds
+    popa
+    addl $12, %esp
+
+    iret

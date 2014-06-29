@@ -1,0 +1,42 @@
+
+struct regs {
+    ds: u32,
+    es: u32,
+
+    gpregs: gpregs,
+
+    pf_addr: u32,
+    cause: u32,
+
+    error_code: u32,
+    eip: u32,
+    cs: u32,
+    eflags: u32,
+    esp: u32,
+    ss: u32,
+}
+
+extern fn idt_base() -> *u32;
+extern fn entry_stubs();
+const STUB_SIZE: u32 = 16;
+
+fn entry_setup() {
+    let b = idt_base();
+    let addr = &entry_stubs as u32;
+
+    let i: u32;
+    for (i = 0; i < 256; i += 1) {
+        b[i*2] = 0x00100000 | (addr & 0xFFFF);
+        let dpl = 3;
+        b[i*2+1] = (addr & 0xFFFF0000)
+                  | 0x8e00 | (dpl << 13);
+
+        addr += STUB_SIZE;
+    }
+}
+
+
+
+fn kernel_entry(regs: *regs) {
+    printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
+}

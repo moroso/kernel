@@ -8,16 +8,16 @@
 fn child_repl(parent_ucontext: *context) {
    // stick context somewhere
    // add to directory
-   // return 0 
-   while(true) { 
-       printf1_("child %u\n", get_tcb()->tid); 
-       scheduler_update(-1); 
+   // return 0
+   while(true) {
+       printf1_("child %u\n", get_tcb()->tid);
+       scheduler_update(-1);
    }
 
    // on success, child returns 0
    // the parent doesn't do this, but it manually pops
    // its args, or something. I have not yet thought this through
-   parent_ucontext->eax = 0; 
+   parent_ucontext->gpregs.eax = 0;
    // then we switch back to the user context in some reasonable mode-switch way
 }
 
@@ -56,5 +56,3 @@ fn repl(parent_ucontext: *context) -> i32 {
     schedule(child_tcb, BACK);
     child_tcb->tid as i32
 }
-
-
