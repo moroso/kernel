@@ -35,9 +35,14 @@ fn tcb_init(tcb: *tcb) {
     tcb->context = tcb->kstack_top as *context;
     tcb->state = NEW;
     tcb->dir_ref = 1; // we decrement by one when tcb goes away
+    tcb->proc = null; 
     tcb->tid = get_tid();
     list_init_node(&(tcb->link));
     list_init_node(&(tcb->dir_link));
+}
+
+/* I don't know if we need this, so right now it's a placeholder */
+fn tcb_destroy(tcb: *tcb) {
 }
 
 /* 

@@ -28,7 +28,7 @@ struct tcb {
     kstack_top: *u8, 
 
     link: list_node, // used for putting on run queue
-    
+    proc_link: list_node,
     /*** tcb lookup directory ***/
     dir_link: list_node, // used for putting in tcb directory
     dir_ref: u32, // number of times the tcb is referenced via the directory
@@ -42,4 +42,5 @@ struct tcb {
      * (occurs during context switch) 
      */
     context: *context,
+    proc: *proc,
 }

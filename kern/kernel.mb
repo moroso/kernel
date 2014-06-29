@@ -18,6 +18,7 @@
 #include "structures/VM.mb"
 #include "threadstuffs/repl.mb"
 #include "structures/tcb_dir.mb"
+#include "structures/proc.mb"
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -62,10 +63,17 @@ fn kernel_main() -> u32 {
     /*** Create two threads and schedule them ***/
     let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
     assert(new_tcb != null);
+    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
+    proc_init(proc1, new_tcb);
+    assert(proc1 != null);
     schedule(new_tcb, FRONT);
 
     let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
     assert(new_tcb2 != null);
+    let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
+    assert(proc2 != null);
+    proc_init(proc2, new_tcb2);
+    
     schedule(new_tcb2, BACK);
 
     /*** Create an initial page directory and enable paging ***/

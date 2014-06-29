@@ -27,14 +27,31 @@ fn thr_repl(parent_ucontext: *context) -> *tcb {
   child_tcb
 }
 
+// currently assumes processes only have one thread 
 fn repl(parent_ucontext: *context) -> i32 {
-    let child_tcb: *tcb = thr_repl(parent_ucontext);
-    if (child_tcb == null) {
+    
+    let parent_proc = get_tcb()->proc;
+    /* if we don't have only on thread in parent process, return with error */
+    
+    if (list_is_singleton(&(parent_proc->peer_tcb_list)) == 0) {
         return -1;
     }
-    
-    /* create PCB, fill it with stuff */
-    /* Take care of address space stuff */
+   
+    let child_proc: *proc = slub_alloc(sizeof(proc)) as *proc;
+    if (child_proc == null) {
+        return -1;
+    } 
+
+    let child_tcb: *tcb = thr_repl(parent_ucontext);
+    if (child_tcb == null) {
+        slub_free(child_proc as *u32, sizeof(proc));
+        return -1;
+    }
+
+    proc_init(child_proc, child_tcb);
+
+    /* add new tcb to list of children */
+    list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list)); 
 
     schedule(child_tcb, BACK);
     child_tcb->tid as i32
