@@ -1,7 +1,8 @@
+// "The build system"
+// This is the list of source files.
+
 #include "defines.mh"
 #include "list.mb"
-
-// Don't do this at home, kids.
 
 #include "stdlib.mb"
 #include "early_alloc.mb"
@@ -21,73 +22,4 @@
 #include "structures/proc.mb"
 #include "entry/entry.mb"
 
-/*** Helpful register functions ***/
-extern fn get_cr0() -> u32;
-extern fn get_cr3() -> u32;
-extern fn get_cr4() -> u32;
-extern fn set_cr0(val: u32);
-extern fn set_cr3(val: u32);
-extern fn set_cr4(val: u32);
-
-fn hello(n: *u8) {
-    let i: u32 = 0;
-
-    print_int(repl(get_tcb()->context));
-    while(true) {
-        i+=1;
-        if (i == 9000) {
-            printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
-            scheduler_update(DESC);
-        }
-
-        printf3_("Thread %u: \"hello!\": %u %u\n", get_tcb()->tid, (n as
-            *u32)[0], (n as *u32)[1]);
-        scheduler_update(-1);
-    };
-}
-
-fn reply() {
-    while(true) {
-        printf1_("Thread %u: \"WHAT?\"\n", get_tcb()->tid);
-        scheduler_update(-1);
-    };
-}
-
-fn kernel_main() -> u32 {
-    /*** Basic util initialization ***/
-    frame_init();
-    slub_init();
-
-    let var_array: *u32 = slub_alloc(8);
-    var_array[0] = 5;
-    var_array[1] = 7;
-    /*** Create two threads and schedule them ***/
-    let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
-    assert(new_tcb != null);
-    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
-    proc_init(proc1, new_tcb);
-    assert(proc1 != null);
-    schedule(new_tcb, FRONT);
-
-    let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
-    assert(new_tcb2 != null);
-    let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
-    assert(proc2 != null);
-    proc_init(proc2, new_tcb2);
-    
-    schedule(new_tcb2, BACK);
-
-    /*** Create an initial page directory and enable paging ***/
-    let PD: *PD_t = frame_alloc(0) as *PD_t; // should be sizeof()
-    assert(PD_init(PD) >= 0);
-
-    entry_setup();
-
-    load_PD(PD);
-    enable_paging();
-
-    /*** Switch to the first thread in the run queue and jump to its execution ***/
-    scheduler_update(-1);
-    while (true) {};
-    0
-}
+#include "kernel_main.mb"
