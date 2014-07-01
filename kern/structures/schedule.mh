@@ -29,7 +29,7 @@
 struct rq_master {
     run_Q: list_head, // head of run queue
     running: *tcb, // actively running tcb
-    preempt_enabled: u32, // whether preemption is enabled
+    preempt_enabled: bool, // whether preemption is enabled
 }
 
 #endif

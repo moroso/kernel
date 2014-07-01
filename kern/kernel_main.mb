@@ -14,11 +14,13 @@ fn hello(n: *u8) {
         i+=1;
         if (i == 9000) {
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
-            scheduler_update(DESC);
+            scheduler_update(STATE_DESC);
         }
 
-        printf3_("Thread %u: \"hello!\": %u %u\n", get_tcb()->tid, (n as
-            *u32)[0], (n as *u32)[1]);
+        printf3_("Thread %u: \"hello!\": %u %u\n",
+                 get_tcb()->tid,
+                 (n as *u32)[0],
+                 (n as *u32)[1]);
         scheduler_update(-1);
     };
 }

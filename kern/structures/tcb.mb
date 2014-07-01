@@ -33,9 +33,9 @@ fn get_tid() -> u32 {
 fn tcb_init(tcb: *tcb) {
     tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
     tcb->context = tcb->kstack_top as *context;
-    tcb->state = NEW;
+    tcb->state = STATE_NEW;
     tcb->dir_ref = 1; // we decrement by one when tcb goes away
-    tcb->proc = null; 
+    tcb->proc = null;
     tcb->tid = get_tid();
     list_init_node(&(tcb->link));
     list_init_node(&(tcb->dir_link));
@@ -45,7 +45,7 @@ fn tcb_init(tcb: *tcb) {
 fn tcb_destroy(tcb: *tcb) {
 }
 
-/* 
+/*
  * Assigns a state to the given tcb; states
  * give us info about what the tcb is currently doing (MUT, for example, tells
  * us the tcb is currently in a mutex), which can be
