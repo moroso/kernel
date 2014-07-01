@@ -16,23 +16,23 @@ fn kcond_destroy(kc: *kcond) {
 
 fn kcond_wait(kc: *kcond, mut: *kmut) {
     assert(kc != null);
-    COND_PREEMPT_DISABLE;
+    let enable = cond_preempt_disable();
     kmut_unlock(mut);
     list_insert_tail(&get_tcb()->link, &(kc->head));
-    scheduler_update(COND)
-    COND_PREEMPT_ENABLE;
+    scheduler_update(STATE_COND)
+    cond_preempt_enable(enable);
     kmut_lock(mut);
 }
 
 fn kcond_signal(kc: *kcond) {
     assert(kc != null);
-    COND_PREEMPT_DISABLE;
+    let enable = cond_preempt_disable();
     let tcb: *tcb = list_head_entry!(&kc->head, tcb, link);
     if (tcb != null) {
         list_del(&tcb->link);
-        assert(tcb->state == COND);
-        set_state(tcb, RUNNABLE);
+        assert(tcb->state == STATE_COND);
+        set_state(tcb, STATE_RUNNABLE);
         schedule(tcb, FRONT);
     }
-    COND_PREEMPT_ENABLE;
+    cond_preempt_enable(enable);
 }

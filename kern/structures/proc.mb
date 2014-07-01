@@ -1,7 +1,7 @@
 #include "proc.mh"
 
 fn proc_init(new_proc: *proc, new_tcb: *tcb) {
-    assert(new_tcb->state == NEW);
+    assert(new_tcb->state == STATE_NEW);
     PD_init(&(new_proc->PD));
     new_proc->pid = new_tcb->tid;
     list_insert_head(&new_tcb->proc_link, &(new_proc->peer_tcb_list));

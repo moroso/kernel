@@ -3,23 +3,18 @@
  *  Author Amanda M. Watson
 **/
 
-#ifndef DEFINES_MH
-#define DEFINES_MH
-
-#define PAGE_SIZE 4096
+const PAGE_SIZE: u32 = 4096;
 /* We give the kernel the first 8MB of space; after that, early_alloc hands out
  * kernel memory, up until a gigabyte, where user memory starts */
-#define KERNEL_MEM_START (8 * 1024 * 1024) 
+#define KERNEL_MEM_START (8 * 1024 * 1024)
 /* start of user memory */
 #define USER_MEM_START (1024 * 1024 * 1024)
 
 /* describes tcb state */
-#define RUNNING 0
-#define DESC 1
-#define SLEEP 2
-#define MUT 3
-#define RUNNABLE 4 
-#define NEW 5
-#define COND 6
-
-#endif
+#define STATE_RUNNING 0
+#define STATE_DESC 1
+#define STATE_SLEEP 2
+#define STATE_MUTEX 3
+#define STATE_RUNNABLE 4
+#define STATE_NEW 5
+#define STATE_COND 6
