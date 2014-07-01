@@ -1,7 +1,7 @@
 // "The build system"
 // This is the list of source files.
 
-#include "defines.mh"
+#include "consts.mb"
 #include "list.mb"
 
 #include "stdlib.mb"

@@ -1,4 +1,4 @@
-/** rw.mh: declaration and implementation of kernel r/w locks.  Implementation inspired by
+/** rw.mb: declaration and implementation of kernel r/w locks.  Implementation inspired by
  * (https://www.rfc1149.net/blog/2011/01/07/the-third-readers-writers-problem/),
  * a paper that Alex Reece apparently +1's on G+.
  *
