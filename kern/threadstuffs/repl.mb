@@ -53,6 +53,6 @@ fn repl(parent_ucontext: *context) -> i32 {
     /* add new tcb to list of children */
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list)); 
 
-    schedule(child_tcb, BACK);
+    schedule(child_tcb, QUEUE_BACK);
     child_tcb->tid as i32
 }
