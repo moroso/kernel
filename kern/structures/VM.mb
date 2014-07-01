@@ -10,7 +10,6 @@
  *
  * Author: Amanda M. Watson
 */
-#include "VM.mh"
 
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
