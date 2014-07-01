@@ -19,7 +19,7 @@ fn kcond_wait(kc: *kcond, mut: *kmut) {
     let enable = cond_preempt_disable();
     kmut_unlock(mut);
     list_insert_tail(&get_tcb()->link, &(kc->head));
-    scheduler_update(STATE_COND)
+    scheduler_update(STATE_COND as i32);
     cond_preempt_enable(enable);
     kmut_lock(mut);
 }
