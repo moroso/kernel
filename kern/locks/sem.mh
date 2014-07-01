@@ -1,16 +1,4 @@
 /** sem.mh: contains declarations for kernel semaphores 
   * Author: Amanda M. Watson
   */
-struct ksem {
-  cond: kcond,
-  count: u32,
-  mut: kmut,
-}
 
-macro KSEM_INIT!(name, count) {
-    ksem {
-        cond: KCOND_INIT!(($name).cond),
-        count: $count,
-        mut: KMUT_INIT!(($name).mut),
-    }
-}

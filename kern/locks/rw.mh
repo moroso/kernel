@@ -1,25 +1,2 @@
-/** rw.mh: declaration of kernel r/w locks.  Implementation inspired by
- * (https://www.rfc1149.net/blog/2011/01/07/the-third-readers-writers-problem/),
- * a paper that Alex Reece apparently +1's on G+.
- *
- * I think it's only fair that an explanation of the locks be added here.  I'll
- * do that eventually
- * 
- * Author: Amanda M. Watson
- */
 
-struct krw {
-    exclusive_sem: ksem,
-    order_mut: kmut,
-    reader_mut: kmut,
-    num_readers: u32, 
-}
 
-macro KRW_INIT!(name) {
-    krw {
-        exclusive_sem: KSEM_INIT!(($name).exclusive_sem, 1),
-        order_mut: KMUT_INIT!(($name).order_mut),
-        reader_mut: KMUT_INIT!(($name).reader_mut),
-        num_readers: 0,
-    }
-}

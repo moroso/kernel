@@ -1,7 +1,25 @@
-/** mut.mb: contains "implementation" of kernel mutex
-  *  Author: Amanda M. Watson
-  */
-#include "mut.mh"
+/** mut.mh: contains structures and "implementation" of kernel mutex
+  *
+  * The mutex isn't actually implemented yet, because the new ISA will require
+  * something very different from what we can do in x86; don't fool yourself
+  * into believing this is actually atomic.  The functions exist here so that
+  * once the mutexes do exist, it isn't a hassle to stick them into the code.
+  *
+  * Once the mutexes are implemented, threads waiting on a lock will deschedule
+  * until the lock is made available.
+  *
+  * Author: Amanda M. Watson
+ */
+
+
+struct kmut {
+    lock_available: u32,
+    mut_head: list_head,
+}
+
+macro KMUT_INIT!(name) {
+    kmut { lock_available: 1, mut_head: LIST_HEAD_INIT!($name.mut_head) }
+}
 
 fn kmut_init(km: *kmut) {
     km->lock_available = 1;

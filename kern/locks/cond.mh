@@ -2,12 +2,4 @@
   * Author: Amanda M. Watson
   */
 
-struct kcond {
-  head: list_head,
-}
 
-macro KCOND_INIT!(name) {
-    kcond {
-        head: LIST_HEAD_INIT!(($name).head),
-    }
-}

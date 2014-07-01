@@ -2,7 +2,15 @@
  * Author: Amanda M. Watson
  */
 
-#include "cond.mh"
+struct kcond {
+  head: list_head,
+}
+
+macro KCOND_INIT!(name) {
+    kcond {
+        head: LIST_HEAD_INIT!(($name).head),
+    }
+}
 
 fn kcond_init(kc: *kcond) {
     assert(kc != null); // make sure null is not mapped in VM
