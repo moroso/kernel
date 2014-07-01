@@ -1,5 +1,15 @@
 #include "proc.mh"
 
+struct proc {
+    PD: PD_t,
+    pid: u32,
+    peer_tcb_list: list_head,
+    child_proc_list: list_head,
+    
+    child_link: list_node,
+    
+}
+
 fn proc_init(new_proc: *proc, new_tcb: *tcb) {
     assert(new_tcb->state == STATE_NEW);
     PD_init(&(new_proc->PD));

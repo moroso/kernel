@@ -57,7 +57,7 @@ fn kernel_main() -> u32 {
     schedule(new_tcb2, BACK);
 
     /*** Create an initial page directory and enable paging ***/
-    let PD: *PD_t = frame_alloc(0) as *PD_t; // should be sizeof()
+    let PD: *PD_t = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
     assert(PD_init(PD) >= 0);
 
     entry_setup();
