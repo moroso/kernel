@@ -1,8 +1,20 @@
-/** sem.mb: implementation of kernel's semaphores 
+/** sem.mb: declarations and implementation of kernel's semaphores 
  *  Author: Amanda M. Watson
  */
 
-#include "sem.mh"
+struct ksem {
+  cond: kcond,
+  count: u32,
+  mut: kmut,
+}
+
+macro KSEM_INIT!(name, count) {
+    ksem {
+        cond: KCOND_INIT!(($name).cond),
+        count: $count,
+        mut: KMUT_INIT!(($name).mut),
+    }
+}
 
 fn ksem_init(ks: *ksem, count: u32) {
     assert(count >= 0);
