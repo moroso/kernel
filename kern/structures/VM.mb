@@ -90,7 +90,6 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
         *page_table_addr = ((*page_table_addr as u32) | flags | 
                 PRESENT_BIT  | PAGE_SIZE_BIT) as *u32; 
 
-
     }  
     0
 }
