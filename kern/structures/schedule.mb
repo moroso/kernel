@@ -17,7 +17,6 @@
   *
   * Author: Amanda M. Watson
  */
-#include "schedule.mh"
 
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.

@@ -3,7 +3,6 @@
  *
  *  Author: Amanda M. Watson
  */
-#include "tcb.mh"
 
 /* this will be outmoded as soon as the new arch comes in */
 struct gpregs {
