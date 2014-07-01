@@ -21,8 +21,8 @@
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.
  */
-const FRONT: u32 = 0;
-const BACK: u32 = 1;
+const QUEUE_FRONT: u32 = 0;
+const QUEUE_BACK: u32 = 1;
 
 /* a data structure that manages run queue state */
 struct rq_master {
@@ -54,24 +54,24 @@ fn is_preempt_enabled() -> bool {
 }
 
 /*
- * add a tcb to the run queue: position should be FRONT if tcb should be run immediately,
- * BACK if it should patiently wait its turn in the queue.
+ * add a tcb to the run queue: position should be QUEUE_FRONT if tcb should be run immediately,
+ * QUEUE_BACK if it should patiently wait its turn in the queue.
  * Requires that tcb's state be set to NEW or RUNNABLE before insertion, so the
  * scheduler knows you really mean it.
  */
 fn schedule(tcb: *tcb, pos: u32) {
     assert(!is_preempt_enabled());
-    assert(pos == FRONT || pos == BACK);
+    assert(pos == QUEUE_FRONT || pos == QUEUE_BACK);
 
     if (tcb->state == STATE_NEW) {
         set_state(tcb, STATE_RUNNABLE);
     }
     assert(tcb->state == STATE_RUNNABLE);
-    if (pos == FRONT) {
+    if (pos == QUEUE_FRONT) {
         list_insert_head(&tcb->link, &run_queue.run_Q);
         return ();
     }
-    if (pos == BACK) {
+    if (pos == QUEUE_BACK) {
         list_insert_tail(&tcb->link, &run_queue.run_Q);
         return ();
     }

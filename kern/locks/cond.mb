@@ -40,7 +40,7 @@ fn kcond_signal(kc: *kcond) {
         list_del(&tcb->link);
         assert(tcb->state == STATE_COND);
         set_state(tcb, STATE_RUNNABLE);
-        schedule(tcb, FRONT);
+        schedule(tcb, QUEUE_FRONT);
     }
     cond_preempt_enable(enable);
 }
