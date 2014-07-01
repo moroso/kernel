@@ -1,7 +1,6 @@
 // 8MB
-#define MEM_START (8 * 1024 * 1024)
 /* the next available address in memory */
-static mem_cur: *u8 = MEM_START as *u8;
+static mem_cur: *u8 = KERNEL_MEM_START as *u8;
 
 /* an allocation function that does not need to free */
 fn early_alloc<T>(size: u32) -> *T {

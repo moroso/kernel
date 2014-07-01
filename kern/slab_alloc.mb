@@ -16,12 +16,10 @@
  * Author: Amanda M. Watson
 */
 
-#define SLAB_SIZE 4096 /* this really isn't the right size*/
-#define UINT_SIZE 4
-#define POWER_MIN 2
-#define POWER_MAX 9
-
-#define ERR (print_int(-2))
+const SLAB_SIZE: u32 = PAGE_SIZE; /* this really isn't the right size*/
+const UINT_SIZE: u32 = 4;
+const POWER_MIN: u32 = 2;
+const POWER_MAX: u32 = 9;
 
 struct slab_descriptor {
   slab: *u32,

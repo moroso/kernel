@@ -6,9 +6,9 @@
 const PAGE_SIZE: u32 = 4096;
 /* We give the kernel the first 8MB of space; after that, early_alloc hands out
  * kernel memory, up until a gigabyte, where user memory starts */
-#define KERNEL_MEM_START (8 * 1024 * 1024)
+const KERNEL_MEM_START: u32 = 8 * 1024 * 1024;
 /* start of user memory */
-#define USER_MEM_START (1024 * 1024 * 1024)
+const USER_MEM_START: u32 =1024 * 1024 * 1024;
 
 /* describes tcb state */
 const STATE_RUNNING: u32 = 0;

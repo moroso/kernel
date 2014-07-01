@@ -27,7 +27,7 @@ struct buddy_category {
 }
 
 struct buddy_arena {
-    zones: buddy_category[/*MAX_ORDER+1*/13],
+    zones: buddy_category[MAX_ORDER+1],
     nodes: *list_node
 }
 
@@ -153,15 +153,11 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
 ///////////////////////////////////////////////////////////////////
 // Frame allocator interface
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
-
 static frame_arena: *buddy_arena = null;
 
 // Must be power of two
-#define ROUND_DOWN(n, align) ((n) & ~((align)-1))
-#define ROUND_UP(n, align) ROUND_DOWN(n+(align-1), align)
+macro ROUND_DOWN!(n, align) { (($n) & ~(($align)-1)) }
+macro ROUND_UP!(n, align) { ROUND_DOWN!(($n)+(($align)-1), $align) }
 
 extern fn machine_phys_frames() -> u32;
 
@@ -170,18 +166,18 @@ fn frame_init() {
 
     // Find how much memory we have and where it ends
     let num_frames = machine_phys_frames();
-    let frames_rounded_up = ROUND_UP(num_frames, frames_per_block);
-    let frames_rounded_down = ROUND_DOWN(num_frames, frames_per_block);
+    let frames_rounded_up = ROUND_UP!(num_frames, frames_per_block);
+    let frames_rounded_down = ROUND_DOWN!(num_frames, frames_per_block);
 
     // Initialize the arena
     frame_arena = buddy_init(frames_rounded_up);
 
     // Figure out where we can start allocating from
     let last_allocated: *u8 = early_alloc(0); // Lol
-    let next_free_page: u32 = ROUND_UP(last_allocated as u32, PAGE_SIZE);
+    let next_free_page: u32 = ROUND_UP!(last_allocated as u32, PAGE_SIZE);
     // Round up to the next 4MB bit
-    let first_free_block = ROUND_UP(next_free_page / PAGE_SIZE,
-                                    frames_per_block);
+    let first_free_block = ROUND_UP!(next_free_page / PAGE_SIZE,
+                                     frames_per_block);
 
     // Spew
     // print_uint(first_free_block);
@@ -201,7 +197,7 @@ fn frame_alloc(order: u32) -> *u8 {
     if (frame_num < 0) {
         null
     } else {
-        (frame_num * PAGE_SIZE) as *u8
+        (frame_num as u32 * PAGE_SIZE) as *u8
     }
 }
 
