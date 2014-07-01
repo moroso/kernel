@@ -3,19 +3,43 @@
   * scheduler_update is called to replace the currently running thread with the
   * next available off the run queue.
   * All scheduler operations will require preemption to be disabled
+  * The run queue is an ordered list storing runnable
+  * tcb's: tcbs are removed from the run queue in round robin (NOTE:
+  * experimenting with scheduler policies sounds fun) order, with the latest tcb
+  * denoted as "running" (a context switch will allow this new tcb to actually be
+  * run).  TCB's are added to the run queue using schedule(), and removed with
+  * unschedule().
+  *
+  * Rather than explicitly enabling/disabling interrupts, we choose to keep a
+  * preemption flag; the running thread will only be preempted if the flag is
+  * enabled (even if interrupts and enabled).
+  * 
   *
   * Author: Amanda M. Watson
-  */
+ */
 #include "schedule.mh"
+
+/* Used in schedule() to denote whether a tcb should be added to the front
+ * or the back of the run queue.
+ */
+#define FRONT 0
+#define BACK 1
+
+/* a data structure that manages run queue state */
+struct rq_master {
+run_Q: list_head, // head of run queue
+           running: *tcb, // actively running tcb
+           preempt_enabled: bool, // whether preemption is enabled
+}
 
 /*
  * global data structure: controls the run queue of runnable tcb's,
  * denotes the tcb that is currently running, and whether preemption is enabled
  */
 static run_queue: rq_master = rq_master {
-    run_Q: LIST_HEAD_INIT!(run_queue.run_Q),
-    running: null,
-    preempt_enabled: false
+run_Q: LIST_HEAD_INIT!(run_queue.run_Q),
+           running: null,
+           preempt_enabled: false
 };
 
 fn preempt_disable() {
@@ -90,7 +114,7 @@ fn cond_preempt_enable(enable: bool) {
  * State is ignored if state == -1 */
 fn scheduler_update(state: i32) {
     /* preemption must be disabled for this section, but we also want to enable
-      * nesting */
+     * nesting */
     let enable = cond_preempt_disable();
 
     /* the head of the run queue, if non-null is to be run next.  a

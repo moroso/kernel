@@ -7,43 +7,4 @@
  * Author: Amanda M. Watson
  */
 
-/* this will be outmoded as soon as the new arch comes in */
-struct gpregs {
-    edi: u32,
-    esi: u32,
-    ebp: u32,
-    esp: u32,
-    ebx: u32,
-    edx: u32,
-    ecx: u32,
-    eax: u32,
-}
 
-struct context {
-    // eflags: *u8, we'll want eflags at some point
-    gpregs: gpregs,
-    stored_ebp: u32,
-    return_addr: u32,
-}
-
-struct tcb {
-    tid: u32,
-    kstack_top: *u8,
-
-    link: list_node, // used for putting on run queue
-    proc_link: list_node,
-    /*** tcb lookup directory ***/
-    dir_link: list_node, // used for putting in tcb directory
-    dir_ref: u32, // number of times the tcb is referenced via the directory
-
-    /* some functions assign a state to let the program know what
-     * the tcb should or shouldn't be doing (for instance, a TCB with state "COND"
-     * should not be getting scheduled
-     */
-    state: u32,
-    /* a pointer to the location on the kstack where the latest context was set
-     * (occurs during context switch)
-     */
-    context: *context,
-    proc: *proc,
-}
