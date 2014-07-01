@@ -1,4 +1,4 @@
-/** mut.mh: contains structures and "implementation" of kernel mutex
+/** mut.mb: contains structures and "implementation" of kernel mutex
   *
   * The mutex isn't actually implemented yet, because the new ISA will require
   * something very different from what we can do in x86; don't fool yourself
