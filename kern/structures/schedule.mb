@@ -21,8 +21,8 @@
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.
  */
-#define FRONT 0
-#define BACK 1
+const FRONT: u32 = 0;
+const BACK: u32 = 1;
 
 /* a data structure that manages run queue state */
 struct rq_master {
