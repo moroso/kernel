@@ -68,21 +68,16 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 
     assert(tcb->kstack_top != null);
 
-    /* Ok, this has some messy math in it, but once we have sizeof, it will be a
-     * little more reasonable */
-
     /* make some room for the new context, the return function and its args */
-    // 0x24 = sizeof(context), 8 = 2*sizeof(u32)
-    tcb->context = (tcb->kstack_top as u32 - 0x24 - len - 8) as *context;
+    tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
 
-    // 4 = sizeof(u32)
-    tcb->context->gpregs.ebp = (&(tcb->context->return_addr) as u32) - 4;
+    tcb->context->gpregs.ebp = (&(tcb->context->return_addr) as u32) -
+        sizeof(u32);
     tcb->context->return_addr = (function as u32);
 
     /* place data onto the stack a place a pointer to data as an argument to
      * function */
-    // 8 = 2 * sizeof(u32)
-    let arg_addr = ((&(tcb->context->return_addr) as u32) + 8) as *u32;
+    let arg_addr = ((&(tcb->context->return_addr) as u32) + 2 * sizeof(u32)) as *u32;
     let data_addr = (arg_addr+1) as *u32;
 
     mos_memcpy(data_addr, data as *u32, len);
