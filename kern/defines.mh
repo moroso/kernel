@@ -11,10 +11,10 @@ const PAGE_SIZE: u32 = 4096;
 #define USER_MEM_START (1024 * 1024 * 1024)
 
 /* describes tcb state */
-#define STATE_RUNNING 0
-#define STATE_DESC 1
-#define STATE_SLEEP 2
-#define STATE_MUTEX 3
-#define STATE_RUNNABLE 4
-#define STATE_NEW 5
-#define STATE_COND 6
+const STATE_RUNNING: u32 = 0;
+const STATE_DESC: u32 = 1;
+const STATE_SLEEP: u32 = 2;
+const STATE_MUTEX: u32 = 3;
+const STATE_RUNNABLE: u32 = 4;
+const STATE_NEW: u32 = 5;
+const STATE_COND: u32 = 6;

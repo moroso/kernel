@@ -14,7 +14,7 @@ fn hello(n: *u8) {
         i+=1;
         if (i == 9000) {
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
-            scheduler_update(STATE_DESC);
+            scheduler_update(STATE_DESC as i32);
         }
 
         printf3_("Thread %u: \"hello!\": %u %u\n",
