@@ -1,8 +1,11 @@
 TABSTOP = 4
 
-%.c: %.mb
+# Wee.
+rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
+
+kern/kernel.c: $(call rwildcard,kern,*.mb)
 # Need to delete the file if it doesn't work
-	$(CPP) -MD -MP -MF $(@:.c=.$(DEP_SUFFIX)) -MT $@ $< | ../compiler/mbc --target c -o $@
+	$(CPP) kern/kernel.mb | ../compiler/mbc --target c -o $@
 
 .SECONDARY: kern/kernel.c
 KERN_GAME_OBJS = kernel.o context/context.o entry/entry_stubs_x86.o entry/entry_x86.o
