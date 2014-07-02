@@ -40,6 +40,12 @@ fn kernel_main() -> u32 {
     let var_array: *u32 = slub_alloc(8);
     var_array[0] = 5;
     var_array[1] = 7;
+
+    /*** Create an initial page directory ***/
+    init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
+    assert(PD_init(init_PD) >= 0);
+    load_PD(init_PD);
+
     /*** Create two threads and schedule them ***/
     let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
     assert(new_tcb != null);
@@ -56,13 +62,8 @@ fn kernel_main() -> u32 {
 
     schedule(new_tcb2, QUEUE_BACK);
 
-    /*** Create an initial page directory and enable paging ***/
-    let PD: *PD_t = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
-    assert(PD_init(PD) >= 0);
-
     entry_setup();
 
-    load_PD(PD);
     enable_paging();
 
     /*** Switch to the first thread in the run queue and jump to its execution ***/

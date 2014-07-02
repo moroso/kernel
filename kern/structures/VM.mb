@@ -5,14 +5,15 @@
  * will.  Pages can be mapped in as a 4KB page table entry (2-level), or a 4MB page directory
  * entry (1-level).  There are plans for a locking scheme, but one does not
  * currently exist.
- * XXX TODO TLB invalidation, freeing pages, single entry for kernel pages
- * across all PDs
- *
+ * XXX TODO TLB invalidation, freeing pages
  * Author: Amanda M. Watson
 */
 
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
+
+/* initial page directory. contains only kernel memory */
+static init_PD: *PD_t = null;
 
 /* used to distinguish between 4KB and 4MB page sizes */
 // size of a kilobyte
@@ -199,19 +200,29 @@ fn PD_init(PD: *PD_t) -> i32 {
     }
     let kernel_addr: *u8 = (PAGE_SIZE as *u8);
     /* leave the 0 page unmapped */
-    while (kernel_addr < USER_MEM_START) {
-        if (get_pd_entry(kernel_addr) == 0) {
-            if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
-                // TODO free prev alloc'd page tables on error
-                return -1;
+    /* if the init PD is not available or this is the init PD, map own copy of
+     * kernel memory*/
+    if (init_PD == null || PD == init_PD) {
+        while (kernel_addr < USER_MEM_START) {
+            if (get_pd_entry(kernel_addr) == 0) {
+                if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
+                    // TODO free prev alloc'd page tables on error
+                    return -1;
+                }
+                kernel_addr+=PAGE_SIZE;
+            } else {
+                if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, MB) < 0) {
+                    // TODO free prev alloc'd page tables on error
+                    return -1;
+                }
+                kernel_addr += (4 * MB);
             }
-            kernel_addr+=PAGE_SIZE;
-        } else {
-            if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, MB) < 0) {
-                // TODO free prev alloc'd page tables on error
-                return -1;
-            }
-            kernel_addr+= (4 * MB);
+        }
+    } else { // otherwise, just copy the page tables from the init_PD
+        while (kernel_addr < USER_MEM_START) {
+            PD->PT_entries[get_pd_entry(kernel_addr)] =
+                init_PD->PT_entries[get_pd_entry(kernel_addr)];
+            kernel_addr += (4 * MB);
         }
     }
     0
