@@ -3,7 +3,7 @@
  * A static region of the address space represents kernel memory, and is
  * direct-mapped into a PD.  The rest is user memory, and is mapped into a PD at
  * will.  Pages can be mapped in as a 4KB page table entry (2-level), or a 4MB page directory
- * entry (1-level).  There are plans for a locking scheme, but one does not
+ * entry (1-level).  There are plans for an elaborate locking scheme, but one does not
  * currently exist.
  * XXX TODO TLB invalidation, freeing pages
  * Author: Amanda M. Watson
@@ -52,6 +52,7 @@ const PAGE_SIZE_BIT: u32 = 1 << 7;
 /* hosts a page directory and its associated locking */
 struct PD_t {
     PT_entries: **u32,
+    ref_entries: **u32,
 }
 
 /*** Simple manipulation functions */
@@ -120,9 +121,35 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
     page_table[pt_entry] as *u8
 }
 
+/* given a logical address in a page directory, returns a pointer to its frame's ref
+ * count */
+fn get_ref_count(log_addr: *u8, PD: *PD_t) -> *u32 {
+    if (PD == null) {
+        PD = get_cr3() as *PD_t;
+    }
+    assert(PD != null);
+
+    let pd_entry: u32 = get_pd_entry(log_addr);
+    let pt_entry: u32 = get_pt_entry(log_addr);
+    let page_table_addr: **u32 = &(PD->ref_entries[pd_entry]);
+    if (*page_table_addr == null) {
+        *page_table_addr = frame_alloc(0) as *u32;
+
+        if (*page_table_addr == null) {
+            return null;
+        }
+        mos_memset((*page_table_addr as *u32), 0, PAGE_SIZE);
+
+    }
+    assert(*page_table_addr != null);
+    &((*page_table_addr)[pt_entry])
+}
+
 /*
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
+ * requires that page being set does not already exist in the directory (so we
+ * don't fuck up ref counts)
  **/
 fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     if (PD == null) {
@@ -134,6 +161,18 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
+    let ref_count: *u32;
+ 
+    /* if we're allocating a user page, create a ref count */
+    if (log_addr >= USER_MEM_START) {
+        // allocate and return ref count (will also return if ref count already exists)
+        ref_count = get_ref_count(log_addr, PD);
+        if (ref_count == null) {
+            return -1;
+        }
+        /* ref should not indicate a frame already exists */
+        assert(*ref_count == 0);
+    }
 
     let page_table_addr: **u32 = &(PD->PT_entries[pd_entry]);
     /* if the page we're allocating is 4KB */
@@ -164,6 +203,14 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
                 PRESENT_BIT  | PAGE_SIZE_BIT) as *u32;
 
     }
+
+    if (log_addr >= USER_MEM_START) {
+        /* we shouldn't have to do this atomically, since any new page should not be
+         * shared by others */
+        atomic_add(ref_count, 1); 
+        assert(*ref_count == 1);
+    }
+
     0
 }
 
@@ -193,7 +240,8 @@ fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  * table allocation step.  Sorry.  */
 fn PD_init(PD: *PD_t) -> i32 {
     assert(PD != null);
-    PD->PT_entries = frame_alloc(0) as **u32; // 4 = sizeof(u32)
+    PD->PT_entries = frame_alloc(0) as **u32; 
+    PD->ref_entries = frame_alloc(0) as **u32;
     let i: u32;
     for (i = 0; i < PTS_PER_DIR; i+=1) {
         PD->PT_entries[i] = null;

@@ -37,14 +37,10 @@ fn kernel_main() -> u32 {
     frame_init();
     slub_init();
 
+    /* TODO there is a bug hereish */
     let var_array: *u32 = slub_alloc(8);
     var_array[0] = 5;
     var_array[1] = 7;
-
-    /*** Create an initial page directory ***/
-    init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
-    assert(PD_init(init_PD) >= 0);
-    load_PD(init_PD);
 
     /*** Create two threads and schedule them ***/
     let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
@@ -54,6 +50,15 @@ fn kernel_main() -> u32 {
     assert(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 
+    /*** Create an initial page directory ***/
+    init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
+    assert(PD_init(init_PD) >= 0);
+    
+    entry_setup();
+
+    load_PD(init_PD);
+    enable_paging();
+
     let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
     assert(new_tcb2 != null);
     let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
@@ -61,11 +66,6 @@ fn kernel_main() -> u32 {
     proc_init(proc2, new_tcb2);
 
     schedule(new_tcb2, QUEUE_BACK);
-
-    entry_setup();
-
-    enable_paging();
-
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};
