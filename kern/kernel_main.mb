@@ -16,9 +16,9 @@ fn hello(n: *u8) {
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
             scheduler_update(STATE_DESC as i32);
         }
-       /* if (USER_MEM_START + (i * PAGE_SIZE) < 0xffffffff) {
+        if (USER_MEM_START + (i * PAGE_SIZE) < 0xffffffff) {
           new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, null, READ_WRITE_BIT, KB);
-        }*/
+        }
         printf3_("Thread %u: \"hello!\": %u %u\n",
                  get_tcb()->tid,
                  (n as *u32)[0],
@@ -47,12 +47,10 @@ fn kernel_main() -> u32 {
     frame_init();
     slub_init();
 
-    /*** Create an initial page directory ***/
+    /*** Create an initial page directory and enable paging ***/
     init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
     assert(PD_init(init_PD) >= 0);
-
     entry_setup();
-
     load_PD(init_PD);
     enable_paging();
 
@@ -62,6 +60,7 @@ fn kernel_main() -> u32 {
     var_array[1] = 7;
 
     /*** Create two threads and schedule them ***/
+    
     let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
     assert(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
@@ -74,8 +73,8 @@ fn kernel_main() -> u32 {
     let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
     assert(proc2 != null);
     proc_init(proc2, new_tcb2);
-
     schedule(new_tcb2, QUEUE_BACK);
+    
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};
