@@ -5,7 +5,7 @@
  * will.  Pages can be mapped in as a 4KB page table entry (2-level), or a 4MB page directory
  * entry (1-level).  There are plans for an elaborate locking scheme, but one does not
  * currently exist.
- * XXX TODO TLB invalidation, freeing pages
+ * XXX TODO TLB invalidation, freeing frames
  * Author: Amanda M. Watson
 */
 
@@ -14,6 +14,8 @@ const PTS_PER_DIR: u32 = 1024;
 
 /* initial page directory. contains only kernel memory */
 static init_PD: *PD_t = null;
+/* contains ref counts for each frame */
+static frame_table: *u32 = null;
 
 /* used to distinguish between 4KB and 4MB page sizes */
 // size of a kilobyte
@@ -52,7 +54,6 @@ const PAGE_SIZE_BIT: u32 = 1 << 7;
 /* hosts a page directory and its associated locking */
 struct PD_t {
     PT_entries: **u32,
-    ref_entries: **u32,
 }
 
 /*** Simple manipulation functions */
@@ -104,9 +105,9 @@ fn load_PD(PD: *PD_t) {
     set_cr3(PD->PT_entries as u32);
 }
 
-/* Given a valid logical address and a page directory, returns the physical
+/* Given a valid logical address and a page directory, returns address of the physical
  * frame that maps to the address in PD. returns null if no frame is found.  */
-fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
+fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
@@ -118,38 +119,37 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> *u8 {
     if (page_table == null) {
         return null;
     }
-    page_table[pt_entry] as *u8
+    &page_table[pt_entry] as **u8
 }
 
-/* given a logical address in a page directory, returns a pointer to its frame's ref
- * count */
-fn get_ref_count(log_addr: *u8, PD: *PD_t) -> *u32 {
-    if (PD == null) {
-        PD = get_cr3() as *PD_t;
+fn free_page(log_addr: *u8, PD: *PD_t) {
+    assert(log_addr >= USER_MEM_START);
+
+    let page_entry: **u8 = log_to_phys(log_addr, PD);
+    if (page_entry == null) {
+        return ();
     }
-    assert(PD != null);
 
-    let pd_entry: u32 = get_pd_entry(log_addr);
-    let pt_entry: u32 = get_pt_entry(log_addr);
-    let page_table_addr: **u32 = &(PD->ref_entries[pd_entry]);
-    if (*page_table_addr == null) {
-        *page_table_addr = frame_alloc(0) as *u32;
-
-        if (*page_table_addr == null) {
-            return null;
-        }
-        mos_memset((*page_table_addr as *u32), 0, PAGE_SIZE);
-
+    /* if we are the only PD holding this page, free it */
+    /* there is a race where we can overcommit by a frame.  We'll see how much I
+     * care  */
+    let ref_count: *u32 = &(frame_table[get_pd_entry(log_addr)]);
+    assert(*ref_count > 0);
+    let old_ref = atomic_add(ref_count, -1);
+    if (old_ref == 1) {
+        // free frame
     }
-    assert(*page_table_addr != null);
-    &((*page_table_addr)[pt_entry])
+
+    *page_entry = null;
+    // TODO invalidate TLB
+
 }
+
 
 /*
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
- * requires that page being set does not already exist in the directory (so we
- * don't fuck up ref counts)
+ * requires that page being set does not already exist in the directory 
  **/
 fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     if (PD == null) {
@@ -161,18 +161,7 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
-    let ref_count: *u32;
- 
-    /* if we're allocating a user page, create a ref count */
-    if (log_addr >= USER_MEM_START) {
-        // allocate and return ref count (will also return if ref count already exists)
-        ref_count = get_ref_count(log_addr, PD);
-        if (ref_count == null) {
-            return -1;
-        }
-        /* ref should not indicate a frame already exists */
-        assert(*ref_count == 0);
-    }
+
 
     let page_table_addr: **u32 = &(PD->PT_entries[pd_entry]);
     /* if the page we're allocating is 4KB */
@@ -191,8 +180,8 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
         let page_table: *u32 = get_aligned_addr(*page_table_addr);
         /* we don't want to overwrite shit */
         assert(page_table[pt_entry] == null);
-        /* set the frame entry and flags */
 
+        /* set the frame entry and flags */
         page_table[pt_entry] = (frame as u32) | flags | PRESENT_BIT;
 
     } else {
@@ -203,12 +192,12 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
                 PRESENT_BIT  | PAGE_SIZE_BIT) as *u32;
 
     }
-
+    /* I think we can confidently place the increment here, trusting that the
+     * frame we've been handed isn't shared with anyone else */
     if (log_addr >= USER_MEM_START) {
-        /* we shouldn't have to do this atomically, since any new page should not be
-         * shared by others */
-        atomic_add(ref_count, 1); 
-        assert(*ref_count == 1);
+        let ref_count: *u32 = &(frame_table[get_pd_entry(log_addr)]);
+        assert(*ref_count == 0);
+        atomic_add(ref_count, 1);
     }
 
     0
@@ -223,7 +212,11 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     if (new_frame == null) {
         return -1;
     }
-    set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size)
+    if (set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size) < 1) {
+        // TODO free newly-allocated frame
+        return -1;
+    }
+    0
 }
 
 /* at some point, have all PDs reference the same set of direct-mapped kernel
@@ -239,9 +232,9 @@ fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  * sort.  Until the compiler allows this, though, our init will have a page
  * table allocation step.  Sorry.  */
 fn PD_init(PD: *PD_t) -> i32 {
+
     assert(PD != null);
     PD->PT_entries = frame_alloc(0) as **u32; 
-    PD->ref_entries = frame_alloc(0) as **u32;
     let i: u32;
     for (i = 0; i < PTS_PER_DIR; i+=1) {
         PD->PT_entries[i] = null;
@@ -254,13 +247,15 @@ fn PD_init(PD: *PD_t) -> i32 {
         while (kernel_addr < USER_MEM_START) {
             if (get_pd_entry(kernel_addr) == 0) {
                 if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
-                    // TODO free prev alloc'd page tables on error
+                    // we don't free on error because we only hit this case in
+                    // the init stage
                     return -1;
                 }
                 kernel_addr+=PAGE_SIZE;
             } else {
                 if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, MB) < 0) {
-                    // TODO free prev alloc'd page tables on error
+                    // we don't free on error because we only hit this case in
+                    // the init stage
                     return -1;
                 }
                 kernel_addr += (4 * MB);

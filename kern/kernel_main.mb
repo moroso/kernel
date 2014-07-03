@@ -16,7 +16,9 @@ fn hello(n: *u8) {
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
             scheduler_update(STATE_DESC as i32);
         }
-
+       /* if (USER_MEM_START + (i * PAGE_SIZE) < 0xffffffff) {
+          new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, null, READ_WRITE_BIT, KB);
+        }*/
         printf3_("Thread %u: \"hello!\": %u %u\n",
                  get_tcb()->tid,
                  (n as *u32)[0],
@@ -33,9 +35,26 @@ fn reply() {
 }
 
 fn kernel_main() -> u32 {
+    /* this is what we do to avoid trying to wrangle the frame
+     * allocator's powers-of-two bullshit */
+    /* TODO get rid of this bullshit */
+    let frame_table_size: u32 = sizeof(u32) * ((USER_MEM_START/PAGE_SIZE) + 1); 
+    let x: *u32 = early_alloc(frame_table_size);
+    frame_table = x;
+    assert(frame_table != null);
+    
     /*** Basic util initialization ***/
     frame_init();
     slub_init();
+
+    /*** Create an initial page directory ***/
+    init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
+    assert(PD_init(init_PD) >= 0);
+
+    entry_setup();
+
+    load_PD(init_PD);
+    enable_paging();
 
     /* TODO there is a bug hereish */
     let var_array: *u32 = slub_alloc(8);
@@ -49,15 +68,6 @@ fn kernel_main() -> u32 {
     proc_init(proc1, new_tcb);
     assert(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
-
-    /*** Create an initial page directory ***/
-    init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
-    assert(PD_init(init_PD) >= 0);
-    
-    entry_setup();
-
-    load_PD(init_PD);
-    enable_paging();
 
     let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
     assert(new_tcb2 != null);
