@@ -133,7 +133,8 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     /* if we are the only PD holding this page, free it */
     /* there is a race where we can overcommit by a frame.  We'll see how much I
      * care  */
-    let ref_count: *u32 = &(frame_table[get_pd_entry(log_addr)]);
+    let frame: *u8 = *page_entry;
+    let ref_count: *u32 = &(frame_table[frame as u32]);
     assert(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
@@ -195,7 +196,7 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
     /* I think we can confidently place the increment here, trusting that the
      * frame we've been handed isn't shared with anyone else */
     if (log_addr >= USER_MEM_START) {
-        let ref_count: *u32 = &(frame_table[get_pd_entry(log_addr)]);
+        let ref_count: *u32 = &(frame_table[frame as u32]);
         assert(*ref_count == 0);
         atomic_add(ref_count, 1);
     }
