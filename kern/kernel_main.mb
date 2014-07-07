@@ -17,8 +17,10 @@ fn hello(n: *u8) {
             scheduler_update(STATE_DESC as i32);
         }
         if (USER_MEM_START + (i * PAGE_SIZE) < 0xffffffff) {
-          new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, null, READ_WRITE_BIT, KB);
+          new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8,
+                  &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
         }
+        //free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, null);
         printf3_("Thread %u: \"hello!\": %u %u\n",
                  get_tcb()->tid,
                  (n as *u32)[0],
