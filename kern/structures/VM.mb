@@ -84,6 +84,10 @@ fn get_aligned_addr(addr: *u32) -> *u32 {
     ((addr as u32)&(PD_MASK | PT_MASK)) as *u32
 }
 
+fn is_addr_aligned(addr: *u8) -> bool {
+    (addr == get_aligned_addr(addr as *u32) as *u8)
+}
+
 
 /*** VM Implementation ***/
 
@@ -108,6 +112,9 @@ fn load_PD(PD: *PD_t) {
 /* Given a valid logical address and a page directory, returns address of the physical
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
+    if (PD == null) {
+        PD = get_cr3() as *PD_t;
+    }
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
@@ -116,14 +123,21 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
         return null;
     }
     let page_table: *u32 = get_aligned_addr(PD->PT_entries[pd_entry]);
+
     if (page_table == null) {
         return null;
     }
-    &page_table[pt_entry] as **u8
+    /* if the entry is a 4MB page, return at the top level */
+    if (has_flags(PD->PT_entries[pd_entry] as *u8, PAGE_SIZE_BIT)) {
+
+        return &(PD->PT_entries[pd_entry]) as **u8;
+    }
+    (&(get_aligned_addr((PD->PT_entries[pd_entry]))[pt_entry] )) as **u8
 }
 
 fn free_page(log_addr: *u8, PD: *PD_t) {
     assert(log_addr >= USER_MEM_START);
+    assert(is_addr_aligned(log_addr));
 
     let page_entry: **u8 = log_to_phys(log_addr, PD);
     if (page_entry == null) {
@@ -134,11 +148,12 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     /* there is a race where we can overcommit by a frame.  We'll see how much I
      * care  */
     let frame: *u8 = *page_entry;
+
     let ref_count: *u32 = &(frame_table[frame as u32]);
     assert(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
-        // free frame
+        //free frame (size-dependent)
     }
 
     *page_entry = null;
@@ -153,8 +168,11 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  * requires that page being set does not already exist in the directory 
  **/
 fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
+    assert(is_addr_aligned(log_addr));
+    // TODO when we have sized arrays, we can make this work
     if (PD == null) {
-        PD = get_cr3() as *PD_t;
+        // PD = get_cr3() as *PD_t;
+        assert(false);
     }
     assert(PD != null);
     assert(frame < USER_MEM_START);
@@ -163,13 +181,12 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
 
-
     let page_table_addr: **u32 = &(PD->PT_entries[pd_entry]);
+
     /* if the page we're allocating is 4KB */
     if (size == KB) {
         if (*page_table_addr == null) {
             *page_table_addr = frame_alloc(0) as *u32;
-
             if (*page_table_addr == null) {
                 return -1;
             }
@@ -192,6 +209,7 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
         *page_table_addr = ((*page_table_addr as u32) | flags |
                 PRESENT_BIT  | PAGE_SIZE_BIT) as *u32;
 
+
     }
     /* I think we can confidently place the increment here, trusting that the
      * frame we've been handed isn't shared with anyone else */
@@ -200,19 +218,19 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
         assert(*ref_count == 0);
         atomic_add(ref_count, 1);
     }
-
+    assert(get_aligned_addr(*(log_to_phys(log_addr, PD) as *u32) as *u32) == frame);
     0
 }
 
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
-    /* TODO let's do some checks to make sure we don't already have a frame
-     * there */
     assert(log_addr >= USER_MEM_START);
+    assert(is_addr_aligned(log_addr));
     let new_frame: *u8 = frame_alloc(0) as *u8;
 
     if (new_frame == null) {
         return -1;
     }
+
     if (set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size) < 1) {
         // TODO free newly-allocated frame
         return -1;
@@ -225,6 +243,7 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  */
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(log_addr < USER_MEM_START);
+    assert(is_addr_aligned(log_addr));
     let success = set_page(log_addr, log_addr, PD, flags, size);
     success
 }
@@ -236,6 +255,7 @@ fn PD_init(PD: *PD_t) -> i32 {
 
     assert(PD != null);
     PD->PT_entries = frame_alloc(0) as **u32; 
+    assert(is_addr_aligned(PD->PT_entries as *u8));
     let i: u32;
     for (i = 0; i < PTS_PER_DIR; i+=1) {
         PD->PT_entries[i] = null;
