@@ -4,10 +4,8 @@
 
 fn atomic_add(num: *u32, inc: i32) -> u32 {
     let enable = cond_preempt_disable();
-    print_uint(*num as u32);
     let num_ret = *num;
     *(num as *i32) += inc;
-    print_uint(*num as u32)
     cond_preempt_enable(enable);
     num_ret
 }

@@ -153,7 +153,6 @@ fn dec_frame_ref(frame: *u8) -> u32 {
     assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
 
     let ref_count: *u32 = &(frame_table[frame_num]);
-    print_uint(*ref_count);
     assert(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
