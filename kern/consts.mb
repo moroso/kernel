@@ -9,6 +9,8 @@ const PAGE_SIZE: u32 = 4096;
 const KERNEL_MEM_START: u32 = 8 * 1024 * 1024;
 /* start of user memory */
 const USER_MEM_START: u32 =1024 * 1024 * 1024;
+const INT_MAX: u32 = 0xffffffff;
+const USER_MEM_END: u32 = INT_MAX;
 const MAX_FRAME_NUM: u32 = ((USER_MEM_START/PAGE_SIZE) + 1);
 
 /* describes tcb state */

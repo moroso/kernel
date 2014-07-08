@@ -9,14 +9,13 @@ extern fn set_cr4(val: u32);
 fn hello(n: *u8) {
     let i: u32 = 0;
 
-    //print_int(repl(get_tcb()->context));
     while(true) {
         i+=1;
         if (i == 9000) {
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
             scheduler_update(STATE_DESC as i32);
         }
-        if (USER_MEM_START + (i * PAGE_SIZE) < 0xffffffff) {
+        if (USER_MEM_START + (i * PAGE_SIZE) < USER_MEM_END) {
           new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8,
                   &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
         }
@@ -30,6 +29,7 @@ fn hello(n: *u8) {
 }
 
 fn reply() {
+    repl(get_tcb()->context);
     while(true) {
         printf1_("Thread %u: \"WHAT?\"\n", get_tcb()->tid);
         scheduler_update(-1);
