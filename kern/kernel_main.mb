@@ -9,7 +9,7 @@ extern fn set_cr4(val: u32);
 fn hello(n: *u8) {
     let i: u32 = 0;
 
-    print_int(repl(get_tcb()->context));
+    //print_int(repl(get_tcb()->context));
     while(true) {
         i+=1;
         if (i == 9000) {
@@ -20,7 +20,7 @@ fn hello(n: *u8) {
           new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8,
                   &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
         }
-        //free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, null);
+        free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
         printf3_("Thread %u: \"hello!\": %u %u\n",
                  get_tcb()->tid,
                  (n as *u32)[0],
@@ -40,7 +40,7 @@ fn kernel_main() -> u32 {
     /* this is what we do to avoid trying to wrangle the frame
      * allocator's powers-of-two bullshit */
     /* TODO get rid of this bullshit */
-    let frame_table_size: u32 = sizeof(u32) * ((USER_MEM_START/PAGE_SIZE) + 1); 
+    let frame_table_size: u32 = sizeof(u32) * MAX_FRAME_NUM; 
     let x: *u32 = early_alloc(frame_table_size);
     frame_table = x;
     assert(frame_table != null);
