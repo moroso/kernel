@@ -49,6 +49,16 @@ fn repl(parent_ucontext: *context) -> i32 {
     }
 
     proc_init(child_proc, child_tcb);
+    // TODO we *can't* fail here, we've already added the child tcb to the
+    // directory. some re-ordering/splitting up will have to be done
+    let page: *u8;
+   /* for (page = USER_MEM_START as *u8; page < INT_MAX as *u8; page+=PAGE_SIZE) {
+        if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
+            // free proc, PD (cleanup)
+            printf0_("error!\n");
+            return -1;
+        }                
+    }*/
 
     /* add new tcb to list of children */
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list)); 

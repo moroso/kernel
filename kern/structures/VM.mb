@@ -188,7 +188,8 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
     assert(old_frame_ref > 0);
 
     let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size); 
-    
+   
+    // No extraneous increments, no sir 
     assert(get_frame_ref(frame) == old_frame_ref + 1);
     // if setting the page failed, return with failure
     if (ret < 0) {
