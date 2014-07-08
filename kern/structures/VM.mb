@@ -88,7 +88,6 @@ fn is_addr_aligned(addr: *u8) -> bool {
     (addr == get_aligned_addr(addr as *u32) as *u8)
 }
 
-
 /*** VM Implementation ***/
 
 /* Used in the main kernel function to turn on paging once a page directory is
@@ -113,7 +112,8 @@ fn load_PD(PD: *PD_t) {
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     if (PD == null) {
-        PD = get_cr3() as *PD_t;
+        //PD = get_cr3() as *PD_t;
+        return null;
     }
 
     let pd_entry: u32 = get_pd_entry(log_addr);
@@ -135,6 +135,19 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     (&(get_aligned_addr((PD->PT_entries[pd_entry]))[pt_entry] )) as **u8
 }
 
+fn set_flags(log_addr: *u8, PD: *PD_t, flags: u32) {
+    let frame_addr = log_to_phys(log_addr, PD);
+    let frame_no_flags = ((*frame_addr as u32) & (~FLAG_MASK)); // clear out flag bits
+    frame_no_flags|=flags;
+    *frame_addr = frame_no_flags as *u8;
+}
+
+fn get_frame_ref(frame: *u8) -> u32 {
+    let frame_num: u32 = (frame as u32)/PAGE_SIZE;
+    assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
+    (frame_table[frame_num])
+}
+
 fn dec_frame_ref(frame: *u8) -> u32 {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
     assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
@@ -153,9 +166,39 @@ fn inc_frame_ref(frame: *u8) {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
     assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
     let ref_count: *u32 = &(frame_table[frame_num]);
-    assert((*ref_count) == 0);
     atomic_add(ref_count, 1);
-    assert(*ref_count == 1);
+    assert(*ref_count > 0);
+}
+
+// we assume VM locking has been taken care of
+fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
+
+    assert(log_addr >= USER_MEM_START);
+
+    let frame: *u8 = *log_to_phys(log_addr, PD_source);
+    if (frame == null) {
+        return 0;
+    }
+
+    let size: u32 = KB;
+    if (has_flags(frame, PAGE_SIZE_BIT) == 1) {
+        size = MB;
+    }    
+    let old_frame_ref =  get_frame_ref(frame);
+    assert(old_frame_ref > 0);
+
+    let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size); 
+    
+    assert(get_frame_ref(frame) == old_frame_ref + 1);
+    // if setting the page failed, return with failure
+    if (ret < 0) {
+        return ret;
+    }
+    // both frames are set to read-only
+    set_flags(log_addr, PD_source, PRESENT_BIT | USER_SUPER_BIT); 
+    set_flags(log_addr, PD_dest, PRESENT_BIT | USER_SUPER_BIT); 
+
+    0
 }
 
 fn free_page(log_addr: *u8, PD: *PD_t) {
@@ -177,13 +220,12 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
 
 }
 
-
 /*
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
  * requires that page being set does not already exist in the directory 
  **/
-fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
+fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(is_addr_aligned(log_addr));
     // TODO when we have sized arrays, we can make this work
     if (PD == null) {
@@ -229,7 +271,6 @@ fn set_page (frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32
     /* I think we can confidently place the increment here, trusting that the
      * frame we've been handed isn't shared with anyone else */
     if (log_addr >= USER_MEM_START) {
-
         inc_frame_ref(frame);
     }
     assert(get_aligned_addr(*(log_to_phys(log_addr, PD) as *u32) as *u32) == frame);
