@@ -49,6 +49,8 @@ const USER_SUPER_BIT: u32 = 1 << 2;
 const GLOBAL_BIT: u32 = 1 << 8;
 /* when set, indicates that page table is in fact a 4MB page */
 const PAGE_SIZE_BIT: u32 = 1 << 7;
+// denotes whether a page is read-only because it's COW
+const COW_BIT: u32 = 1 << 9;
 
 
 /* hosts a page directory and its associated locking */
@@ -173,7 +175,10 @@ fn inc_frame_ref(frame: *u8) {
 // we assume VM locking has been taken care of
 fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 
-    assert(log_addr >= USER_MEM_START);
+    if (!(log_addr >= USER_MEM_START)) {
+        printf1_("%x\n", log_addr as u32);
+        assert(false);
+    }
 
     let frame_addr: **u8 = log_to_phys(log_addr, PD_source);
     
@@ -203,8 +208,8 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
         return ret;
     }
     // both frames are set to read-only
-    set_flags(log_addr, PD_source, PRESENT_BIT | USER_SUPER_BIT); 
-    set_flags(log_addr, PD_dest, PRESENT_BIT | USER_SUPER_BIT); 
+    set_flags(log_addr, PD_source, PRESENT_BIT | USER_SUPER_BIT | COW_BIT); 
+    set_flags(log_addr, PD_dest, PRESENT_BIT | USER_SUPER_BIT | COW_BIT); 
 
     0
 }
