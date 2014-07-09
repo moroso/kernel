@@ -118,7 +118,6 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
-
     if (PD->PT_entries == null) {
         return null;
     }
@@ -127,11 +126,13 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     if (page_table == null) {
         return null;
     }
+
     /* if the entry is a 4MB page, return at the top level */
     if (has_flags(PD->PT_entries[pd_entry] as *u8, PAGE_SIZE_BIT)) {
 
         return &(PD->PT_entries[pd_entry]) as **u8;
     }
+
     (&(get_aligned_addr((PD->PT_entries[pd_entry]))[pt_entry] )) as **u8
 }
 
@@ -156,7 +157,7 @@ fn dec_frame_ref(frame: *u8) -> u32 {
     assert(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
-        //free frame (size-dependent)
+        // add frame to free list (size-dependent)
     }
     old_ref
 }
@@ -174,10 +175,17 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 
     assert(log_addr >= USER_MEM_START);
 
-    let frame: *u8 = *log_to_phys(log_addr, PD_source);
+    let frame_addr: **u8 = log_to_phys(log_addr, PD_source);
+    
+    if (frame_addr == null) {
+        return 0;
+    }
+
+    let frame = *frame_addr;
     if (frame == null) {
         return 0;
     }
+    printf1_("Frame %x\n", frame as u32);
 
     let size: u32 = KB;
     if (has_flags(frame, PAGE_SIZE_BIT) == 1) {
@@ -187,7 +195,7 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
     assert(old_frame_ref > 0);
 
     let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size); 
-   
+
     // No extraneous increments, no sir 
     assert(get_frame_ref(frame) == old_frame_ref + 1);
     // if setting the page failed, return with failure

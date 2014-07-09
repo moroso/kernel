@@ -36,7 +36,9 @@ fn entry_setup() {
 }
 
 
+const PAGE_FAULT: u32 = 14;
 
 fn kernel_entry(regs: *regs) {
     printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
+    assert(false);
 }

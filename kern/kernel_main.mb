@@ -11,25 +11,25 @@ fn hello(n: *u8) {
 
     while(true) {
         i+=1;
-        if (i == 9000) {
+        if (i == 900) {
+            repl(get_tcb()->context);
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
             scheduler_update(STATE_DESC as i32);
         }
         if (USER_MEM_START + (i * PAGE_SIZE) < USER_MEM_END) {
-          new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8,
-                  &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
+            new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8,
+                    &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
         }
-        free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
+        //free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
         printf3_("Thread %u: \"hello!\": %u %u\n",
-                 get_tcb()->tid,
-                 (n as *u32)[0],
-                 (n as *u32)[1]);
+                get_tcb()->tid,
+                (n as *u32)[0],
+                (n as *u32)[1]);
         scheduler_update(-1);
     };
 }
 
 fn reply() {
-    repl(get_tcb()->context);
     while(true) {
         printf1_("Thread %u: \"WHAT?\"\n", get_tcb()->tid);
         scheduler_update(-1);
@@ -44,7 +44,7 @@ fn kernel_main() -> u32 {
     let x: *u32 = early_alloc(frame_table_size);
     frame_table = x;
     assert(frame_table != null);
-    
+
     /*** Basic util initialization ***/
     frame_init();
     slub_init();
@@ -62,7 +62,7 @@ fn kernel_main() -> u32 {
     var_array[1] = 7;
 
     /*** Create two threads and schedule them ***/
-    
+
     let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
     assert(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
@@ -76,7 +76,7 @@ fn kernel_main() -> u32 {
     assert(proc2 != null);
     proc_init(proc2, new_tcb2);
     schedule(new_tcb2, QUEUE_BACK);
-    
+
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};
