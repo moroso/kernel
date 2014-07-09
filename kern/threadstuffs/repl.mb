@@ -52,7 +52,8 @@ fn repl(parent_ucontext: *context) -> i32 {
     // TODO we *can't* fail here, we've already added the child tcb to the
     // directory. some re-ordering/splitting up will have to be done
     let page: *u8;
-    for (page = USER_MEM_START as *u8; page < INT_MAX as *u8; page+=PAGE_SIZE) {
+    // copy over references to new PD
+    for (page = USER_MEM_START as *u8; page <= (INT_MAX - PAGE_SIZE) as *u8; page += PAGE_SIZE) {
         if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
             // free proc, PD (cleanup)
             return -1;
