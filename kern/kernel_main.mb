@@ -46,7 +46,6 @@ fn kernel_main() -> u32 {
     let x: *u32 = early_alloc(frame_table_size);
     frame_table = x;
     assert(frame_table != null);
-
     /*** Basic util initialization ***/
     frame_init();
     slub_init();

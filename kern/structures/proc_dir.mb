@@ -1,0 +1,56 @@
+/** proc_dir.mb 
+ * I'm sorry. I realize now that I'm probably going to hell for this, but I
+ * have trouble making existing code work with templates.  A refactor is almost
+ * certainly necessary, but for now, let's all hop onboard the redundancy train! 
+ * 
+ * Author: Amanda M. Watson
+*/
+
+static proc_dir: ref_dir_t = ref_dir_t {
+    dir_head: LIST_HEAD_INIT!(proc_dir.dir_head),
+    dir_lock: KRW_INIT!(proc_dir.dir_lock),
+};
+
+fn proc_dir_add(proc_new: *proc) {
+    krw_write_lock(&(proc_dir.dir_lock));
+    list_insert_head(&(proc_new->dir_link), &(proc_dir.dir_head));
+    krw_write_unlock(&(proc_dir.dir_lock));
+}
+
+fn proc_dir_remove(proc_old: *proc) {
+    krw_write_lock(&(proc_dir.dir_lock));
+    list_del(&(proc_old->dir_link));
+    krw_write_unlock(&(proc_dir.dir_lock));
+}
+
+/*** these ref count functions would be in the proc file if inclusion was sane ***/
+fn increase_proc_ref(proc: *proc) {
+    atomic_add(&(proc->dir_ref), 1);
+}
+
+fn decrease_proc_ref(proc: *proc) {
+    let ref_old = atomic_add(&(proc->dir_ref), -1);
+    if (ref_old == 1) {
+        frame_free(proc as *u8, 0);
+    }
+}
+
+fn proc_lookup(pid: u32) -> *proc {
+    let proc_node: *proc;
+    krw_read_lock(&(proc_dir.dir_lock));
+    list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, { 
+        }
+    } );    
+    increase_proc_ref(proc_node);
+    krw_read_unlock(&(proc_dir.dir_lock));
+
+    proc_node
+}
+
+fn proc_end_lookup(proc_read: *proc) {
+    krw_read_lock(&(proc_dir.dir_lock));
+    decrease_proc_ref(proc_read);
+    krw_read_unlock(&(proc_dir.dir_lock));
+}
+
+

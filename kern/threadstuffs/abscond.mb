@@ -1,0 +1,17 @@
+/* abscond.mb: kernel-side implementation for the abscond function 
+ *
+ * Author: Amanda M. Watson
+*/
+
+
+
+fn abscond()  {
+    
+   // remove from directory
+  // if there are no children, free self
+  
+
+
+
+
+}
