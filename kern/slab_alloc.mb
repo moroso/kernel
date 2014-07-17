@@ -101,25 +101,25 @@ fn cache_remove (cache: *cache_descriptor) -> *u32 {
 
   let element: *u32 = cache->slab;
   if (element != null) {
-    cache->slab = *element as *u32;
+      cache->slab = *element as *u32;
   }
   element
 }
 
 /* add element back into cache */
 fn cache_add (element: *u32, cache: *cache_descriptor) {
-  /* TODO check memory bounds */
-  *element = cache->slab as u32;
-  cache->slab = element;
+    /* TODO check memory bounds */
+    *element = cache->slab as u32;
+    cache->slab = element;
 }
 
 fn slub_init() {
-  caches = frame_alloc((POWER_MAX - POWER_MIN)) as *cache_descriptor;
-  let i: u32;
-  for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
-    let cache = &caches[i - POWER_MIN];
-    cache_create(1 << i, cache);
-  }
+    caches = frame_alloc((POWER_MAX - POWER_MIN)) as *cache_descriptor;
+    let i: u32;
+    for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
+        let cache = &caches[i - POWER_MIN];
+        cache_create(1 << i, cache);
+    }
 }
 
 /* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
@@ -127,17 +127,16 @@ fn slub_init() {
 fn slub_alloc(size: u32) -> *u32 {
     let cache_num: i32 = find_cache(size);
     if (cache_num == -1) {
-      return null;
+        return null;
     }
     // TODO check bounds
-    let cache: cache_descriptor = caches[cache_num as u32];
-    cache_remove(&cache)
+    cache_remove(&(caches[cache_num as u32]))
 }
 
 fn slub_free(element: *u32, size: u32) {
     let cache_num: i32 = find_cache(size);
     if (cache_num == -1) {
-      return ();
+        return ();
     }
     cache_add(element, &(caches[cache_num as u32]))
 }

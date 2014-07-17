@@ -113,14 +113,19 @@ fn load_PD(PD: *PD_t) {
 /* Given a valid logical address and a page directory, returns address of the physical
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
+    assert(is_addr_aligned(log_addr));
     if (PD == null) {
         //PD = get_cr3() as *PD_t;
+        printf0_("PD null\n");
+
         return null;
     }
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
     if (PD->PT_entries == null) {
+        printf0_("entries null\n");
+
         return null;
     }
     let page_table: *u32 = get_aligned_addr(PD->PT_entries[pd_entry]);
@@ -176,22 +181,18 @@ fn inc_frame_ref(frame: *u8) {
 fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 
     if (!(log_addr >= USER_MEM_START)) {
-        printf1_("%x\n", log_addr as u32);
+        printf1_("INCORRECT ADDR %x\n", log_addr as u32);
         assert(false);
     }
 
     let frame_addr: **u8 = log_to_phys(log_addr, PD_source);
-    
     if (frame_addr == null) {
         return 0;
     }
-
     let frame = *frame_addr;
     if (frame == null) {
         return 0;
     }
-    printf1_("Frame %x\n", frame as u32);
-
     let size: u32 = KB;
     if (has_flags(frame, PAGE_SIZE_BIT) == 1) {
         size = MB;
@@ -242,6 +243,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
     assert(is_addr_aligned(log_addr));
     // TODO when we have sized arrays, we can make this work
     if (PD == null) {
+        printf0_("PD null\n");
         // PD = get_cr3() as *PD_t;
         assert(false);
     }
@@ -286,7 +288,13 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
     if (log_addr >= USER_MEM_START) {
         inc_frame_ref(frame);
     }
-    assert(get_aligned_addr(*(log_to_phys(log_addr, PD) as *u32) as *u32) == frame);
+    if (get_aligned_addr((*(log_to_phys(log_addr, PD) as *u32)) as *u32) !=
+            get_aligned_addr(frame as *u32) as *u32)
+    {
+        printf2_("%x %x\n", *(log_to_phys(log_addr, PD) as *u32) as u32, frame as
+                u32);
+        //  assert(false);
+    }
     0
 }
 

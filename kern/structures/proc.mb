@@ -19,3 +19,15 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) {
     assert(new_tcb->proc == null);
     new_tcb->proc = new_proc;
 }
+
+fn proc_init2(new_proc: *proc, new_tcb: *tcb) {
+    
+    assert(new_tcb->state == STATE_NEW);
+    list_init_head(&(new_proc->peer_tcb_list));
+    list_init_head(&(new_proc->child_proc_list));
+    PD_init(&(new_proc->PD));
+    new_proc->pid = new_tcb->tid;
+    list_insert_head(&new_tcb->proc_link, &(new_proc->peer_tcb_list));
+    assert(new_tcb->proc == null);
+    new_tcb->proc = new_proc;
+}
