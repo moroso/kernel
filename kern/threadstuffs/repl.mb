@@ -9,11 +9,12 @@ fn child_repl(parent_ucontext: *context) {
    // stick context somewhere
    // add to directory
    // return 0
-   while(true) {
+   while (true) {
        printf1_("child %u\n", get_tcb()->tid);
+
+       printf1_("%d\n", *((USER_MEM_START + 4096) as *u32)); 
        scheduler_update(-1);
    }
-
    // on success, child returns 0
    // the parent doesn't do this, but it manually pops
    // its args, or something. I have not yet thought this through
@@ -22,21 +23,21 @@ fn child_repl(parent_ucontext: *context) {
 }
 
 fn thr_repl(parent_ucontext: *context) -> *tcb {
-  // 0x24 = sizeof(context)
-  let child_tcb = thr_create(((&child_repl) as *u8), (parent_ucontext as *u8), 0x24);
-  child_tcb
+    // 0x24 = sizeof(context)
+    let child_tcb = thr_create(((&child_repl) as *u8), (parent_ucontext as *u8), 0x24);
+    child_tcb
 }
 
 // currently assumes processes only have one thread 
 fn repl(parent_ucontext: *context) -> i32 {
-    
+
     let parent_proc = get_tcb()->proc;
     /* if we don't have only on thread in parent process, return with error */
-    
+
     if (list_is_singleton(&(parent_proc->peer_tcb_list)) == 0) {
         return -1;
     }
-   
+
     let child_proc: *proc = slub_alloc(sizeof(proc)) as *proc;
 
 
@@ -50,7 +51,7 @@ fn repl(parent_ucontext: *context) -> i32 {
         return -1;
     }
 
-    proc_init2(child_proc, child_tcb);
+    proc_init(child_proc, child_tcb);
     // TODO we *can't* fail here, we've already added the child tcb to the
     // directory. some re-ordering/splitting up will have to be done
     let page: *u8;

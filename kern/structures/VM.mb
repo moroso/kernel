@@ -100,8 +100,9 @@ fn enable_paging() {
     set_cr4(cr4 | (1 << 4));
 
     // set the paging bit in cr0 to enable paging
+    // set write protect bit so we fault on read-only pages in the kernel
     let cr0: u32 = get_cr0();
-    cr0|= (1 << 31);
+    cr0|= ((1 << 31) | (1 << 16));
     set_cr0(cr0);
 }
 

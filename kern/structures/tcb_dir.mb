@@ -1,9 +1,10 @@
 
-struct tcb_dir_t {
+struct ref_dir_t {
     dir_head: list_head,
     dir_lock: krw,
 }
-static tcb_dir: tcb_dir_t = tcb_dir_t {
+
+static tcb_dir: ref_dir_t = ref_dir_t {
     dir_head: LIST_HEAD_INIT!(tcb_dir.dir_head),
     dir_lock: KRW_INIT!(tcb_dir.dir_lock),
 };
