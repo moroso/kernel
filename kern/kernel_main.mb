@@ -12,14 +12,16 @@ fn hello(n: *u8) {
     while(true) {
         i+=1;
         if (i == 900) {
-            repl(get_tcb()->context);
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
+            repl(get_tcb()->context);
             scheduler_update(STATE_DESC as i32);
         }
+        let new_frame: *u8 = (USER_MEM_START  + (i * PAGE_SIZE)) as *u8;
         if (USER_MEM_START + (i * PAGE_SIZE) < USER_MEM_END) {
-            new_user_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8,
+            new_user_page(new_frame,
                     &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
         }
+        *(new_frame as *u32) = i;
         //free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
         printf3_("Thread %u: \"hello!\": %u %u\n",
                 get_tcb()->tid,
@@ -58,6 +60,7 @@ fn kernel_main() -> u32 {
 
     /* TODO there is a bug hereish */
     let var_array: *u32 = slub_alloc(8);
+    printf1_("%x\n", var_array as u32);
     var_array[0] = 5;
     var_array[1] = 7;
 
