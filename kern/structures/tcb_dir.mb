@@ -11,6 +11,7 @@ static tcb_dir: ref_dir_t = ref_dir_t {
 
 fn tcb_dir_add(tcb_new: *tcb) {
     krw_write_lock(&(tcb_dir.dir_lock));
+    increase_ref(tcb);
     list_insert_head(&(tcb_new->dir_link), &(tcb_dir.dir_head));
     krw_write_unlock(&(tcb_dir.dir_lock));
 }
@@ -18,6 +19,7 @@ fn tcb_dir_add(tcb_new: *tcb) {
 fn tcb_dir_remove(tcb_old: *tcb) {
     krw_write_lock(&(tcb_dir.dir_lock));
     list_del(&(tcb_old->dir_link));
+    decrease_ref(old_tcb); 
     krw_write_unlock(&(tcb_dir.dir_lock));
 }
 
