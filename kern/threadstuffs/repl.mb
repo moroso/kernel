@@ -11,8 +11,7 @@ fn child_repl(parent_ucontext: *context) {
    // return 0
    while (true) {
        printf1_("child %u\n", get_tcb()->tid);
-
-       printf1_("%d\n", *((USER_MEM_START + 4096) as *u32)); 
+       abscond(); 
        scheduler_update(-1);
    }
    // on success, child returns 0

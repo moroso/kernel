@@ -2,6 +2,7 @@
 struct proc {
     PD: PD_t,
     pid: u32,
+    parent_pid: u32,
     peer_tcb_list: list_head,
     child_proc_list: list_head,
     dir_link: list_node, 
@@ -19,6 +20,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) {
     list_insert_head(&new_tcb->proc_link, &(new_proc->peer_tcb_list));
     assert(new_tcb->proc == null);
     new_tcb->proc = new_proc;
+    proc_dir_add(new_proc);
 }
 
 

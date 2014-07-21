@@ -3,15 +3,38 @@
  * Author: Amanda M. Watson
 */
 
-
+static dead_tcb: *tcb = null;
+static abscond_lock: kmut = KMUT_INIT!(abscond_lock);
 
 fn abscond()  {
+
+    let tcb: *tcb = get_tcb();
+    assert(tcb != null);
+    tcb_dir_remove(tcb); 
+    // if we still have a parent
     
-   // remove from directory
-  // if there are no children, free self
-  
+    // if we are the only thread in the process, free our pcb
+    if (list_is_singleton(&(tcb->proc->peer_tcb_list)) != 0) {
+        let parent_proc: *proc = proc_lookup(tcb->proc->parent_pid);
+        
+        // TODO destroy page directory
+        load_PD(init_PD);
+        proc_dir_remove(tcb->proc);
+        decrease_proc_ref(tcb->proc);
+        tcb->proc = null;
 
+        if (parent_proc != null) {
+            // give exit status to parent
+            proc_end_lookup(parent_proc);
+        }
+    }
 
-
-
+    kmut_lock(&abscond_lock);
+    if (dead_tcb != null) {
+        frame_free(dead_tcb as *u8, 0); 
+    } 
+    preempt_disable();
+    dead_tcb = tcb;
+    kmut_unlock(&abscond_lock);
+    scheduler_update(STATE_DEAD);
 }

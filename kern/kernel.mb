@@ -20,8 +20,9 @@
 #include "threadstuffs/repl.mb"
 #include "structures/tcb_dir.mb"
 #include "structures/proc.mb"
-#include "structures/pcb_dir.mb"
+#include "structures/proc_dir.mb"
 #include "entry/entry.mb"
+#include "threadstuffs/abscond.mb"
 
 
 #include "kernel_main.mb"
