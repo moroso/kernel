@@ -143,6 +143,9 @@ fn scheduler_update(state: i32) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
         }
+        if (old_running->state == STATE_DEAD) {
+            printf1_("thread %d has perished\n", old_running->tid);
+        }
     }
 
     assert(new_running != null);
