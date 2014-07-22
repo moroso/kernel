@@ -21,7 +21,7 @@ fn proc_dir_add(proc_new: *proc) {
 fn proc_dir_remove(proc_old: *proc) {
     krw_write_lock(&(proc_dir.dir_lock));
     list_del(&(proc_old->dir_link));
-    decrease_proc_ref(proc_old);
+    //decrease_proc_ref(proc_old);
     krw_write_unlock(&(proc_dir.dir_lock));
 }
 
@@ -33,18 +33,19 @@ fn increase_proc_ref(proc: *proc) {
 fn decrease_proc_ref(proc: *proc) {
     let ref_old = atomic_add(&(proc->dir_ref), -1);
     if (ref_old == 1) {
-        frame_free(proc as *u8, 0);
+        slub_free(proc as *u32, sizeof(proc));
     }
 }
 
 fn proc_lookup(pid: u32) -> *proc {
-    let proc_node: *proc;
+    let proc_node: *proc = null;
     krw_read_lock(&(proc_dir.dir_lock));
     list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, { 
-    if (proc_node->pid == pid) {
-        break;
-            }
-    } );    
+        printf1_("%d->\n", proc_node->pid);
+        if (proc_node->pid == pid) {
+            break;
+        }
+    } );   
     increase_proc_ref(proc_node);
     krw_read_unlock(&(proc_dir.dir_lock));
 

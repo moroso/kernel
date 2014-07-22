@@ -332,9 +332,13 @@ fn PD_init(PD: *PD_t) -> i32 {
 
     assert(PD != null);
     PD->PT_entries = frame_alloc(0) as **u32; 
+    if (PD->PT_entries == null) {
+        return -1;
+    }
     assert(is_addr_aligned(PD->PT_entries as *u8));
     let i: u32;
     for (i = 0; i < PTS_PER_DIR; i+=1) {
+        assert(PD->PT_entries != null);
         PD->PT_entries[i] = null;
     }
     let kernel_addr: *u8 = (PAGE_SIZE as *u8);
