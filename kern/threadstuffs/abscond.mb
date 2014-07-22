@@ -19,20 +19,32 @@ fn abscond()  {
         
         // TODO destroy page directory
         load_PD(init_PD);
+        let exit_status: *exit_status_t = tcb->proc->exit_status;
         proc_dir_remove(tcb->proc);
         decrease_proc_ref(tcb->proc);
         tcb->proc = null;
 
         if (parent_proc != null) {
-            // give exit status to parent
+            kmut_lock(&(parent_proc->exit_status_mut));
+            // add exit status to parent
+            list_insert_head(&(exit_status->link), &(parent_proc->exit_status_list));
+            kmut_unlock(&(parent_proc->exit_status_mut));
+            // wake up parent
+            kcond_signal(&(parent_proc->proc_cond));
+
             proc_end_lookup(parent_proc);
+        } else {
+           // free exit status.  init doesn't get it 
+           slub_free(exit_status as *u32, sizeof(exit_status_t));
         }
     }
 
     kmut_lock(&abscond_lock);
+
     if (dead_tcb != null) {
         frame_free(dead_tcb as *u8, 0); 
     } 
+
     preempt_disable();
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);

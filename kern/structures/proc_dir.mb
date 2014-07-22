@@ -41,7 +41,6 @@ fn proc_lookup(pid: u32) -> *proc {
     let proc_node: *proc = null;
     krw_read_lock(&(proc_dir.dir_lock));
     list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, { 
-        printf1_("%d->\n", proc_node->pid);
         if (proc_node->pid == pid) {
             break;
         }
