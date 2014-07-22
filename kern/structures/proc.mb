@@ -8,15 +8,19 @@ struct exit_status_t {
 struct proc {
     PD: PD_t,
     pid: u32,
-    parent_pid: u32,
-    peer_tcb_list: list_head,
-    child_proc_list: list_head,
+    parent_pid: i32,
+
+    peer_tcb_list: list_head, // tcbs in a proc
+    child_proc_list: list_head, // children of proc 
+    
     dir_link: list_node, 
     dir_ref: u32,
     child_link: list_node,
+
     exit_status: *exit_status_t,
     exit_status_list: list_head,
-    exit_status_mut: kmut,
+    child_mut: kmut,
+
     proc_cond: kcond,
 }
 
@@ -28,7 +32,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     list_init_head(&(new_proc->child_proc_list));
    
     kcond_init(&(new_proc->proc_cond)); 
-    kmut_init(&(new_proc->exit_status_mut));
+    kmut_init(&(new_proc->child_mut));
 
     new_proc->exit_status = slub_alloc(sizeof(exit_status_t)) as *exit_status_t;
     if (new_proc->exit_status == null) {
@@ -43,8 +47,10 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     new_proc->pid = new_proc->exit_status->tid = new_tcb->tid;
     list_insert_head(&new_tcb->proc_link, &(new_proc->peer_tcb_list));
     list_init_node(&(new_proc->dir_link));
+    list_init_node(&(new_proc->child_link));
     assert(new_tcb->proc == null);
     new_tcb->proc = new_proc;
+    new_proc->parent_pid = -1;
     proc_dir_add(new_proc);
     0
 }

@@ -125,3 +125,8 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
     tcb_dir_add(tcb);
     tcb
 }
+
+fn set_exit_status(proc: *proc, exit_status: u32) {
+    assert(proc != null);
+    proc->exit_status->status = exit_status;
+}
