@@ -23,6 +23,6 @@
 #include "structures/proc_dir.mb"
 #include "entry/entry.mb"
 #include "threadstuffs/abscond.mb"
-
+#include "threadstuffs/bide.mb"
 
 #include "kernel_main.mb"

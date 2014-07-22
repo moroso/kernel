@@ -9,36 +9,42 @@ static abscond_lock: kmut = KMUT_INIT!(abscond_lock);
 fn abscond()  {
 
     let tcb: *tcb = get_tcb();
+    let proc: *proc = tcb->proc;
+    
     assert(tcb != null);
     tcb_dir_remove(tcb); 
     // if we still have a parent
     
     // if we are the only thread in the process, free our pcb
-    if (list_is_singleton(&(tcb->proc->peer_tcb_list)) != 0) {
-        let parent_proc: *proc = proc_lookup(tcb->proc->parent_pid);
+    if (list_is_singleton(&(proc->peer_tcb_list)) != 0) {
         
+        set_exit_status(proc, -1);
+        let parent_proc: *proc = proc_lookup(proc->parent_pid);
+
         // TODO destroy page directory
         load_PD(init_PD);
-        let exit_status: *exit_status_t = tcb->proc->exit_status;
-        proc_dir_remove(tcb->proc);
-        decrease_proc_ref(tcb->proc);
-        tcb->proc = null;
+        proc_dir_remove(proc); 
 
         if (parent_proc != null) {
-            kmut_lock(&(parent_proc->exit_status_mut));
+            kmut_lock(&(parent_proc->child_mut));
+            // remove child from list
+            list_del(&(proc->child_link));
             // add exit status to parent
-            list_insert_head(&(exit_status->link), &(parent_proc->exit_status_list));
-            kmut_unlock(&(parent_proc->exit_status_mut));
+            list_insert_head(&(proc->exit_status->link), &(parent_proc->exit_status_list));
+            kmut_unlock(&(parent_proc->child_mut));
             // wake up parent
             kcond_signal(&(parent_proc->proc_cond));
 
             proc_end_lookup(parent_proc);
         } else {
-           // free exit status.  init doesn't get it 
-           slub_free(exit_status as *u32, sizeof(exit_status_t));
+            // free exit status.  init doesn't get it 
+            slub_free(proc->exit_status as *u32, sizeof(exit_status_t));
         }
     }
-
+    
+    decrease_proc_ref(proc);
+    proc = null;
+    
     kmut_lock(&abscond_lock);
 
     if (dead_tcb != null) {
@@ -49,4 +55,5 @@ fn abscond()  {
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
     scheduler_update(STATE_DEAD);
+    assert(false); // noreturn
 }

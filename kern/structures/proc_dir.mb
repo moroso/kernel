@@ -37,7 +37,10 @@ fn decrease_proc_ref(proc: *proc) {
     }
 }
 
-fn proc_lookup(pid: u32) -> *proc {
+fn proc_lookup(pid: i32) -> *proc {
+    if (pid < 0) {
+        return null;
+    }
     let proc_node: *proc = null;
     krw_read_lock(&(proc_dir.dir_lock));
     list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, { 
