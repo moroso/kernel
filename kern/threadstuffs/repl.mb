@@ -49,7 +49,10 @@ fn repl(parent_ucontext: *context) -> i32 {
         return -1;
     }
 
-    proc_init(child_proc, child_tcb);
+    if (proc_init(child_proc, child_tcb) == -1) {
+        slub_free(child_proc as *u32, sizeof(proc));
+        return -1;
+    }
     // TODO we *can't* fail here, we've already added the child tcb to the
     // directory. some re-ordering/splitting up will have to be done
     let page: *u8;
