@@ -15,6 +15,8 @@ fn hello(n: *u8) {
             printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
 
             repl(get_tcb()->context);
+            let status: u32;
+            bide(&status);
             abscond();
         }
 

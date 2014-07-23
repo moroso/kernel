@@ -9,10 +9,14 @@ fn child_repl(parent_ucontext: *context) {
    // stick context somewhere
    // add to directory
    // return 0
-   while (true) {
+   let i: u32;
+   while (i < 2000) {
        printf1_("child %u\n", get_tcb()->tid);
+        i+=1;
        scheduler_update(-1);
    }
+    printf1_("child %d absconding\n", get_tcb()->tid);
+    abscond();
    // on success, child returns 0
    // the parent doesn't do this, but it manually pops
    // its args, or something. I have not yet thought this through
@@ -53,6 +57,7 @@ fn repl(parent_ucontext: *context) -> i32 {
         slub_free(child_proc as *u32, sizeof(proc));
         return -1;
     }
+    child_proc->parent_pid = parent_proc->pid as i32;
     // TODO we *can't* fail here, we've already added the child tcb to the
     // directory. some re-ordering/splitting up will have to be done
     let page: *u8;
@@ -66,9 +71,12 @@ fn repl(parent_ucontext: *context) -> i32 {
         }                
     }
 
-
     /* add new tcb to list of children */
+    kmut_lock(&(parent_proc->child_mut));
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list)); 
+    parent_proc->child_count+=1;
+    kmut_unlock(&(parent_proc->child_mut));
+
     schedule(child_tcb, QUEUE_BACK);
     child_tcb->tid as i32
 }
