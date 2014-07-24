@@ -1,0 +1,50 @@
+/* bide.mb: kernel-side implementation for the bide function 
+ *
+ * Author: Amanda M. Watson
+*/
+
+
+fn bide(pointer: *u32) -> i32 {
+    // TODO pointer checks    
+
+    let tcb: *tcb = get_tcb();
+    let proc: *proc = tcb->proc;
+    assert(proc != null && tcb != null);
+    
+    kmut_lock(&(proc->child_mut));
+
+    // if there are no exit statuses available, try and wait to see
+    // if a child might exit
+    if (list_is_empty(&(proc->exit_status_list))) {
+
+        // if we already have a waiting tcb for every potential 
+        // exit status, return with error
+        assert(proc->num_bide_waiters <= proc->child_count);
+        if (proc->num_bide_waiters == proc->child_count) {
+            kmut_unlock(&(proc->child_mut));
+            printf1_("thread %d returning with error ", get_tcb()->tid);
+
+            return -1;
+        } 
+
+        printf1_("thread %d choosing to wait", get_tcb()->tid);
+        kcond_wait(&(proc->proc_cond), &(proc->child_mut));
+    }
+
+    let new_status: *exit_status_t =  list_head_entry!(&(proc->exit_status_list),
+            exit_status_t, link);
+    assert(new_status != null);
+
+    list_del(&(new_status->link));
+
+    let status = new_status->status;
+    let tid: u32 = new_status->tid;
+
+    slub_free(new_status as *u32, sizeof(exit_status_t));
+    kmut_unlock(&(proc->child_mut));
+
+    *pointer = status;
+    printf1_("thread %d retrieving a status", get_tcb()->tid);
+
+    tid as i32
+}
