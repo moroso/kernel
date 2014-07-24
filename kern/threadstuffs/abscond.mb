@@ -60,5 +60,5 @@ fn abscond()  {
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
     scheduler_update(STATE_DEAD);
-    assert(false); // noreturn
+    assert(false); // no return
 }

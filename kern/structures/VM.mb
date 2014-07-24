@@ -144,6 +144,37 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     (&(get_aligned_addr((PD->PT_entries[pd_entry]))[pt_entry] )) as **u8
 }
 
+fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
+
+    assert(is_addr_aligned(log_addr));
+    if (PD == null) {
+        //PD = get_cr3() as *PD_t;
+        printf0_("PD null\n");
+
+        return -1;
+    }
+
+    let pd_entry: u32 = get_pd_entry(log_addr);
+    let pt_entry: u32 = get_pt_entry(log_addr);
+    if (PD->PT_entries == null) {
+        printf0_("entries null\n");
+
+        return -1;
+    }
+    let page_table: *u32 = get_aligned_addr(PD->PT_entries[pd_entry]);
+
+    if (page_table == null) {
+        return -1;
+    }
+
+    if (has_flags(PD->PT_entries[pd_entry] as *u8, PAGE_SIZE_BIT)) {
+
+        return MB;
+    }
+    KB
+
+}
+
 fn set_flags(log_addr: *u8, PD: *PD_t, flags: u32) {
     let frame_addr = log_to_phys(log_addr, PD);
     let frame_no_flags = ((*frame_addr as u32) & (~FLAG_MASK)); // clear out flag bits
@@ -226,7 +257,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     }
 
     /* if we are the only PD holding this page, free it */
-    /* there is a race where we can overcommit by a frame.  We'll see how much I
+    /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
     let old_ref = dec_frame_ref(*page_entry);
 
@@ -299,10 +330,18 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
     0
 }
 
+fn get_frame(size: u32) -> *u8 {
+    if (size == KB) {
+        return frame_alloc(0) as *u8;
+    } 
+    assert(size == MB);
+    frame_alloc(10) as *u8
+}
+
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(log_addr >= USER_MEM_START);
     assert(is_addr_aligned(log_addr));
-    let new_frame: *u8 = frame_alloc(0) as *u8;
+    let new_frame: *u8 = get_frame(KB);
 
     if (new_frame == null) {
         return -1;
@@ -372,3 +411,31 @@ fn PD_init(PD: *PD_t) -> i32 {
     }
     0
 }
+
+// this should always succeed in practice, but since we're overcommitting right
+// now, we'll return with error
+// copies/replaces frame if multiple refs exist, otherwise just makes it
+// writable
+fn cow_copy(log_addr: *u8, PD: *PD_t) -> i32 {
+    let frame_orig_addr: **u8 = log_to_phys(log_addr, PD); 
+    assert(frame_orig_addr != null);        
+    let frame_orig: *u8 = *frame_orig_addr;  
+
+    // if we are the only one holding the page, let's make it writable again  
+    if (get_frame_ref(frame_orig) == 1) {
+        *frame_orig_addr = ((frame_orig as u32) | READ_WRITE_BIT) as *u8;
+        return 0;
+    } 
+    // otherwise, we make a new page and copy it over
+    let frame_size = get_frame_size(log_addr, PD);
+    let frame_new: *u8 = get_frame(frame_size);
+    mos_memcpy(frame_new, log_addr, frame_size);
+    free_page(log_addr, PD); // removes page and decs ref count
+    if (set_page(frame_new, log_addr, PD, USER_SUPER_BIT | READ_WRITE_BIT,
+                frame_size) < 0) {
+        return -1; // we are fucked. not clear what the kernel can do about this one
+    }
+
+    0
+}
+
