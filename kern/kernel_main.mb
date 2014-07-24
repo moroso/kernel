@@ -1,5 +1,6 @@
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
+extern fn get_cr2() -> u32;
 extern fn get_cr3() -> u32;
 extern fn get_cr4() -> u32;
 extern fn set_cr0(val: u32);
@@ -17,6 +18,7 @@ fn hello(n: *u8) {
             repl(get_tcb()->context);
             let status: u32;
             bide(&status);
+            printf2_("Thread %d returned with status %d\n", get_tcb()->tid, status);
             abscond();
         }
 
@@ -26,7 +28,7 @@ fn hello(n: *u8) {
                     &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
         }
         *(new_frame as *u32) = i;
-        free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
+        //free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
         printf3_("Thread %u: \"hello!\": %u %u\n",
                 get_tcb()->tid,
                 (n as *u32)[0],

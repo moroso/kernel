@@ -39,14 +39,23 @@ fn entry_setup() {
 const PAGE_FAULT: u32 = 14;
 
 fn page_fault_handler() {
-  printf0_("page fault");
-  assert(false);
+  let PD: *PD_t = &(get_tcb()->proc->PD);
+  let log_addr: *u8 = get_cr2() as *u8; 
+  let frame_addr: **u8 = log_to_phys(log_addr, PD);
+
+  // if page is COW page, copy info onto new frame and replace
+  if (frame_addr == null || has_flags(*frame_addr, COW_BIT)) {
+      printf0_("COW time\n");
+      cow_copy(log_addr, PD);
+  } else { 
+    assert(false);
+  }
 }
 
 fn kernel_entry(regs: *regs) {
     if (regs->cause == PAGE_FAULT) {
         page_fault_handler();
+    } else {printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
+        assert(false);
     }
-    printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
-    assert(false);
 }
