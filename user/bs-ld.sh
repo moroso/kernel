@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# I am sorry.
+
+PRE=
+if [ $(uname) = "Darwin" ]; then
+	PRE=i386-elf-
+fi
+
+function out {
+	printf "%08x" $1 | sed 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/' | xxd -r -p
+}
+
+FILE="$1"
+
+set -e
+#set -x
+
+ENTRY=$(${PRE}readelf -h $FILE | grep Entry | cut -dx -f2)
+BINARY_START=$(${PRE}objdump -t $FILE | grep " g " | sort | head -n1 | cut -d" " -f1)
+BINARY_END=$(${PRE}objdump -t $FILE | grep " _end$" | cut -d" " -f1)
+
+IMAGE_SIZE=$((0x${BINARY_END}-0x${BINARY_START}))
+
+OBJFILE=$(tempfile -p $FILE)
+
+${PRE}objcopy $FILE -O binary $OBJFILE
+
+BIN_SIZE=$(wc -c $OBJFILE)
+
+#echo $OBJFILE 0x${ENTRY} 0x${BINARY_START} 0x${BINARY_END} $IMAGE_SIZE $BIN_SIZE
+
+# Now output it.
+printf "MRSO"
+out 0x${BIN_SIZE}
+out 0x${IMAGE_SIZE}
+out 0x${BINARY_START}
+out 0x${ENTRY}
+cat $OBJFILE
