@@ -10,13 +10,14 @@ extern fn set_cr4(val: u32);
 
 fn parent() {
     let page: *u8 = USER_MEM_START as *u8;
-    while (page as u32 < (4096*4)) {
+    while (page as u32 < (USER_MEM_START + (4096*4))) {
         if (new_user_page(page, &(get_tcb()->proc->PD), READ_WRITE_BIT, KB) < 0) {
             printf2_("failed to allocate page %x for thread %d\n", page as u32,
                     get_tcb()->tid);
             break;
         } 
         *(page as *u32) = get_tcb()->tid;
+        page = ((page as u32)) + 4096 as *u8;
     }
 
     repl(get_tcb()->context); 
