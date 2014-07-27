@@ -29,6 +29,7 @@ fn parent() {
 fn idle() {
 
     while (true) {
+        printf0_("idle\n");
         scheduler_update(-1);
     }
 }
