@@ -11,8 +11,8 @@ fn child_repl(parent_ucontext: *context) {
    // return 0
    
 
-   //*((USER_MEM_START + 4096) as *u32) = 2;
-   //printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
+   *((USER_MEM_START + 4096) as *u32) = 2;
+   printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
    abscond();
    // on success, child returns 0
    // the parent doesn't do this, but it manually pops
