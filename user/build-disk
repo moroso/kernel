@@ -5,6 +5,7 @@ import struct
 
 MAGIC='MROF'.encode()
 FILENAME_LEN=40
+HEADER_FMT = "<i"
 STRUCT_FMT = "<ii%ds" % FILENAME_LEN
 
 def make_headers(files, contents):
@@ -19,6 +20,7 @@ def make_headers(files, contents):
 
 def output(f, headers, contents):
     f.write(MAGIC)
+    f.write(struct.pack(HEADER_FMT, len(headers)))
     for header in headers:
         f.write(struct.pack(STRUCT_FMT, *header))
     for data in contents:
