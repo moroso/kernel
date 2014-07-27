@@ -25,5 +25,6 @@
 #include "threadstuffs/abscond.mb"
 #include "threadstuffs/bide.mb"
 #include "fs/mod.mb"
+#include "loader/mod.mb"
 
 #include "kernel_main.mb"

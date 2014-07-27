@@ -1,0 +1,9 @@
+
+// Header for the bs executable file format
+struct bsexe_header {
+    magic: u8[4], // should be "MROE"
+    binary_size: u32,
+    mapping_size: u32,
+    load_addr: u32,
+    entry_point: u32
+}
