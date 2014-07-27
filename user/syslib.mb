@@ -1,0 +1,9 @@
+extern fn syscall_0(idx: u32) -> u32;
+extern fn syscall_1(idx: u32, arg1: u32) -> u32;
+extern fn syscall_2(idx: u32, arg1: u32, arg2: u32) -> u32;
+extern fn syscall_3(idx: u32, arg1: u32, arg2: u32, arg3: u32) -> u32;
+
+// A system call
+fn test_sys(arg: u32) -> u32 {
+    syscall_1(1, arg)
+}
