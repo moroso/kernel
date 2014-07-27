@@ -6,8 +6,36 @@ extern static fs_img_end: u8[0];
 // Computed size
 static fs_img_size: u32 = 0;
 
+static header: *bsfs_header = null;
+static file_table: *bsfs_entry = null;
+
+const BSFS_FILENAME_LEN: u32 = 40;
+
+// Header for the start of the bsfs.
+struct bsfs_header {
+    magic: u8[4], // Should be "MROF"
+    num_files: u32
+}
+
+struct bsfs_entry {
+    offset: u32,
+    file_length: u32,
+    filename: u8[BSFS_FILENAME_LEN]
+}
+
+
 fn fs_init() {
     fs_img_size = (&fs_img_end as u32) - (&fs_img_start as u32);
+    header = &fs_img_start as *bsfs_header;
+    file_table = (header+1) as *bsfs_entry;
+
+    // Some debug spew!
+
     // Print the header and the size
     printf2_("FS info: %.4s %d\n", &fs_img_start as u32, fs_img_size);
+    // Print the name of the first file and its size and offset
+    printf3_("First file: %s %d %d\n",
+             &file_table[0].filename as u32,
+             file_table[0].file_length,
+             file_table[0].offset);
 }
