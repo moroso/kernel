@@ -15,17 +15,17 @@ fn parent() {
             printf2_("failed to allocate page %x for thread %d\n", page as u32,
                     get_tcb()->tid);
             break;
-        } 
+        }
         *(page as *u32) = get_tcb()->tid;
         page = ((page as u32)) + 4096 as *u8;
     }
 
-    repl(get_tcb()->context); 
+    repl(get_tcb()->context);
     printf1_("Thread %d forked\n", get_tcb()->tid);
     let status: u32;
     bide(&status);
     printf2_("Thread %d collected status %d\n", get_tcb()->tid, status);
-    abscond(); 
+    abscond();
 
 }
 
@@ -40,11 +40,11 @@ fn kernel_setup() {
     /* this is what we do to avoid trying to wrangle the frame
      * allocator's powers-of-two bullshit */
     /* TODO get rid of this bullshit */
-    let frame_table_size: u32 = sizeof(u32) * MAX_FRAME_NUM; 
+    let frame_table_size: u32 = sizeof(u32) * MAX_FRAME_NUM;
     let x: *u32 = early_alloc(frame_table_size);
     frame_table = x;
     assert(frame_table != null);
-    
+
     /*** Basic util initialization ***/
     frame_init();
     slub_init();
@@ -55,6 +55,8 @@ fn kernel_setup() {
     entry_setup();
     load_PD(init_PD);
     enable_paging();
+
+    fs_init();
 }
 
 fn kernel_main() -> u32 {
@@ -72,7 +74,7 @@ fn kernel_main() -> u32 {
         assert(proc1 != null);
         schedule(new_tcb, QUEUE_FRONT);
     }
-    
+
     let new_tcb: *tcb = thr_create(&idle as *u8, null, 0);
     assert(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;

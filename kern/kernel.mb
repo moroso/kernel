@@ -24,5 +24,6 @@
 #include "entry/entry.mb"
 #include "threadstuffs/abscond.mb"
 #include "threadstuffs/bide.mb"
+#include "fs/mod.mb"
 
 #include "kernel_main.mb"
