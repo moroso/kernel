@@ -9,15 +9,10 @@ fn child_repl(parent_ucontext: *context) {
    // stick context somewhere
    // add to directory
    // return 0
-   let i: u32;
-   while (i < 2000) {
-       printf1_("child %u\n", get_tcb()->tid);
-        i+=1;
-       scheduler_update(-1);
-   }
+   
 
-   *((USER_MEM_START + 4096) as *u32) = 2;
-   printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
+   //*((USER_MEM_START + 4096) as *u32) = 2;
+   //printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
    abscond();
    // on success, child returns 0
    // the parent doesn't do this, but it manually pops

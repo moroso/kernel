@@ -124,6 +124,8 @@ fn scheduler_update(state: i32) {
     /* if there are no other threads in the run queue, continue with current
        thread and do not update */
     if (new_running == null) {
+        // there must be one thread running at all times
+        assert(old_running != null && state == STATE_RUNNABLE);
         cond_preempt_enable(enable);
         return ();
     }

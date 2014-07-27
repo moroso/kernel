@@ -22,12 +22,12 @@ fn bide(pointer: *u32) -> i32 {
         assert(proc->num_bide_waiters <= proc->child_count);
         if (proc->num_bide_waiters == proc->child_count) {
             kmut_unlock(&(proc->child_mut));
-            printf1_("thread %d returning with error ", get_tcb()->tid);
+            printf1_("thread %d returning with error\n ", get_tcb()->tid);
 
             return -1;
         } 
 
-        printf1_("thread %d choosing to wait", get_tcb()->tid);
+        printf1_("thread %d choosing to wait\n", get_tcb()->tid);
         kcond_wait(&(proc->proc_cond), &(proc->child_mut));
     }
 
@@ -44,7 +44,7 @@ fn bide(pointer: *u32) -> i32 {
     kmut_unlock(&(proc->child_mut));
 
     *pointer = status;
-    printf1_("thread %d retrieving a status", get_tcb()->tid);
+    printf1_("thread %d retrieving a status\n", get_tcb()->tid);
 
     tid as i32
 }

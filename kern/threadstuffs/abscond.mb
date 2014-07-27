@@ -59,6 +59,8 @@ fn abscond()  {
     preempt_disable();
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
+    printf1_("thread %d is going to die\n", get_tcb()->tid);
     scheduler_update(STATE_DEAD);
+    printf1_("%d, abscond returned\n", get_tcb()->tid);
     assert(false); // no return
 }

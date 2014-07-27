@@ -7,44 +7,33 @@ extern fn set_cr0(val: u32);
 extern fn set_cr3(val: u32);
 extern fn set_cr4(val: u32);
 
-fn hello(n: *u8) {
-    let i: u32 = 0;
 
-    while(true) {
-        i+=1;
-        if (i == 900) {
-            printf1_("Thread %u: \"goodbye!\"\n", get_tcb()->tid);
+fn parent() {
+    let page: *u8 = USER_MEM_START as *u8;
+    while (page as u32 < 0xffffffff) {
+        if (new_user_page(page, &(get_tcb()->proc->PD), READ_WRITE_BIT, KB) < 0) {
+            break;
+        } 
+        *(page as *u32) = get_tcb()->tid;
+    }
 
-            repl(get_tcb()->context);
-            let status: u32;
-            bide(&status);
-            printf2_("Thread %d returned with status %d\n", get_tcb()->tid, status);
-            abscond();
-        }
+    repl(get_tcb()->context); 
+    printf1_("Thread %d forked\n", get_tcb()->tid);
+    let status: u32;
+    bide(&status);
+    printf2_("Thread %d collected status %d\n", get_tcb()->tid, status);
+    abscond(); 
 
-        let new_frame: *u8 = (USER_MEM_START  + (i * PAGE_SIZE)) as *u8;
-        if (USER_MEM_START + (i * PAGE_SIZE) < USER_MEM_END) {
-            new_user_page(new_frame,
-                    &(get_tcb()->proc->PD), READ_WRITE_BIT, KB);
-        }
-        *(new_frame as *u32) = i;
-        //free_page((USER_MEM_START + (i * PAGE_SIZE)) as *u8, &(get_tcb()->proc->PD));
-        printf3_("Thread %u: \"hello!\": %u %u\n",
-                get_tcb()->tid,
-                (n as *u32)[0],
-                (n as *u32)[1]);
-        scheduler_update(-1);
-    };
 }
 
-fn reply() {
-    while(true) {
-        printf1_("Thread %u: \"WHAT?\"\n", get_tcb()->tid);
+fn idle() {
+
+    while (true) {
         scheduler_update(-1);
-    };
+    }
 }
 
-fn kernel_main() -> u32 {
+fn kernel_setup() {
     /* this is what we do to avoid trying to wrangle the frame
      * allocator's powers-of-two bullshit */
     /* TODO get rid of this bullshit */
@@ -52,6 +41,7 @@ fn kernel_main() -> u32 {
     let x: *u32 = early_alloc(frame_table_size);
     frame_table = x;
     assert(frame_table != null);
+    
     /*** Basic util initialization ***/
     frame_init();
     slub_init();
@@ -62,34 +52,38 @@ fn kernel_main() -> u32 {
     entry_setup();
     load_PD(init_PD);
     enable_paging();
+}
 
-    /* TODO there is a bug hereish */
-    let var_array: *u32 = slub_alloc(8);
-    printf1_("%x\n", var_array as u32);
-    var_array[0] = 5;
-    var_array[1] = 7;
+fn kernel_main() -> u32 {
+    kernel_setup();
+
 
     /*** Create two threads and schedule them ***/
 
     let i: u32;
     for (i = 0; i < 5; i+=1) {
-        let new_tcb: *tcb = thr_create(&hello as *u8, var_array as *u8, 8);
+        let new_tcb: *tcb = thr_create(&parent as *u8, null, 0);
         assert(new_tcb != null);
         let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
         proc_init(proc1, new_tcb);
         assert(proc1 != null);
         schedule(new_tcb, QUEUE_FRONT);
     }
+    
+    let new_tcb: *tcb = thr_create(&idle as *u8, null, 0);
+    assert(new_tcb != null);
+    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
+    proc_init(proc1, new_tcb);
+    assert(proc1 != null);
+    schedule(new_tcb, QUEUE_FRONT);
 
-    let new_tcb2: *tcb = thr_create(&reply as *u8, null, 0);
-    assert(new_tcb2 != null);
-    let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
-    assert(proc2 != null);
-    proc_init(proc2, new_tcb2);
-    schedule(new_tcb2, QUEUE_BACK);
 
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};
     0
+
+
+
+
 }
