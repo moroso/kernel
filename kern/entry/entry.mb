@@ -44,7 +44,7 @@ fn page_fault_handler() {
   let frame_addr: **u8 = log_to_phys(log_addr, PD);
 
   // if page is COW page, copy info onto new frame and replace
-  if (frame_addr == null || has_flags(*frame_addr, COW_BIT)) {
+  if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
       printf0_("COW time\n");
       cow_copy(log_addr, PD);
   } else { 
