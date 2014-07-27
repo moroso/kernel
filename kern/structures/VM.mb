@@ -293,6 +293,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
         if (*page_table_addr == null) {
             *page_table_addr = frame_alloc(0) as *u32;
             if (*page_table_addr == null) {
+                printf0_("out of memory\n");
                 return -1;
             }
             mos_memset((*page_table_addr as *u32), 0, PAGE_SIZE);
@@ -344,11 +345,13 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     let new_frame: *u8 = get_frame(KB);
 
     if (new_frame == null) {
+        printf0_("out of memory\n");
         return -1;
     }
 
-    if (set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size) < 1) {
+    if (set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size) < 0) {
         // TODO free newly-allocated frame
+        printf0_("other reason\n");
         return -1;
     }
     0
