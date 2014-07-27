@@ -1,6 +1,7 @@
 include progs.mk
 
-# XXX: I feel really dirty doing a recursive make thing for this
+# XXX: I feel really dirty doing a recursive make thing for this,
+# but I didn't want it to be built into the hacky bsenv build system.
 # Some of this adapted from 410 makefiles
 
 # Platform shit
