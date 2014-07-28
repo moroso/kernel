@@ -5,9 +5,10 @@
  * will.  Pages can be mapped in as a 4KB page table entry (2-level), or a 4MB page directory
  * entry (1-level).  There are plans for an elaborate locking scheme, but one does not
  * currently exist.
- * XXX TODO TLB invalidation, freeing frames
  * Author: Amanda M. Watson
  */
+
+extern fn invalidate_tlb(frame: *u8);
 
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
@@ -261,13 +262,13 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
         return ();
     }
 
+    let frame: *u8 = *page_entry; 
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
-    dec_frame_ref(*page_entry, PD);
-
+    dec_frame_ref(frame, PD);
     *page_entry = null;
-    // TODO invalidate TLB
+    invalidate_tlb(frame);
 
 }
 

@@ -25,6 +25,6 @@ kern/fs_img.o: $(call rwildcard,kern/../user,*.mb *.c *.S *.h Makefile *.mk)
 
 
 .SECONDARY: kern/kernel.c
-KERN_GAME_OBJS = kernel.o context/context.o entry/entry_stubs_x86.o entry/entry_x86.o fs_img.o
+KERN_GAME_OBJS = kernel.o context/context.o entry/entry_stubs_x86.o entry/entry_x86.o fs_img.o utils/invalidate_tlb.o
 # Should generalize this better!
 STUKCLEANS += kern/kernel.c
