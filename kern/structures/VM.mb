@@ -90,6 +90,13 @@ fn is_addr_aligned(addr: *u8) -> bool {
     (addr == get_aligned_addr(addr as *u32) as *u8)
 }
 
+fn is_user_addr<T>(addr: *T) -> bool {
+    addr as u32 >= USER_MEM_START
+}
+fn is_kernel_addr<T>(addr: *T) -> bool {
+    !is_user_addr(addr)
+}
+
 /*** VM Implementation ***/
 
 /* Used in the main kernel function to turn on paging once a page directory is
@@ -155,7 +162,7 @@ fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
     }
 
     let pd_entry: u32 = get_pd_entry(log_addr);
-    let pt_entry: u32 = get_pt_entry(log_addr);
+
     if (PD->PT_entries == null) {
         printf0_("entries null\n");
 
@@ -211,11 +218,7 @@ fn inc_frame_ref(frame: *u8) {
 
 // we assume VM locking has been taken care of
 fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
-
-    if (!(log_addr >= USER_MEM_START)) {
-        printf1_("INCORRECT ADDR %x\n", log_addr as u32);
-        assert(false);
-    }
+    assert(is_user_addr(log_addr));
 
     let frame_addr: **u8 = log_to_phys(log_addr, PD_source);
     if (frame_addr == null) {
@@ -226,29 +229,29 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
         return 0;
     }
     let size: u32 = KB;
-    if (has_flags(frame, PAGE_SIZE_BIT) == 1) {
+    if (has_flags(frame, PAGE_SIZE_BIT)) {
         size = MB;
-    }    
+    }
     let old_frame_ref =  get_frame_ref(frame);
     assert(old_frame_ref > 0);
 
-    let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size); 
+    let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size);
 
-    // No extraneous increments, no sir 
+    // No extraneous increments, no sir
     assert(get_frame_ref(frame) == old_frame_ref + 1);
     // if setting the page failed, return with failure
     if (ret < 0) {
         return ret;
     }
     // both frames are set to read-only
-    set_flags(log_addr, PD_source, PRESENT_BIT | USER_SUPER_BIT | COW_BIT); 
-    set_flags(log_addr, PD_dest, PRESENT_BIT | USER_SUPER_BIT | COW_BIT); 
+    set_flags(log_addr, PD_source, PRESENT_BIT | USER_SUPER_BIT | COW_BIT);
+    set_flags(log_addr, PD_dest, PRESENT_BIT | USER_SUPER_BIT | COW_BIT);
 
     0
 }
 
 fn free_page(log_addr: *u8, PD: *PD_t) {
-    assert(log_addr >= USER_MEM_START);
+    assert(is_user_addr(log_addr));
     assert(is_addr_aligned(log_addr));
 
     let page_entry: **u8 = log_to_phys(log_addr, PD);
@@ -259,7 +262,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
-    let old_ref = dec_frame_ref(*page_entry);
+    dec_frame_ref(*page_entry);
 
     *page_entry = null;
     // TODO invalidate TLB
@@ -269,7 +272,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
 /*
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
- * requires that page being set does not already exist in the directory 
+ * requires that page being set does not already exist in the directory
  **/
 fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(is_addr_aligned(log_addr));
@@ -280,7 +283,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
         assert(false);
     }
     assert(PD != null);
-    assert(frame < USER_MEM_START);
+    assert(is_kernel_addr(frame));
     assert(PD->PT_entries != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
@@ -303,7 +306,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
         assert(*page_table_addr != null);
         let page_table: *u32 = get_aligned_addr(*page_table_addr);
         /* we don't want to overwrite shit */
-        assert(page_table[pt_entry] == null);
+        assert(page_table[pt_entry] == 0);
 
         /* set the frame entry and flags */
         page_table[pt_entry] = (frame as u32) | flags | PRESENT_BIT;
@@ -318,7 +321,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
 
     /* I think we can confidently place the increment here, trusting that the
      * frame we've been handed isn't shared with anyone else */
-    if (log_addr >= USER_MEM_START) {
+    if (is_user_addr(log_addr)) {
         inc_frame_ref(frame);
     }
     if (get_aligned_addr((*(log_to_phys(log_addr, PD) as *u32)) as *u32) !=
@@ -334,13 +337,13 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
 fn get_frame(size: u32) -> *u8 {
     if (size == KB) {
         return frame_alloc(0) as *u8;
-    } 
+    }
     assert(size == MB);
     frame_alloc(10) as *u8
 }
 
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
-    assert(log_addr >= USER_MEM_START);
+    assert(is_user_addr(log_addr));
     assert(is_addr_aligned(log_addr));
     let new_frame: *u8 = get_frame(KB);
 
@@ -361,7 +364,7 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  * pages
  */
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
-    assert(log_addr < USER_MEM_START);
+    assert(is_kernel_addr(log_addr));
     assert(is_addr_aligned(log_addr));
     let success = set_page(log_addr, log_addr, PD, flags, size);
     success
@@ -371,9 +374,8 @@ fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  * sort.  Until the compiler allows this, though, our init will have a page
  * table allocation step.  Sorry.  */
 fn PD_init(PD: *PD_t) -> i32 {
-
     assert(PD != null);
-    PD->PT_entries = frame_alloc(0) as **u32; 
+    PD->PT_entries = frame_alloc(0) as **u32;
     if (PD->PT_entries == null) {
         return -1;
     }
@@ -388,7 +390,7 @@ fn PD_init(PD: *PD_t) -> i32 {
     /* if the init PD is not available or this is the init PD, map own copy of
      * kernel memory*/
     if (init_PD == null || PD == init_PD) {
-        while (kernel_addr < USER_MEM_START) {
+        while is_kernel_addr(kernel_addr) {
             if (get_pd_entry(kernel_addr) == 0) {
                 if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
                     // we don't free on error because we only hit this case in
@@ -406,7 +408,7 @@ fn PD_init(PD: *PD_t) -> i32 {
             }
         }
     } else { // otherwise, just copy the page tables from the init_PD
-        while (kernel_addr < USER_MEM_START) {
+        while is_kernel_addr(kernel_addr) {
             PD->PT_entries[get_pd_entry(kernel_addr)] =
                 init_PD->PT_entries[get_pd_entry(kernel_addr)];
             kernel_addr += (4 * MB);
@@ -428,7 +430,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     assert(frame_orig_addr != null);        
     let frame_orig: *u8 = *frame_orig_addr;  
 
-    // if we are the only one holding the page, let's make it writable again  
+    // if we are the only one holding the page, let's make it writable again
     if (get_frame_ref(frame_orig) == 1) {
         *frame_orig_addr = ((frame_orig as u32) | READ_WRITE_BIT) as *u8;
         return ();
@@ -442,4 +444,3 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
                 frame_size) >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting 
 }
-

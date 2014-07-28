@@ -13,7 +13,7 @@
   * Rather than explicitly enabling/disabling interrupts, we choose to keep a
   * preemption flag; the running thread will only be preempted if the flag is
   * enabled (even if interrupts and enabled).
-  * 
+  *
   *
   * Author: Amanda M. Watson
  */
@@ -125,7 +125,8 @@ fn scheduler_update(state: i32) {
        thread and do not update */
     if (new_running == null) {
         // there must be one thread running at all times
-        assert(old_running != null && state == STATE_RUNNABLE || state == -1);
+        assert(old_running != null && state as u32 == STATE_RUNNABLE
+               || state == -1);
         cond_preempt_enable(enable);
         return ();
     }
@@ -156,7 +157,7 @@ fn scheduler_update(state: i32) {
 
     /* if the address space has changed, load a new one */
     if ((get_cr3() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
-        load_PD(&(new_running->proc->PD));   
+        load_PD(&(new_running->proc->PD));
     }
 
     context_switch(old_running, new_running);
