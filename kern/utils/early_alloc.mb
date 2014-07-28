@@ -1,3 +1,6 @@
+use consts::*;
+use utils::stdlib::mos_memset;
+
 // 8MB
 /* the next available address in memory */
 static mem_cur: *u8 = KERNEL_MEM_START as *u8;

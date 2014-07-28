@@ -4,6 +4,10 @@
  * Author: Amanda M. Watson
  * */
 
+use utils::slab_alloc::*;
+use structures::tcb::*;
+use structures::VM::*;
+use threadstuffs::abscond::*;
 
 fn child_repl(parent_ucontext: *context) {
    // stick context somewhere

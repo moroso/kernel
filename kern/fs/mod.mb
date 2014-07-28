@@ -1,3 +1,5 @@
+use utils::stdlib::strcmp;
+
 // Really basic things for the built in fs.
 
 // The start and end of the linked in fs image.
@@ -50,6 +52,3 @@ fn fs_search(filename: *u8) -> *bsfs_entry {
     }
     null
 }
-
-
-

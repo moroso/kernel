@@ -7,7 +7,7 @@ common_entry_asm:
     pushl %es
 
     pushl %esp
-    call MANGLEDkernel_entry
+    call MANGLEDentry_kernel_entry
     addl $4, %esp
 
 common_exit_asm:
@@ -27,4 +27,4 @@ leave_kernel:
 /* This is a big hack. */
 .global kernel_main
 kernel_main:
-    jmp MANGLEDkernel_main
+    jmp MANGLEDkernel_main_kernel_main
