@@ -27,12 +27,11 @@ fn kmut_init(km: *kmut) {
 
 fn kmut_lock(km: *kmut) {
 
-
+    let enable = cond_preempt_disable();
     while (km->lock_available != 1) {
         scheduler_update(-1);
     }
 
-    let enable = cond_preempt_disable();
     km->lock_available = 0;
     cond_preempt_enable(enable);
 }
