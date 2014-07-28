@@ -21,7 +21,7 @@
 #include "structures/tcb_dir.mb"
 #include "structures/proc.mb"
 #include "structures/proc_dir.mb"
-#include "entry/entry.mb"
+#include "entry/mod.mb"
 #include "threadstuffs/abscond.mb"
 #include "threadstuffs/bide.mb"
 #include "fs/mod.mb"
