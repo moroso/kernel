@@ -1,13 +1,13 @@
-/* abscond.mb: kernel-side implementation for the abscond function 
+/* abscond.mb: kernel-side implementation for the abscond function
  *
  * Author: Amanda M. Watson
 */
 
-/* 
+/*
  * I wrote a kernel far too recently to want to try and use an interesting
- * solution 
+ * solution
  */
-static dead_tcb: *tcb = null; 
+static dead_tcb: *tcb = null;
 static abscond_lock: kmut = KMUT_INIT!(abscond_lock);
 
 fn abscond()  {
@@ -17,18 +17,18 @@ fn abscond()  {
     assert(proc != null && tcb != null);
 
     assert(tcb != null);
-    tcb_dir_remove(tcb); 
+    tcb_dir_remove(tcb);
     // if we still have a parent
 
     // if we are the only thread in the process, free our pcb
-    if (list_is_singleton(&(proc->peer_tcb_list)) != 0) {
+    if (list_is_singleton(&(proc->peer_tcb_list))) {
 
         set_exit_status(proc, -1);
         let parent_proc: *proc = proc_lookup(proc->parent_pid);
 
         // TODO destroy page directory
         load_PD(init_PD);
-        proc_dir_remove(proc); 
+        proc_dir_remove(proc);
         printf1_("parent %d\n", proc->parent_pid as u32);
         if (parent_proc != null) {
             kmut_lock(&(parent_proc->child_mut));
@@ -42,7 +42,7 @@ fn abscond()  {
 
             proc_end_lookup(parent_proc);
         } else {
-            // free exit status.  init doesn't get it 
+            // free exit status.  init doesn't get it
             slub_free(proc->exit_status as *u32, sizeof(exit_status_t));
         }
     }
@@ -53,14 +53,14 @@ fn abscond()  {
     kmut_lock(&abscond_lock);
 
     if (dead_tcb != null) {
-        frame_free(dead_tcb as *u8, 0); 
-    } 
+        frame_free(dead_tcb as *u8, 0);
+    }
 
     preempt_disable();
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
     printf1_("thread %d is going to die\n", get_tcb()->tid);
-    scheduler_update(STATE_DEAD);
+    scheduler_update(STATE_DEAD as i32);
     printf1_("%d, abscond returned\n", get_tcb()->tid);
     assert(false); // no return
 }

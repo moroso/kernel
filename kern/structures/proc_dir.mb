@@ -1,8 +1,8 @@
-/** proc_dir.mb 
+/** proc_dir.mb
  * I'm sorry. I realize now that I'm probably going to hell for this, but I
  * have trouble making existing code work with templates.  A refactor is almost
- * certainly necessary, but for now, let's all hop onboard the redundancy train! 
- * 
+ * certainly necessary, but for now, let's all hop onboard the redundancy train!
+ *
  * Author: Amanda M. Watson
 */
 
@@ -43,11 +43,11 @@ fn proc_lookup(pid: i32) -> *proc {
     }
     let proc_node: *proc = null;
     krw_read_lock(&(proc_dir.dir_lock));
-    list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, { 
-        if (proc_node->pid == pid) {
+    list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, {
+        if (proc_node->pid == pid as u32) {
             break;
         }
-    } );   
+    } );
     increase_proc_ref(proc_node);
     krw_read_unlock(&(proc_dir.dir_lock));
 
@@ -60,5 +60,3 @@ fn proc_end_lookup(proc_read: *proc) {
     decrease_proc_ref(proc_read);
     krw_read_unlock(&(proc_dir.dir_lock));
 }
-
-
