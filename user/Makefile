@@ -64,7 +64,7 @@ $(BUILDDIR)/fs.img: $(PROG_BINS)
 	cd $(BUILDDIR) && ../build-disk -o fs.img $(PROGS)
 
 $(BUILDDIR)/fs_img.o: $(BUILDDIR)/fs.img
-	objcopy -I binary -O elf32-i386 -B i386 --rename-section .data=.rodata --redefine-sym _binary_build_fs_img_start=fs_img_start --redefine-sym _binary_build_fs_img_end=fs_img_end $< $@
+	$(OBJCOPY) -I binary -O elf32-i386 -B i386 --rename-section .data=.rodata --redefine-sym _binary_build_fs_img_start=fs_img_start --redefine-sym _binary_build_fs_img_end=fs_img_end $< $@
 
 
 clean:
