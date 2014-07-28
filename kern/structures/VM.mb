@@ -7,7 +7,7 @@
  * currently exist.
  * XXX TODO TLB invalidation, freeing frames
  * Author: Amanda M. Watson
-*/
+ */
 
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
@@ -55,7 +55,7 @@ const COW_BIT: u32 = 1 << 9;
 
 /* hosts a page directory and its associated locking */
 struct PD_t {
-    PT_entries: **u32,
+PT_entries: **u32,
 }
 
 /*** Simple manipulation functions */
@@ -415,11 +415,15 @@ fn PD_init(PD: *PD_t) -> i32 {
     0
 }
 
-// this should always succeed in practice, but since we're overcommitting right
-// now, we'll return with error
-// copies/replaces frame if multiple refs exist, otherwise just makes it
-// writable
-fn cow_copy(log_addr: *u8, PD: *PD_t) -> i32 {
+/* Invoked by the page fault handler; it's assumed that, when cow_copy is called
+ * on an address, checks have been made to ensure that it is, in fact, a COW
+ * page in the PD.
+ * given a address and a PD, ensures the PD has a writable, unshared copy of the
+ * frame log_addr points to in the PD.  If the frame has no other reference, it
+ * is simply made writable.  Otherwise, a new writable frame replaces it, and is
+ * also made writable.  Assuming overcommits are not possible, should not be
+ * allowed to fail.  */
+fn cow_copy(log_addr: *u8, PD: *PD_t) {
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD); 
     assert(frame_orig_addr != null);        
     let frame_orig: *u8 = *frame_orig_addr;  
@@ -427,18 +431,15 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) -> i32 {
     // if we are the only one holding the page, let's make it writable again  
     if (get_frame_ref(frame_orig) == 1) {
         *frame_orig_addr = ((frame_orig as u32) | READ_WRITE_BIT) as *u8;
-        return 0;
+        return ();
     } 
     // otherwise, we make a new page and copy it over
     let frame_size = get_frame_size(log_addr, PD);
     let frame_new: *u8 = get_frame(frame_size);
     mos_memcpy(frame_new, log_addr, frame_size);
     free_page(log_addr, PD); // removes page and decs ref count
-    if (set_page(frame_new, log_addr, PD, USER_SUPER_BIT | READ_WRITE_BIT,
-                frame_size) < 0) {
-        return -1; // we are fucked. not clear what the kernel can do about this one
-    }
-
-    0
+    assert (set_page(frame_new, log_addr, PD, USER_SUPER_BIT | READ_WRITE_BIT,
+                frame_size) >= 0); // this assert trips if we run out of frames,
+    // but should not once we deal with overcommitting 
 }
 

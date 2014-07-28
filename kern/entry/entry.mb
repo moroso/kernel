@@ -1,3 +1,4 @@
+const PAGE_FAULT: u32 = 14;
 
 struct regs {
     ds: u32,
@@ -35,8 +36,6 @@ fn entry_setup() {
     }
 }
 
-
-const PAGE_FAULT: u32 = 14;
 
 fn page_fault_handler() {
   let PD: *PD_t = &(get_tcb()->proc->PD);
