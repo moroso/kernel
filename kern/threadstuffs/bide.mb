@@ -4,8 +4,15 @@
 */
 
 
+/* when a thread invokes bide, it returns an exit status from a child process,
+ * if possible.  If a child has exited and its status has not yet been
+ * collected, the thread immediately returns with the status at the value of
+ * pointer.  Otherwise, if a child is still active, it blocks until the child
+ * exits.  On success, bide returns the pid of the exited child.  
+ * If the thread has no children whose exit statuses could be collected,
+ * bide returns immediatly with error.  */
 fn bide(pointer: *u32) -> i32 {
-    // TODO pointer checks    
+    // TODO check to see if pointer can be dereferenced 
 
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
