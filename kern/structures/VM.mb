@@ -162,7 +162,7 @@ fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
     }
 
     let pd_entry: u32 = get_pd_entry(log_addr);
-    let pt_entry: u32 = get_pt_entry(log_addr);
+
     if (PD->PT_entries == null) {
         printf0_("entries null\n");
 
@@ -262,7 +262,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
-    let old_ref = dec_frame_ref(*page_entry);
+    dec_frame_ref(*page_entry);
 
     *page_entry = null;
     // TODO invalidate TLB
