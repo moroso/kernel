@@ -9,7 +9,7 @@ fn child_repl(parent_ucontext: *context) {
    // stick context somewhere
    // add to directory
    // return 0
-   
+
 
    *((USER_MEM_START + 4096) as *u32) = 2;
    printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
@@ -27,13 +27,13 @@ fn thr_repl(parent_ucontext: *context) -> *tcb {
     child_tcb
 }
 
-// currently assumes processes only have one thread 
+// currently assumes processes only have one thread
 fn repl(parent_ucontext: *context) -> i32 {
 
     let parent_proc = get_tcb()->proc;
     /* if we don't have only on thread in parent process, return with error */
 
-    if (list_is_singleton(&(parent_proc->peer_tcb_list)) == 0) {
+    if (!list_is_singleton(&(parent_proc->peer_tcb_list))) {
         return -1;
     }
 
@@ -42,7 +42,7 @@ fn repl(parent_ucontext: *context) -> i32 {
 
     if (child_proc == null) {
         return -1;
-    } 
+    }
 
     let child_tcb: *tcb = thr_repl(parent_ucontext);
     if (child_tcb == null) {
@@ -65,12 +65,12 @@ fn repl(parent_ucontext: *context) -> i32 {
 
             // free proc, PD (cleanup)
             return -1;
-        }                
+        }
     }
 
     /* add new tcb to list of children */
     kmut_lock(&(parent_proc->child_mut));
-    list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list)); 
+    list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
     parent_proc->child_count+=1;
     kmut_unlock(&(parent_proc->child_mut));
 

@@ -31,7 +31,7 @@ BIN_SIZE=$(wc -c $OBJFILE)
 #echo $OBJFILE 0x${ENTRY} 0x${BINARY_START} 0x${BINARY_END} $IMAGE_SIZE $BIN_SIZE
 
 # Now output it.
-printf "MRSO"
+printf "MROE"
 out 0x${BIN_SIZE}
 out 0x${IMAGE_SIZE}
 out 0x${BINARY_START}
