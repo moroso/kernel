@@ -22,7 +22,7 @@ BINARY_END=$(${PRE}objdump -t $FILE | grep " _end$" | cut -d" " -f1)
 
 IMAGE_SIZE=$((0x${BINARY_END}-0x${BINARY_START}))
 
-OBJFILE=$(tempfile -p $FILE)
+OBJFILE=$(mktemp --tmpdir $(basename $FILE).XXXXXXXXXX)
 
 ${PRE}objcopy $FILE -O binary $OBJFILE
 
