@@ -39,3 +39,17 @@ fn fs_init() {
              file_table[0].file_length,
              file_table[0].offset);
 }
+
+fn fs_search(filename: *u8) -> *bsfs_entry {
+
+    let i: u32;
+    for (i = 0; i < header->num_files; i+=1) {
+        if (strcmp(&file_table[i].filename[0], filename) == 0) {
+            return &file_table[i];
+        }
+    }
+    null
+}
+
+
+

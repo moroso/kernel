@@ -195,7 +195,7 @@ fn get_frame_ref(frame: *u8) -> u32 {
     (frame_table[frame_num])
 }
 
-fn dec_frame_ref(frame: *u8) -> u32 {
+fn dec_frame_ref(frame: *u8, PD: *PD_t) -> u32 {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
     assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
 
@@ -203,7 +203,9 @@ fn dec_frame_ref(frame: *u8) -> u32 {
     assert(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
-        // add frame to free list (size-dependent)
+    
+        let size: u32 = get_frame_size(frame, PD);
+        free_frame(frame, size);
     }
     old_ref
 }
@@ -262,7 +264,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
-    dec_frame_ref(*page_entry);
+    dec_frame_ref(*page_entry, PD);
 
     *page_entry = null;
     // TODO invalidate TLB
@@ -340,6 +342,16 @@ fn get_frame(size: u32) -> *u8 {
     }
     assert(size == MB);
     frame_alloc(10) as *u8
+}
+
+fn free_frame(frame: *u8, size: u32) {
+
+    if (size == KB) {
+        frame_free(frame, 0);
+    } else {
+        assert(size == MB);
+        frame_free(frame, 10);
+    }
 }
 
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
