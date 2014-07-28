@@ -8,7 +8,21 @@
  * Author: Amanda M. Watson
  */
 
+use consts::*;
+use locks::lol_atomics::*;
+use utils::buddy_alloc::*;
+use utils::stdlib::*;
+use list::*;
+
+// XXX: these shouldn't be here!
 extern fn invalidate_tlb(frame: *u8);
+extern fn get_cr0() -> u32;
+extern fn get_cr2() -> u32;
+extern fn get_cr3() -> u32;
+extern fn get_cr4() -> u32;
+extern fn set_cr0(val: u32);
+extern fn set_cr3(val: u32);
+extern fn set_cr4(val: u32);
 
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
@@ -56,7 +70,7 @@ const COW_BIT: u32 = 1 << 9;
 
 /* hosts a page directory and its associated locking */
 struct PD_t {
-PT_entries: **u32,
+    PT_entries: **u32,
 }
 
 /*** Simple manipulation functions */
@@ -204,7 +218,7 @@ fn dec_frame_ref(frame: *u8, PD: *PD_t) -> u32 {
     assert(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
-    
+
         let size: u32 = get_frame_size(frame, PD);
         free_frame(frame, size);
     }
@@ -262,7 +276,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
         return ();
     }
 
-    let frame: *u8 = *page_entry; 
+    let frame: *u8 = *page_entry;
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
@@ -276,7 +290,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
  * requires that page being set does not already exist in the directory
- **/
+ */
 fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(is_addr_aligned(log_addr));
     // TODO when we have sized arrays, we can make this work
@@ -439,15 +453,15 @@ fn PD_init(PD: *PD_t) -> i32 {
  * also made writable.  Assuming overcommits are not possible, should not be
  * allowed to fail.  */
 fn cow_copy(log_addr: *u8, PD: *PD_t) {
-    let frame_orig_addr: **u8 = log_to_phys(log_addr, PD); 
-    assert(frame_orig_addr != null);        
-    let frame_orig: *u8 = *frame_orig_addr;  
+    let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
+    assert(frame_orig_addr != null);
+    let frame_orig: *u8 = *frame_orig_addr;
 
     // if we are the only one holding the page, let's make it writable again
     if (get_frame_ref(frame_orig) == 1) {
         *frame_orig_addr = ((frame_orig as u32) | READ_WRITE_BIT) as *u8;
         return ();
-    } 
+    }
     // otherwise, we make a new page and copy it over
     let frame_size = get_frame_size(log_addr, PD);
     let frame_new: *u8 = get_frame(frame_size);
@@ -455,5 +469,5 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     free_page(log_addr, PD); // removes page and decs ref count
     assert (set_page(frame_new, log_addr, PD, USER_SUPER_BIT | READ_WRITE_BIT,
                 frame_size) >= 0); // this assert trips if we run out of frames,
-    // but should not once we deal with overcommitting 
+    // but should not once we deal with overcommitting
 }

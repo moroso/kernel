@@ -4,6 +4,14 @@
  *  Author: Amanda M. Watson
  */
 
+use consts::*;
+use list::*;
+use locks::mutex::*;
+use structures::proc::*;
+use structures::tcb_dir::*;
+use utils::buddy_alloc::frame_alloc;
+use utils::stdlib::*;
+
 /* this will be outmoded as soon as the new arch comes in */
 struct gpregs {
     edi: u32,

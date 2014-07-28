@@ -3,6 +3,9 @@
  * Author: Amanda M. Watson
 */
 
+use structures::tcb::*;
+use structures::proc_dir::*;
+
 /*
  * I wrote a kernel far too recently to want to try and use an interesting
  * solution

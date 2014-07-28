@@ -1,3 +1,7 @@
+use consts::*;
+use list::*;
+use utils::early_alloc::early_alloc;
+
 // Bitmaps!
 struct bitmap {
     bits: *u32

@@ -18,6 +18,14 @@
   * Author: Amanda M. Watson
  */
 
+use consts::*;
+use list::*;
+use structures::tcb::*;
+use structures::VM::*;
+use context::context_switch;
+
+extern fn get_cr3() -> u32; // hm.
+
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.
  */
@@ -26,9 +34,9 @@ const QUEUE_BACK: u32 = 1;
 
 /* a data structure that manages run queue state */
 struct rq_master {
-run_Q: list_head, // head of run queue
-           running: *tcb, // actively running tcb
-           preempt_enabled: bool, // whether preemption is enabled
+    run_Q: list_head, // head of run queue
+    running: *tcb, // actively running tcb
+    preempt_enabled: bool, // whether preemption is enabled
 }
 
 /*

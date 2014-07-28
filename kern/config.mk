@@ -7,7 +7,7 @@ TABSTOP = 4
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 
 kern/kernel.c: $(call rwildcard,kern,*.mb)
-	$(CPP) kern/kernel.mb | ../compiler/mbc --target c -o $@
+	../compiler/mbc --target c -o $@ kern/kernel.mb
 
 # This is suuuuuper dubious.
 # The user directory sits next to the kern directory in the kernel/ repo,
