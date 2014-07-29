@@ -18,7 +18,8 @@ struct kmut {
 }
 
 macro KMUT_INIT!(name) {
-    kmut { lock_available: 1, mut_head: LIST_HEAD_INIT!($name.mut_head) }
+    ::locks::mutex::kmut {
+        lock_available: 1, mut_head: LIST_HEAD_INIT!($name.mut_head) }
 }
 
 fn kmut_init(km: *kmut) {

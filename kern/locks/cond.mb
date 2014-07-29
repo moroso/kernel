@@ -13,7 +13,7 @@ struct kcond {
 }
 
 macro KCOND_INIT!(name) {
-    kcond {
+    ::locks::cond::kcond {
         head: LIST_HEAD_INIT!(($name).head),
     }
 }

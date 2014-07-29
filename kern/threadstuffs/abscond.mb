@@ -3,8 +3,18 @@
  * Author: Amanda M. Watson
 */
 
+use consts::*;
+use list::*;
+use utils::slab_alloc::*;
+use utils::buddy_alloc::*;
+use locks::mutex::*;
+use locks::cond::*;
 use structures::tcb::*;
+use structures::proc::*;
+use structures::tcb_dir::*;
 use structures::proc_dir::*;
+use structures::schedule::*;
+use structures::VM::*;
 
 /*
  * I wrote a kernel far too recently to want to try and use an interesting

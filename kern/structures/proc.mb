@@ -1,4 +1,6 @@
+use consts::*;
 use list::*;
+use structures::tcb::*;
 use structures::VM::*;
 use structures::proc_dir::*;
 use locks::mutex::*;
