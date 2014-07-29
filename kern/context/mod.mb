@@ -1,5 +1,8 @@
-extern fn actually_switch_contexts_with_asm(new_esp: *context, old_esp:
-**context);
+use structures::tcb::{tcb, context};
+use structures::schedule::{is_preempt_enabled, run_queue};
+
+extern fn actually_switch_contexts_with_asm(new_esp: *context,
+                                            old_esp: **context);
 
 fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
     assert(!is_preempt_enabled());

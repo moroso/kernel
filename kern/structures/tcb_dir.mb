@@ -1,3 +1,9 @@
+use list::*;
+use locks::rw::*;
+use locks::cond::*;
+use locks::lol_atomics::*;
+use structures::tcb::*;
+use utils::buddy_alloc::*;
 
 struct ref_dir_t {
     dir_head: list_head,
@@ -31,7 +37,7 @@ fn increase_ref(tcb: *tcb) {
 fn decrease_ref(tcb: *tcb) {
     let ref_old = atomic_add(&(tcb->dir_ref), -1);
     if (ref_old == 1) {
-        frame_free(tcb as *u8, 0);
+        frame_free(tcb as *u8);
     }
 }
 

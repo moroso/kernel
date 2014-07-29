@@ -1,3 +1,5 @@
+use utils::stdlib::strcmp;
+
 // Really basic things for the built in fs.
 
 // The start and end of the linked in fs image.
@@ -69,6 +71,4 @@ fn fs_read(filename: *u8, buffer: *u8, length: u32) -> i32 {
 
     0
 }
-
-
 

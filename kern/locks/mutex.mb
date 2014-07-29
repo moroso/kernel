@@ -9,7 +9,8 @@
   *
   * Author: Amanda M. Watson
  */
-
+use list::*;
+use structures::schedule::*;
 
 struct kmut {
     lock_available: u32,
@@ -17,7 +18,8 @@ struct kmut {
 }
 
 macro KMUT_INIT!(name) {
-    kmut { lock_available: 1, mut_head: LIST_HEAD_INIT!($name.mut_head) }
+    ::locks::mutex::kmut {
+        lock_available: 1, mut_head: LIST_HEAD_INIT!($name.mut_head) }
 }
 
 fn kmut_init(km: *kmut) {
@@ -26,8 +28,8 @@ fn kmut_init(km: *kmut) {
 }
 
 fn kmut_lock(km: *kmut) {
-
     let enable = cond_preempt_disable();
+
     while (km->lock_available != 1) {
         scheduler_update(-1);
     }
@@ -40,5 +42,4 @@ fn kmut_unlock(km: *kmut) {
     let enable = cond_preempt_disable();
     km->lock_available = 1;
     cond_preempt_enable(enable);
-
 }

@@ -6,6 +6,13 @@
  * Author: Amanda M. Watson
 */
 
+use list::*;
+use locks::rw::*;
+use locks::lol_atomics::*;
+use structures::proc::*;
+use structures::tcb_dir::*;
+use utils::slab_alloc::*;
+
 static proc_dir: ref_dir_t = ref_dir_t {
     dir_head: LIST_HEAD_INIT!(proc_dir.dir_head),
     dir_lock: KRW_INIT!(proc_dir.dir_lock),

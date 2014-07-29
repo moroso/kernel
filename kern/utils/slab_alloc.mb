@@ -16,6 +16,10 @@
  * Author: Amanda M. Watson
 */
 
+use consts::*;
+use list::*;
+use utils::buddy_alloc::{frame_alloc,frame_alloc_pow2};
+
 const SLAB_SIZE: u32 = PAGE_SIZE; /* this really isn't the right size*/
 const UINT_SIZE: u32 = 4;
 const POWER_MIN: u32 = 2;
@@ -38,7 +42,9 @@ static head: list_head = LIST_HEAD_INIT!(head);
 static caches: *cache_descriptor = null;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
-    let slab: *u32 = frame_alloc(1) as *u32;
+    // XXX: -sully
+//    let slab: *u32 = frame_alloc_pow2(1) as *u32;
+    let slab: *u32 = frame_alloc() as *u32;
     if (slab == null) {
       return ();
     }
@@ -114,7 +120,7 @@ fn cache_add (element: *u32, cache: *cache_descriptor) {
 }
 
 fn slub_init() {
-    caches = frame_alloc((POWER_MAX - POWER_MIN)) as *cache_descriptor;
+    caches = frame_alloc_pow2((POWER_MAX - POWER_MIN)) as *cache_descriptor;
     let i: u32;
     for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
         let cache = &caches[i - POWER_MIN];
