@@ -196,7 +196,7 @@ fn frame_init() {
 
 }
 
-fn frame_alloc(order: u32) -> *u8 {
+fn frame_alloc_pow2(order: u32) -> *u8 {
     let frame_num = buddy_alloc(frame_arena, order);
     if (frame_num < 0) {
         null
@@ -205,10 +205,13 @@ fn frame_alloc(order: u32) -> *u8 {
     }
 }
 
-fn frame_free(frame: *u8, order: u32) {
+fn frame_free_pow2(frame: *u8, order: u32) {
     let frame_num = (frame as u32) / PAGE_SIZE;
     buddy_free(frame_arena, frame_num, order);
 }
+
+fn frame_alloc() -> *u8 { frame_alloc_pow2(0) }
+fn frame_free(frame: *u8) { frame_free_pow2(frame, 0); }
 
 
 /////////////////////////// Testing
