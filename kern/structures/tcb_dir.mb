@@ -37,7 +37,7 @@ fn increase_ref(tcb: *tcb) {
 fn decrease_ref(tcb: *tcb) {
     let ref_old = atomic_add(&(tcb->dir_ref), -1);
     if (ref_old == 1) {
-        frame_free(tcb as *u8, 0);
+        frame_free(tcb as *u8);
     }
 }
 

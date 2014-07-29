@@ -107,7 +107,7 @@ fn set_state(tcb: *tcb, state: u32) {
  * switched to, executes function with a pointer to data as its argument */
 fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 
-    let tcb: *tcb = frame_alloc(0) as *tcb;
+    let tcb: *tcb = frame_alloc() as *tcb;
     tcb_init(tcb);
 
     if (tcb == null) {
