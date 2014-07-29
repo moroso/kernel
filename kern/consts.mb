@@ -1,7 +1,7 @@
 /** defines.mh
  *  some helpful general-purpose definitions
  *  Author Amanda M. Watson
-**/
+ */
 
 const PAGE_SIZE: u32 = 4096;
 /* We give the kernel the first 8MB of space; after that, early_alloc hands out

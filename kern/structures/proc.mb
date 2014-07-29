@@ -1,3 +1,11 @@
+use consts::*;
+use list::*;
+use structures::tcb::*;
+use structures::VM::*;
+use structures::proc_dir::*;
+use locks::mutex::*;
+use locks::cond::*;
+use utils::slab_alloc::*;
 
 struct exit_status_t {
     status: u32,
@@ -11,9 +19,9 @@ struct proc {
     parent_pid: i32,
 
     peer_tcb_list: list_head, // tcbs in a proc
-    child_proc_list: list_head, // children of proc 
-    
-    dir_link: list_node, 
+    child_proc_list: list_head, // children of proc
+
+    dir_link: list_node,
     dir_ref: u32,
     child_link: list_node,
     child_count: u32, // number of children
@@ -21,19 +29,19 @@ struct proc {
     exit_status: *exit_status_t,
     exit_status_list: list_head,
     child_mut: kmut,
-    
+
     num_bide_waiters: u32, // the number of tcbs waiting on bide
     proc_cond: kcond,
 }
 
 fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     assert(new_tcb->state == STATE_NEW);
-    
+
     list_init_head(&(new_proc->peer_tcb_list));
     list_init_head(&(new_proc->exit_status_list));
     list_init_head(&(new_proc->child_proc_list));
-   
-    kcond_init(&(new_proc->proc_cond)); 
+
+    kcond_init(&(new_proc->proc_cond));
     kmut_init(&(new_proc->child_mut));
 
     new_proc->exit_status = slub_alloc(sizeof(exit_status_t)) as *exit_status_t;
@@ -57,5 +65,3 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     proc_dir_add(new_proc);
     0
 }
-
-

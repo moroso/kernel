@@ -1,30 +1,37 @@
-/* bide.mb: kernel-side implementation for the bide function 
+/* bide.mb: kernel-side implementation for the bide function
  *
  * Author: Amanda M. Watson
 */
 
+use list::*;
+use utils::slab_alloc::*;
+use locks::mutex::*;
+use locks::cond::*;
+use structures::tcb::*;
+use structures::proc::*;
+use structures::schedule::*;
 
 /* when a thread invokes bide, it returns an exit status from a child process,
  * if possible.  If a child has exited and its status has not yet been
  * collected, the thread immediately returns with the status at the value of
  * pointer.  Otherwise, if a child is still active, it blocks until the child
- * exits.  On success, bide returns the pid of the exited child.  
+ * exits.  On success, bide returns the pid of the exited child.
  * If the thread has no children whose exit statuses could be collected,
  * bide returns immediatly with error.  */
 fn bide(pointer: *u32) -> i32 {
-    // TODO check to see if pointer can be dereferenced 
+    // TODO check to see if pointer can be dereferenced
 
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
     assert(proc != null && tcb != null);
-    
+
     kmut_lock(&(proc->child_mut));
 
     // if there are no exit statuses available, try and wait to see
     // if a child might exit
     if (list_is_empty(&(proc->exit_status_list))) {
 
-        // if we already have a waiting tcb for every potential 
+        // if we already have a waiting tcb for every potential
         // exit status, return with error
         assert(proc->num_bide_waiters <= proc->child_count);
         if (proc->num_bide_waiters == proc->child_count) {
@@ -32,7 +39,7 @@ fn bide(pointer: *u32) -> i32 {
             printf1_("thread %d returning with error\n ", get_tcb()->tid);
 
             return -1;
-        } 
+        }
 
         printf1_("thread %d choosing to wait\n", get_tcb()->tid);
         kcond_wait(&(proc->proc_cond), &(proc->child_mut));

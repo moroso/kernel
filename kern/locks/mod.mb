@@ -1,0 +1,6 @@
+mod lol_atomics;
+// HMMMMMMMMM. Failed when I reordered mutex and cond which seems wrong??
+mod mutex;
+mod cond;
+mod sem;
+mod rw;

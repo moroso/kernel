@@ -4,19 +4,22 @@
  *
  * I think it's only fair that an explanation of the locks be added here.  I'll
  * do that eventually
- * 
+ *
  * Author: Amanda M. Watson
  */
+
+use locks::sem::*;
+use locks::mutex::*;
 
 struct krw {
     exclusive_sem: ksem,
     order_mut: kmut,
     reader_mut: kmut,
-    num_readers: u32, 
+    num_readers: u32,
 }
 
 macro KRW_INIT!(name) {
-    krw {
+    ::locks::rw::krw {
         exclusive_sem: KSEM_INIT!(($name).exclusive_sem, 1),
         order_mut: KMUT_INIT!(($name).order_mut),
         reader_mut: KMUT_INIT!(($name).reader_mut),
@@ -28,7 +31,7 @@ fn krw_int(krw: *krw) {
     ksem_init(&krw->exclusive_sem, 1);
     kmut_init(&krw->order_mut);
     kmut_init(&krw->reader_mut);
-    krw->num_readers = 0;  
+    krw->num_readers = 0;
 }
 
 fn krw_read_lock(krw: *krw) {
@@ -38,11 +41,11 @@ fn krw_read_lock(krw: *krw) {
     if (krw->num_readers == 0) {
         /* if we are the only reader, request
            exclusive access */
-        ksem_wait(&krw->exclusive_sem); 
+        ksem_wait(&krw->exclusive_sem);
     }
     krw->num_readers+=1;
-    kmut_unlock(&krw->order_mut);    
-    kmut_unlock(&krw->reader_mut);   
+    kmut_unlock(&krw->order_mut);
+    kmut_unlock(&krw->reader_mut);
 }
 
 fn krw_read_unlock(krw: *krw) {
@@ -50,7 +53,7 @@ fn krw_read_unlock(krw: *krw) {
     krw->num_readers-=1;
     if (krw->num_readers == 0) {
         ksem_signal(&krw->exclusive_sem);
-    }    
+    }
     kmut_unlock(&krw->reader_mut);
 }
 

@@ -1,30 +1,15 @@
-// "The build system"
-// This is the list of source files.
+// Main file.
 
-#include "consts.mb"
-#include "list.mb"
+mod consts;
+mod list;
 
-#include "utils/stdlib.mb"
-#include "utils/early_alloc.mb"
-#include "utils/buddy_alloc.mb"
-#include "utils/slab_alloc.mb"
-#include "locks/mutex.mb"
-#include "structures/tcb.mb"
-#include "structures/schedule.mb"
-#include "locks/lol_atomics.mb"
-#include "locks/cond.mb"
-#include "locks/sem.mb"
-#include "locks/rw.mb"
-#include "context/mod.mb"
-#include "structures/VM.mb"
-#include "threadstuffs/repl.mb"
-#include "structures/tcb_dir.mb"
-#include "structures/proc.mb"
-#include "structures/proc_dir.mb"
-#include "entry/mod.mb"
-#include "threadstuffs/abscond.mb"
-#include "threadstuffs/bide.mb"
-#include "fs/mod.mb"
-#include "loader/mod.mb"
+mod utils;
+mod locks;
+mod structures;
+mod context;
+mod threadstuffs;
+mod entry;
+mod fs;
+mod loader;
 
-#include "kernel_main.mb"
+mod kernel_main;

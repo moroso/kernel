@@ -4,6 +4,15 @@
  * Author: Amanda M. Watson
  * */
 
+use consts::*;
+use list::*;
+use locks::mutex::*;
+use utils::slab_alloc::*;
+use structures::tcb::*;
+use structures::proc::*;
+use structures::VM::*;
+use structures::schedule::*;
+use threadstuffs::abscond::*;
 
 fn child_repl(parent_ucontext: *context) {
    // stick context somewhere

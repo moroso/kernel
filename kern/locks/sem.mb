@@ -1,6 +1,9 @@
-/** sem.mb: declarations and implementation of kernel's semaphores 
+/** sem.mb: declarations and implementation of kernel's semaphores
  *  Author: Amanda M. Watson
  */
+
+use locks::mutex::*;
+use locks::cond::*;
 
 struct ksem {
   cond: kcond,
@@ -9,7 +12,7 @@ struct ksem {
 }
 
 macro KSEM_INIT!(name, count) {
-    ksem {
+    ::locks::sem::ksem {
         cond: KCOND_INIT!(($name).cond),
         count: $count,
         mut: KMUT_INIT!(($name).mut),
@@ -40,4 +43,3 @@ fn ksem_signal(ks: *ksem) {
     }
     kmut_unlock(&ks->mut);
 }
-

@@ -1,3 +1,7 @@
+use structures::tcb::gpregs;
+use structures::VM::*;
+use structures::schedule::get_tcb;
+
 const PAGE_FAULT: u32 = 14;
 
 struct regs {
@@ -39,14 +43,14 @@ fn entry_setup() {
 
 fn page_fault_handler() {
   let PD: *PD_t = &(get_tcb()->proc->PD);
-  let log_addr: *u8 = get_cr2() as *u8; 
+  let log_addr: *u8 = get_cr2() as *u8;
   let frame_addr: **u8 = log_to_phys(log_addr, PD);
 
   // if page is COW page, copy info onto new frame and replace
   if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
       printf0_("COW time\n");
       cow_copy(log_addr, PD);
-  } else { 
+  } else {
     printf0_("Page Fault\n");
     assert(false);
   }

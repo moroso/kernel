@@ -1,3 +1,20 @@
+use consts::*;
+
+use entry::*;
+use fs::*;
+
+use utils::early_alloc::*;
+use utils::buddy_alloc::*;
+use utils::slab_alloc::*;
+
+use structures::VM::*;
+use structures::tcb::*;
+use structures::proc::*;
+use structures::schedule::*;
+use threadstuffs::repl::*;
+use threadstuffs::bide::*;
+use threadstuffs::abscond::*;
+
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
 extern fn get_cr2() -> u32;
