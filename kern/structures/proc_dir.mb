@@ -8,10 +8,10 @@
 
 use list::*;
 use locks::rw::*;
-use locks::cond::*;
+use locks::lol_atomics::*;
 use structures::proc::*;
 use structures::tcb_dir::*;
-// XXX: why isn't atomic_add failing
+use utils::slab_alloc::*;
 
 static proc_dir: ref_dir_t = ref_dir_t {
     dir_head: LIST_HEAD_INIT!(proc_dir.dir_head),

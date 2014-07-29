@@ -19,7 +19,7 @@ struct krw {
 }
 
 macro KRW_INIT!(name) {
-    krw {
+    ::locks::rw::krw {
         exclusive_sem: KSEM_INIT!(($name).exclusive_sem, 1),
         order_mut: KMUT_INIT!(($name).order_mut),
         reader_mut: KMUT_INIT!(($name).reader_mut),

@@ -3,9 +3,13 @@
  * Author: Amanda M. Watson
 */
 
+use list::*;
 use utils::slab_alloc::*;
-use structures::tcb::*;
+use locks::mutex::*;
 use locks::cond::*;
+use structures::tcb::*;
+use structures::proc::*;
+use structures::schedule::*;
 
 /* when a thread invokes bide, it returns an exit status from a child process,
  * if possible.  If a child has exited and its status has not yet been
