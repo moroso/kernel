@@ -1,4 +1,4 @@
-use utils::stdlib::strcmp;
+use utils::stdlib::{strcmp, mos_memcpy};
 
 // Really basic things for the built in fs.
 
