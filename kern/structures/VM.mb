@@ -137,12 +137,7 @@ fn load_PD(PD: *PD_t) {
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     assert(is_addr_aligned(log_addr));
-    if (PD == null) {
-        //PD = get_cr3() as *PD_t;
-        printf0_("PD null\n");
-
-        return null;
-    }
+    assert(PD != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
@@ -169,12 +164,7 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
 fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
 
     assert(is_addr_aligned(log_addr));
-    if (PD == null) {
-        //PD = get_cr3() as *PD_t;
-        printf0_("PD null\n");
-
-        return -1;
-    }
+    assert(PD != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
 
@@ -293,12 +283,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  */
 fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert(is_addr_aligned(log_addr));
-    // TODO when we have sized arrays, we can make this work
-    if (PD == null) {
-        printf0_("PD null\n");
-        // PD = get_cr3() as *PD_t;
-        assert(false);
-    }
+    assert(PD != null);
     assert(PD != null);
     assert(is_kernel_addr(frame));
     assert(PD->PT_entries != null);
