@@ -33,7 +33,7 @@ struct slab_descriptor {
 }
 
 struct cache_descriptor {
-size: u32,
+    size: u32,
     slab: *u32,
     link: list_node,
 }
