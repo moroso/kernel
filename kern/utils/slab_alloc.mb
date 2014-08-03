@@ -42,8 +42,6 @@ static head: list_head = LIST_HEAD_INIT!(head);
 static caches: *cache_descriptor = null;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
-    // XXX: -sully
-    //    let slab: *u32 = frame_alloc_pow2(1) as *u32;
     let slab: *u32 = frame_alloc() as *u32;
     if (slab == null) {
         return ();
