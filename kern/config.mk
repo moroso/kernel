@@ -18,7 +18,7 @@ rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst 
 
 # This is suuuuuper dubious.
 # The user directory sits next to the kern directory in the kernel/ repo,
-# but our bsenv setup just has a symlinm to kernel/kern.
+# but our bsenv setup just has a symlink to kernel/kern.
 # However, kern/.. won't point to our current directory but will instead
 # point to the *actual* parent of the kern directory, which is the kernel/
 # root directory. kern/../user, then, points to kernel/user.
