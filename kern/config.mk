@@ -1,7 +1,7 @@
 # This really nasty config.mk slots into our temporary (?)
 # super hacky build system for testing the kernel on x86.
 
-KERN_GAME_OBJS = kernel.o fs_img.o \
+KERN_GAME_OBJS = kernel.o fs_img.o hacks.o \
 	context/context.o entry/entry_stubs_x86.o entry/entry_x86.o utils/invalidate_tlb.o
 
 

@@ -22,9 +22,3 @@ common_exit_asm:
 leave_kernel:
     movl 4(%esp), %esp
     jmp common_exit_asm
-
-
-/* This is a big hack. */
-.global kernel_main
-kernel_main:
-    jmp main
