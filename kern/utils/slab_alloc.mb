@@ -26,7 +26,7 @@ const POWER_MIN: u32 = 2;
 const POWER_MAX: u32 = 9;
 
 struct slab_descriptor {
-slab: *u32,
+    slab: *u32,
     slab_low: *u32,
     element_count: u32,
     slab_link: list_node,
