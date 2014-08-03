@@ -30,6 +30,10 @@ kern/fs_img.o: $(call rwildcard,kern/../user,*.mb *.c *.S *.h Makefile *.mk)
 	make -C kern/../user
 	cp kern/../user/build/fs_img.o $@
 
+user_clean:
+	make -C kern/../user clean
+clean: user_clean
+
 .SECONDARY: kern/kernel.c
 # Should generalize this better!
 STUKCLEANS += kern/kernel.c
