@@ -14,7 +14,7 @@
  * TODO remove slabs when they are freed
  *
  * Author: Amanda M. Watson
-*/
+ */
 
 use consts::*;
 use list::*;
@@ -26,16 +26,16 @@ const POWER_MIN: u32 = 2;
 const POWER_MAX: u32 = 9;
 
 struct slab_descriptor {
-  slab: *u32,
-  slab_low: *u32,
-  element_count: u32,
-  slab_link: list_node,
+slab: *u32,
+          slab_low: *u32,
+          element_count: u32,
+          slab_link: list_node,
 }
 
 struct cache_descriptor {
-  size: u32,
-  slab: *u32,
-  link: list_node,
+size: u32,
+          slab: *u32,
+          link: list_node,
 }
 
 static head: list_head = LIST_HEAD_INIT!(head);
@@ -43,10 +43,10 @@ static caches: *cache_descriptor = null;
 
 fn slab_add(size: u32, cache: *cache_descriptor) {
     // XXX: -sully
-//    let slab: *u32 = frame_alloc_pow2(1) as *u32;
+    //    let slab: *u32 = frame_alloc_pow2(1) as *u32;
     let slab: *u32 = frame_alloc() as *u32;
     if (slab == null) {
-      return ();
+        return ();
     }
     /* divide into elements */
     let node_prev: *u32 = slab;
@@ -62,17 +62,14 @@ fn slab_add(size: u32, cache: *cache_descriptor) {
      * an offset of size away from each other */
     i = 0;
     while (node != null) {
-        if (*node - (node as u32) != size && *node != 0) {
-            print_int(-5);
-        }
+        assert (!(*node - (node as u32) != size && *node != 0));
+        
         node = *node as *u32;
         i+=1;
     };
 
     /* should divide evenly */
-    if (i != (SLAB_SIZE/size)) {
-        print_int(-2);
-    }
+    assert (i == (SLAB_SIZE/size));
     cache->slab = slab;
 }
 
@@ -81,35 +78,36 @@ fn find_cache(size: u32) -> i32 {
     let power: u32;
     for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
         if (size <= (1 << power)) {
-          return (power - POWER_MIN) as i32;
+            return (power - POWER_MIN) as i32;
         }
     }
     -1
 }
 
 /* creates a cache with a single slab, full of size-sized elements */
-fn cache_create(size: u32, cache: *cache_descriptor) {
-  /* ensure this is a power of two */
-  assert (size&1 != 1 && size >= UINT_SIZE);
-  cache->size = size;
-  slab_add(size, cache);
-  if (cache->slab == null) {
-    print_int(-3); // this shouldn't always be true, but is currently useful for debugging
-  }
+fn cache_create(size: u32, cache: *cache_descriptor) -> i32 {
+    /* ensure this is a power of two */
+    assert (size&1 != 1 && size >= UINT_SIZE);
+    cache->size = size;
+    slab_add(size, cache);
+    if (cache->slab == null) {
+        return -1;
+    }
+    0
 }
 
 /* remove an element from the given cache.  if cache is empty, a new slab is
  * allocated  */
 fn cache_remove (cache: *cache_descriptor) -> *u32 {
-  if (cache->slab == null) {
-    slab_add(cache->size, cache);
-  }
+    if (cache->slab == null) {
+        slab_add(cache->size, cache);
+    }
 
-  let element: *u32 = cache->slab;
-  if (element != null) {
-      cache->slab = *element as *u32;
-  }
-  element
+    let element: *u32 = cache->slab;
+    if (element != null) {
+        cache->slab = *element as *u32;
+    }
+    element
 }
 
 /* add element back into cache */
@@ -120,7 +118,10 @@ fn cache_add (element: *u32, cache: *cache_descriptor) {
 }
 
 fn slub_init() {
-    caches = frame_alloc_pow2((POWER_MAX - POWER_MIN)) as *cache_descriptor;
+    // we are doing this sham of an allocation because we can't have a sized
+    // array as a global, due to the compiler's initialization requirement.
+    // Would like if fix.
+    caches = frame_alloc_pow2(1) as *cache_descriptor;
     let i: u32;
     for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
         let cache = &caches[i - POWER_MIN];
@@ -135,7 +136,6 @@ fn slub_alloc(size: u32) -> *u32 {
     if (cache_num == -1) {
         return null;
     }
-    // TODO check bounds
     cache_remove(&(caches[cache_num as u32]))
 }
 
