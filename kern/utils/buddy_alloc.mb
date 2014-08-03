@@ -31,21 +31,24 @@ struct buddy_category {
 }
 
 struct buddy_arena {
+    total_frames: u32,
     zones: buddy_category[MAX_ORDER+1],
     nodes: *list_node
 }
 
 // Total amount needs to be divisible by 4MB
 
-// This is kind of bogus but whatever.
-// Don't bother checking errors b/c it is boot code anyways
+// We just assert for error cases because it is boot code anyways
 // And tbh just test code
 fn buddy_init(num_frames: u32) -> *buddy_arena {
-    let node_size: u32 = 8;
-    let arena_size: u32 = node_size + (4+node_size)*(MAX_ORDER+1);
-    let arena: *buddy_arena = early_alloc(arena_size);
+    // We early_alloc this because globals require initializers but
+    // we don't have array literals. Should fix.
+    let arena: *buddy_arena = early_alloc(sizeof(buddy_arena));
+    assert(arena != null);
 
-    arena->nodes = early_alloc(num_frames * node_size);
+    arena->total_frames = num_frames;
+    arena->nodes = early_alloc(num_frames * sizeof(list_node));
+    assert(arena->nodes != null);
 
     // We just add 1 instead of bothering to round up only if necessary
     let num_words: u32 = num_frames / BITS + 1;
@@ -69,9 +72,12 @@ fn _get_buddy(block: u32, order: u32) -> u32 {
 }
 
 fn _get_index(arena: *buddy_arena, node: *list_node) -> u32 {
-    node - arena->nodes
+    let idx = node - arena->nodes;
+    assert(idx < arena->total_frames);
+    idx
 }
 fn _get_node(arena: *buddy_arena, block: u32) -> *list_node {
+    assert(block < arena->total_frames);
     &arena->nodes[block]
 }
 
@@ -88,7 +94,6 @@ fn _split_block(arena: *buddy_arena, block: u32,
         let node: *list_node = _get_node(arena, buddy_block);
         list_insert_head(node, &zone->free_list);
         // Mark it as free
-        //print_char(105); // print_uint(buddy_block);
         bm_set_bit(&zone->bitmap, buddy_block);
 
         cur_order = cur_order - 1;
@@ -147,7 +152,6 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
         order += 1;
     };
 
-    // print_char(111); print_uint(order);
     let zone: *buddy_category = &arena->zones[order];
     let node: *list_node = _get_node(arena, block);
     list_insert_head(node, &zone->free_list);
@@ -182,10 +186,6 @@ fn frame_init() {
     // Round up to the next 4MB bit
     let first_free_block = ROUND_UP!(next_free_page / PAGE_SIZE,
                                      frames_per_block);
-
-    // Spew
-    // print_uint(first_free_block);
-    // print_uint(frames_rounded_down);
 
     // Put blocks into the arena
     let i: u32;
