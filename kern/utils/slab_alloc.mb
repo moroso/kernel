@@ -27,15 +27,15 @@ const POWER_MAX: u32 = 9;
 
 struct slab_descriptor {
 slab: *u32,
-          slab_low: *u32,
-          element_count: u32,
-          slab_link: list_node,
+    slab_low: *u32,
+    element_count: u32,
+    slab_link: list_node,
 }
 
 struct cache_descriptor {
 size: u32,
-          slab: *u32,
-          link: list_node,
+    slab: *u32,
+    link: list_node,
 }
 
 static head: list_head = LIST_HEAD_INIT!(head);
@@ -121,7 +121,7 @@ fn slub_init() {
     // we are doing this sham of an allocation because we can't have a sized
     // array as a global, due to the compiler's initialization requirement.
     // Would like if fix.
-    caches = frame_alloc_pow2(1) as *cache_descriptor;
+    caches = frame_alloc() as *cache_descriptor;
     let i: u32;
     for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
         let cache = &caches[i - POWER_MIN];
