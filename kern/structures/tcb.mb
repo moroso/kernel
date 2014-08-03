@@ -114,7 +114,7 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
         return null;
     }
 
-    assert(tcb->kstack_top != null);
+    assert!(tcb->kstack_top != null);
 
     /* make some room for the new context, the return function and its args */
     tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
@@ -135,6 +135,6 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 }
 
 fn set_exit_status(proc: *proc, exit_status: u32) {
-    assert(proc != null);
+    assert!(proc != null);
     proc->exit_status->status = exit_status;
 }

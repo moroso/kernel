@@ -68,13 +68,13 @@ fn is_preempt_enabled() -> bool {
  * scheduler knows you really mean it.
  */
 fn schedule(tcb: *tcb, pos: u32) {
-    assert(!is_preempt_enabled());
-    assert(pos == QUEUE_FRONT || pos == QUEUE_BACK);
+    assert!(!is_preempt_enabled());
+    assert!(pos == QUEUE_FRONT || pos == QUEUE_BACK);
 
     if (tcb->state == STATE_NEW) {
         set_state(tcb, STATE_RUNNABLE);
     }
-    assert(tcb->state == STATE_RUNNABLE);
+    assert!(tcb->state == STATE_RUNNABLE);
     if (pos == QUEUE_FRONT) {
         list_insert_head(&tcb->link, &run_queue.run_Q);
         return ();
@@ -84,13 +84,13 @@ fn schedule(tcb: *tcb, pos: u32) {
         return ();
     }
     // pos should specify either the front or back position
-    assert(false);
+    assert!(false);
 }
 
 /* Remove a tcb from the run queue */
 fn unschedule(tcb: *tcb) {
-    assert(!is_preempt_enabled());
-    assert(tcb->state == STATE_RUNNABLE);
+    assert!(!is_preempt_enabled());
+    assert!(tcb->state == STATE_RUNNABLE);
     list_del(&tcb->link)
 }
 
@@ -133,7 +133,7 @@ fn scheduler_update(state: i32) {
        thread and do not update */
     if (new_running == null) {
         // there must be one thread running at all times
-        assert(old_running != null && state as u32 == STATE_RUNNABLE
+        assert!(old_running != null && state as u32 == STATE_RUNNABLE
                || state == -1);
         cond_preempt_enable(enable);
         return ();
@@ -141,7 +141,7 @@ fn scheduler_update(state: i32) {
 
     /* if a state was provided, assign it to the running thread */
     if (state != -1) {
-        assert(old_running != null);
+        assert!(old_running != null);
         old_running->state = state as u32;
     }
 
@@ -159,7 +159,7 @@ fn scheduler_update(state: i32) {
         }
     }
 
-    assert(new_running != null);
+    assert!(new_running != null);
     list_del(&(new_running->link));
     run_queue.running = new_running;
 

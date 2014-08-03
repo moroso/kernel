@@ -52,7 +52,7 @@ fn page_fault_handler() {
       cow_copy(log_addr, PD);
   } else {
     printf0_("Page Fault\n");
-    assert(false);
+    assert!(false);
   }
 }
 
@@ -60,6 +60,6 @@ fn kernel_entry(regs: *regs) {
     if (regs->cause == PAGE_FAULT) {
         page_fault_handler();
     } else {printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
-        assert(false);
+        assert!(false);
     }
 }

@@ -136,8 +136,8 @@ fn load_PD(PD: *PD_t) {
 /* Given a valid logical address and a page directory, returns address of the physical
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
-    assert(is_addr_aligned(log_addr));
-    assert(PD != null);
+    assert!(is_addr_aligned(log_addr));
+    assert!(PD != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
@@ -163,8 +163,8 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
 
 fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
 
-    assert(is_addr_aligned(log_addr));
-    assert(PD != null);
+    assert!(is_addr_aligned(log_addr));
+    assert!(PD != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
 
@@ -196,16 +196,16 @@ fn set_flags(log_addr: *u8, PD: *PD_t, flags: u32) {
 
 fn get_frame_ref(frame: *u8) -> u32 {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
-    assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
+    assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
     (frame_table[frame_num])
 }
 
 fn dec_frame_ref(frame: *u8, PD: *PD_t) -> u32 {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
-    assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
+    assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
 
     let ref_count: *u32 = &(frame_table[frame_num]);
-    assert(*ref_count > 0);
+    assert!(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
 
@@ -217,15 +217,15 @@ fn dec_frame_ref(frame: *u8, PD: *PD_t) -> u32 {
 
 fn inc_frame_ref(frame: *u8) {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
-    assert(frame_num > 0 && frame_num < MAX_FRAME_NUM);
+    assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
     let ref_count: *u32 = &(frame_table[frame_num]);
     atomic_add(ref_count, 1);
-    assert(*ref_count > 0);
+    assert!(*ref_count > 0);
 }
 
 // we assume VM locking has been taken care of
 fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
-    assert(is_user_addr(log_addr));
+    assert!(is_user_addr(log_addr));
 
     let frame_addr: **u8 = log_to_phys(log_addr, PD_source);
     if (frame_addr == null) {
@@ -240,12 +240,12 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
         size = MB;
     }
     let old_frame_ref =  get_frame_ref(frame);
-    assert(old_frame_ref > 0);
+    assert!(old_frame_ref > 0);
 
     let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size);
 
     // No extraneous increments, no sir
-    assert(get_frame_ref(frame) == old_frame_ref + 1);
+    assert!(get_frame_ref(frame) == old_frame_ref + 1);
     // if setting the page failed, return with failure
     if (ret < 0) {
         return ret;
@@ -258,8 +258,8 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 }
 
 fn free_page(log_addr: *u8, PD: *PD_t) {
-    assert(is_user_addr(log_addr));
-    assert(is_addr_aligned(log_addr));
+    assert!(is_user_addr(log_addr));
+    assert!(is_addr_aligned(log_addr));
 
     let page_entry: **u8 = log_to_phys(log_addr, PD);
     if (page_entry == null) {
@@ -282,11 +282,11 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  * requires that page being set does not already exist in the directory
  */
 fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
-    assert(is_addr_aligned(log_addr));
-    assert(PD != null);
-    assert(PD != null);
-    assert(is_kernel_addr(frame));
-    assert(PD->PT_entries != null);
+    assert!(is_addr_aligned(log_addr));
+    assert!(PD != null);
+    assert!(PD != null);
+    assert!(is_kernel_addr(frame));
+    assert!(PD->PT_entries != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
@@ -305,16 +305,16 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
             *page_table_addr = ((*page_table_addr as u32) | READ_WRITE_BIT |
                     PRESENT_BIT | USER_SUPER_BIT) as *u32;
         }
-        assert(*page_table_addr != null);
+        assert!(*page_table_addr != null);
         let page_table: *u32 = get_aligned_addr(*page_table_addr);
         /* we don't want to overwrite shit */
-        assert(page_table[pt_entry] == 0);
+        assert!(page_table[pt_entry] == 0);
 
         /* set the frame entry and flags */
         page_table[pt_entry] = (frame as u32) | flags | PRESENT_BIT;
 
     } else {
-        assert(size == MB);
+        assert!(size == MB);
         *page_table_addr = frame as *u32;
 
         *page_table_addr = ((*page_table_addr as u32) | flags |
@@ -331,7 +331,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
     {
         printf2_("%x %x\n", *(log_to_phys(log_addr, PD) as *u32) as u32, frame as
                 u32);
-        //  assert(false);
+        //  assert!(false);
     }
     0
 }
@@ -340,7 +340,7 @@ fn get_frame(size: u32) -> *u8 {
     if (size == KB) {
         return frame_alloc() as *u8;
     }
-    assert(size == MB);
+    assert!(size == MB);
     frame_alloc_pow2(10) as *u8
 }
 
@@ -349,14 +349,14 @@ fn free_frame(frame: *u8, size: u32) {
     if (size == KB) {
         frame_free(frame);
     } else {
-        assert(size == MB);
+        assert!(size == MB);
         frame_free_pow2(frame, 10);
     }
 }
 
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
-    assert(is_user_addr(log_addr));
-    assert(is_addr_aligned(log_addr));
+    assert!(is_user_addr(log_addr));
+    assert!(is_addr_aligned(log_addr));
     let new_frame: *u8 = get_frame(KB);
 
     if (new_frame == null) {
@@ -376,8 +376,8 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  * pages
  */
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
-    assert(is_kernel_addr(log_addr));
-    assert(is_addr_aligned(log_addr));
+    assert!(is_kernel_addr(log_addr));
+    assert!(is_addr_aligned(log_addr));
     let success = set_page(log_addr, log_addr, PD, flags, size);
     success
 }
@@ -386,15 +386,15 @@ fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
  * sort.  Until the compiler allows this, though, our init will have a page
  * table allocation step.  Sorry.  */
 fn PD_init(PD: *PD_t) -> i32 {
-    assert(PD != null);
+    assert!(PD != null);
     PD->PT_entries = frame_alloc() as **u32;
     if (PD->PT_entries == null) {
         return -1;
     }
-    assert(is_addr_aligned(PD->PT_entries as *u8));
+    assert!(is_addr_aligned(PD->PT_entries as *u8));
     let i: u32;
     for (i = 0; i < PTS_PER_DIR; i+=1) {
-        assert(PD->PT_entries != null);
+        assert!(PD->PT_entries != null);
         PD->PT_entries[i] = null;
     }
     let kernel_addr: *u8 = (PAGE_SIZE as *u8);
@@ -439,7 +439,7 @@ fn PD_init(PD: *PD_t) -> i32 {
  * allowed to fail.  */
 fn cow_copy(log_addr: *u8, PD: *PD_t) {
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
-    assert(frame_orig_addr != null);
+    assert!(frame_orig_addr != null);
     let frame_orig: *u8 = *frame_orig_addr;
 
     // if we are the only one holding the page, let's make it writable again

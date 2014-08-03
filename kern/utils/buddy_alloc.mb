@@ -44,11 +44,11 @@ fn buddy_init(num_frames: u32) -> *buddy_arena {
     // We early_alloc this because globals require initializers but
     // we don't have array literals. Should fix.
     let arena: *buddy_arena = early_alloc(sizeof(buddy_arena));
-    assert(arena != null);
+    assert!(arena != null);
 
     arena->total_frames = num_frames;
     arena->nodes = early_alloc(num_frames * sizeof(list_node));
-    assert(arena->nodes != null);
+    assert!(arena->nodes != null);
 
     // We just add 1 instead of bothering to round up only if necessary
     let num_words: u32 = num_frames / BITS + 1;
@@ -73,11 +73,11 @@ fn _get_buddy(block: u32, order: u32) -> u32 {
 
 fn _get_index(arena: *buddy_arena, node: *list_node) -> u32 {
     let idx = node - arena->nodes;
-    assert(idx < arena->total_frames);
+    assert!(idx < arena->total_frames);
     idx
 }
 fn _get_node(arena: *buddy_arena, block: u32) -> *list_node {
-    assert(block < arena->total_frames);
+    assert!(block < arena->total_frames);
     &arena->nodes[block]
 }
 

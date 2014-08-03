@@ -37,7 +37,7 @@ fn krw_int(krw: *krw) {
 fn krw_read_lock(krw: *krw) {
     kmut_lock(&krw->order_mut); // ensure ordering of readers
     kmut_lock(&krw->reader_mut); // new reader
-    assert(krw->num_readers >= 0);
+    assert!(krw->num_readers >= 0);
     if (krw->num_readers == 0) {
         /* if we are the only reader, request
            exclusive access */

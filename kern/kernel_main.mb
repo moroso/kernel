@@ -60,7 +60,7 @@ fn kernel_setup() {
     let frame_table_size: u32 = sizeof(u32) * MAX_FRAME_NUM;
     let x: *u32 = early_alloc(frame_table_size);
     frame_table = x;
-    assert(frame_table != null);
+    assert!(frame_table != null);
 
     /*** Basic util initialization ***/
     frame_init();
@@ -68,7 +68,7 @@ fn kernel_setup() {
 
     /*** Create an initial page directory and enable paging ***/
     init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
-    assert(PD_init(init_PD) >= 0);
+    assert!(PD_init(init_PD) >= 0);
     entry_setup();
     load_PD(init_PD);
     enable_paging();
@@ -85,18 +85,18 @@ fn kernel_main() -> u32 {
     let i: u32;
     for (i = 0; i < 5; i+=1) {
         let new_tcb: *tcb = thr_create(&parent as *u8, null, 0);
-        assert(new_tcb != null);
+        assert!(new_tcb != null);
         let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
         proc_init(proc1, new_tcb);
-        assert(proc1 != null);
+        assert!(proc1 != null);
         schedule(new_tcb, QUEUE_FRONT);
     }
 
     let new_tcb: *tcb = thr_create(&idle as *u8, null, 0);
-    assert(new_tcb != null);
+    assert!(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
     proc_init(proc1, new_tcb);
-    assert(proc1 != null);
+    assert!(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 
 

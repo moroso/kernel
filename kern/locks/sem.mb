@@ -20,7 +20,7 @@ macro KSEM_INIT!(name, count) {
 }
 
 fn ksem_init(ks: *ksem, count: u32) {
-    assert(count >= 0);
+    assert!(count >= 0);
     kcond_init(&ks->cond);
     kmut_init(&ks->mut);
     ks->count = count;
