@@ -15,8 +15,6 @@ PROJROOT = $(PWD)
 UDIR = .
 BUILDDIR=build
 
-PROG_BINS=$(PROGS:%=$(BUILDDIR)/%)
-
 BSLD = ./bs-ld
 CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
@@ -34,14 +32,13 @@ INCLUDES = -Iinc
 
 LIB_OBJS=build/syscall_x86.o
 
+PROG_BINS := $(PROGS:%=$(BUILDDIR)/%)
+PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
+
 all: $(BUILDDIR)/fs_img.o
 
-
-# The deps here are suuuuuuper bullshit.
-# All the programs get rebuilt if any .mb files get changed.
-# Maybe we want mbc to emit dep files.
-$(BUILDDIR)/%.c: %.mb $(call rwildcard,.,*.mb)
-	$(MBC) $< --target c -o $@
+$(BUILDDIR)/%.c: %.mb
+	$(MBC) $< -d --target c -o $@
 
 $(BUILDDIR)/%.o: %.S
 	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<
@@ -56,7 +53,10 @@ $(BUILDDIR)/%.o: %.S
 %: %.bin
 	$(BSLD) $< > $@
 
-GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c)
+# Include all the dependency files for our programs that mbc generates.
+-include $(PROG_DEPS)
+
+GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c) $(PROG_DEPS)
 .INTERMEDIATE: $(GENERATED_FILES) $(LIB_OBJS)
 
 # We don't want the path in the names in the script, so cd
