@@ -8,10 +8,10 @@ KERN_GAME_OBJS = kernel.o fs_img.o \
 TABSTOP = 4
 
 MBC=../compiler/mbc
+MBC_TARGET ?= c
 
 %.c: %.mb
-	$(MBC) $< -d --target c -o $@
-
+	$(MBC) $< -d --target $(MBC_TARGET) -o $@
 
 # Wee.
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
