@@ -19,17 +19,17 @@ macro KCOND_INIT!(name) {
 }
 
 fn kcond_init(kc: *kcond) {
-    assert(kc != null); // make sure null is not mapped in VM
+    assert!(kc != null); // make sure null is not mapped in VM
     list_init_head(&(kc->head));
 }
 
 fn kcond_destroy(kc: *kcond) {
-    assert(kc != null);
-    assert(list_is_empty(&(kc->head)) == true);
+    assert!(kc != null);
+    assert!(list_is_empty(&(kc->head)) == true);
 }
 
 fn kcond_wait(kc: *kcond, mut: *kmut) {
-    assert(kc != null);
+    assert!(kc != null);
     let enable = cond_preempt_disable();
     kmut_unlock(mut);
     list_insert_tail(&get_tcb()->link, &(kc->head));
@@ -39,12 +39,12 @@ fn kcond_wait(kc: *kcond, mut: *kmut) {
 }
 
 fn kcond_signal(kc: *kcond) {
-    assert(kc != null);
+    assert!(kc != null);
     let enable = cond_preempt_disable();
     let tcb: *tcb = list_head_entry!(&kc->head, tcb, link);
     if (tcb != null) {
         list_del(&tcb->link);
-        assert(tcb->state == STATE_COND);
+        assert!(tcb->state == STATE_COND);
         set_state(tcb, STATE_RUNNABLE);
         schedule(tcb, QUEUE_FRONT);
     }

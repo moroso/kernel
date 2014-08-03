@@ -62,7 +62,7 @@ fn proc_lookup(pid: i32) -> *proc {
 }
 
 fn proc_end_lookup(proc_read: *proc) {
-    assert(proc_read != null);
+    assert!(proc_read != null);
     krw_read_lock(&(proc_dir.dir_lock));
     decrease_proc_ref(proc_read);
     krw_read_unlock(&(proc_dir.dir_lock));

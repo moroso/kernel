@@ -27,9 +27,9 @@ fn abscond()  {
 
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
-    assert(proc != null && tcb != null);
+    assert!(proc != null && tcb != null);
 
-    assert(tcb != null);
+    assert!(tcb != null);
     tcb_dir_remove(tcb);
     // if we still have a parent
 
@@ -76,5 +76,5 @@ fn abscond()  {
     printf1_("thread %d is going to die\n", get_tcb()->tid);
     scheduler_update(STATE_DEAD as i32);
     printf1_("%d, abscond returned\n", get_tcb()->tid);
-    assert(false); // no return
+    assert!(false); // no return
 }
