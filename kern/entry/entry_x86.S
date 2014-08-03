@@ -27,4 +27,4 @@ leave_kernel:
 /* This is a big hack. */
 .global kernel_main
 kernel_main:
-    jmp MANGLEDkernel_main_kernel_main
+    jmp main

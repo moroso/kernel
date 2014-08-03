@@ -13,3 +13,5 @@ mod fs;
 mod loader;
 
 mod kernel_main;
+
+fn main() -> u32 { kernel_main::kernel_main() }
