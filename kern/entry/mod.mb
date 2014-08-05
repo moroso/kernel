@@ -51,7 +51,7 @@ fn page_fault_handler() {
       printf0_("COW time\n");
       cow_copy(log_addr, PD);
   } else {
-    printf0_("Page Fault\n");
+    printf1_("Page Fault on address 0x%x\n", log_addr as u32);
     assert!(false);
   }
 }
@@ -63,3 +63,5 @@ fn kernel_entry(regs: *regs) {
         assert!(false);
     }
 }
+
+extern fn leave_kernel(ureg: *regs);

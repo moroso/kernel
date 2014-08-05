@@ -61,14 +61,22 @@ fn get_file_length(filename: *u8) -> i32 {
     fs_entry->file_length as i32
 }
 
-fn fs_read(filename: *u8, buffer: *u8, length: u32) -> i32 {
+fn fs_read(filename: *u8, buffer: *u8, length: u32, offset: u32) -> i32 {
     let fs_entry: *bsfs_entry = fs_search(filename);
+    
     if (fs_entry == null) {
         return -1;
     }
-    assert!(length <= fs_entry->file_length);
-    mos_memcpy(buffer, &fs_img_start[0] + fs_entry->offset, length);
 
-    0
+    assert!(offset >= 0); 
+
+    if (length + offset > fs_entry->file_length) {
+        length = fs_entry->file_length - offset; 
+    }
+
+    assert!(length <= fs_entry->file_length);
+    mos_memcpy(buffer, &fs_img_start[0] + fs_entry->offset + offset, length);
+
+    length as i32
 }
 
