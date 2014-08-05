@@ -6,6 +6,8 @@ kernel_main:
     jmp main
 
 .global abort
+.global malloc
+malloc:
 abort:
 	cli
 spin:
