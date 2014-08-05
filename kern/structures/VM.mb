@@ -455,6 +455,6 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     let set_page_result = set_page(frame_new, log_addr, PD,
                                    USER_SUPER_BIT | READ_WRITE_BIT,
                                    frame_size);
-    assert (set_page_result >= 0); // this assert trips if we run out of frames,
+    assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
 }

@@ -60,14 +60,14 @@ fn slab_add(size: u32, cache: *cache_descriptor) {
      * an offset of size away from each other */
     i = 0;
     while (node != null) {
-        assert (!(*node - (node as u32) != size && *node != 0));
-        
+        assert!(!(*node - (node as u32) != size && *node != 0));
+
         node = *node as *u32;
         i+=1;
     };
 
     /* should divide evenly */
-    assert (i == (SLAB_SIZE/size));
+    assert!(i == (SLAB_SIZE/size));
     cache->slab = slab;
 }
 
@@ -85,7 +85,7 @@ fn find_cache(size: u32) -> i32 {
 /* creates a cache with a single slab, full of size-sized elements */
 fn cache_create(size: u32, cache: *cache_descriptor) -> i32 {
     /* ensure this is a power of two */
-    assert (size&1 != 1 && size >= UINT_SIZE);
+    assert!(size&1 != 1 && size >= UINT_SIZE);
     cache->size = size;
     slab_add(size, cache);
     if (cache->slab == null) {
