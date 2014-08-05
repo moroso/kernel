@@ -326,11 +326,11 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
         inc_frame_ref(frame);
     }
     if (get_aligned_addr((*(log_to_phys(log_addr, PD) as *u32)) as *u32) !=
-            get_aligned_addr(frame as *u32) as *u32)
+        get_aligned_addr(frame as *u32) as *u32)
     {
-        printf2_("%x %x\n", *(log_to_phys(log_addr, PD) as *u32) as u32, frame as
-                u32);
-        //  assert!(false);
+        printf2_("page not actually set in set_page(): %x %x\n",
+                 *(log_to_phys(log_addr, PD) as *u32) as u32, frame as u32);
+        assert!(false);
     }
     0
 }
