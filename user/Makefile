@@ -38,7 +38,7 @@ PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
 
 all: $(BUILDDIR)/fs_img.o
 
-$(BUILDDIR)/%.c: %.mb
+$(BUILDDIR)/%.c: %.mb $(MBC)
 	$(MBC) $< -d --target $(MBC_TARGET) -o $@
 
 $(BUILDDIR)/%.o: %.S
