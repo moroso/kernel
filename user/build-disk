@@ -11,7 +11,8 @@ STRUCT_FMT = "<ii%ds" % FILENAME_LEN
 def make_headers(files, contents):
     headers = []
 
-    offset = len(MAGIC) + struct.calcsize(STRUCT_FMT) * len(files)
+    offset = (len(MAGIC) + struct.calcsize(HEADER_FMT) +
+              struct.calcsize(STRUCT_FMT) * len(files))
     for filename, data in zip(files, contents):
         headers += [(offset, len(data), filename.encode())]
         offset += len(data)
