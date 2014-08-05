@@ -10,7 +10,7 @@ TABSTOP = 4
 MBC=../compiler/mbc
 MBC_TARGET ?= c
 
-%.c: %.mb
+%.c: %.mb $(MBC)
 	$(MBC) $< -d --target $(MBC_TARGET) -o $@
 
 # Wee.
