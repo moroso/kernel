@@ -16,6 +16,7 @@ use threadstuffs::bide::*;
 use threadstuffs::abscond::*;
 use loader::*;
 use entry::*;
+use structures::tcb_dir::tcb_dir_add;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -27,10 +28,6 @@ extern fn set_cr3(val: u32);
 extern fn set_cr4(val: u32);
 extern fn get_esp() -> u32;
 extern fn set_esp0(val: u32);
-
-
-
-
 
 fn parent() {
     
@@ -102,6 +99,7 @@ fn kernel_main() -> u32 {
     let i: u32;
     for (i = 0; i < 5; i+=1) {
         let new_tcb: *tcb = thr_create(&parent as *u8, null, 0);
+        tcb_dir_add(new_tcb);
         assert!(new_tcb != null);
         let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
         proc_init(proc1, new_tcb);

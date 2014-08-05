@@ -364,9 +364,8 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     }
 
     if (set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size) < 0) {
-        // TODO free newly-allocated frame
-        printf0_("other reason\n");
-        return -1;
+        free_frame(new_frame, KB);
+        return -2;
     }
     0
 }

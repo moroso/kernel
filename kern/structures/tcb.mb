@@ -9,8 +9,9 @@ use list::*;
 use locks::mutex::*;
 use structures::proc::*;
 use structures::tcb_dir::*;
-use utils::buddy_alloc::frame_alloc;
+use utils::buddy_alloc::{frame_alloc, frame_free};
 use utils::stdlib::*;
+use structures::schedule::is_scheduled;
 
 /* this will be outmoded as soon as the new arch comes in */
 struct gpregs {
@@ -130,8 +131,18 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 
     mos_memcpy(data_addr, data as *u32, len);
     *arg_addr = data_addr as u32;
-    tcb_dir_add(tcb);
     tcb
+}
+
+/* for destroying tcbs that have never been scheduled/added to directory */
+fn thr_abort(dead_tcb: *tcb) {
+    assert!(dead_tcb != null);
+    // ensure we are no longer on the run queue
+    assert!(!is_scheduled(dead_tcb));
+    // should be removed from directory first.  otherwise, deletion should be
+    // done via ref count
+    assert!(tcb_lookup(dead_tcb->tid) == null);
+    frame_free(dead_tcb as *u8);
 }
 
 fn set_exit_status(proc: *proc, exit_status: u32) {
