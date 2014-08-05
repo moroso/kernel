@@ -22,3 +22,10 @@ const STATE_RUNNABLE: u32 = 4;
 const STATE_NEW: u32 = 5;
 const STATE_COND: u32 = 6;
 const STATE_DEAD: u32 = 7;
+
+
+const KERNEL_CS: u32 = 0x10;     /**< Kernel Code Segment */
+const KERNEL_DS: u32 = 0x18;      /**< Kernel Data Segment */
+const USER_CS: u32 = 0x23;      /**< User Code Segment */
+const USER_DS: u32 = 0x2b;      /**< User Data Segment */
+

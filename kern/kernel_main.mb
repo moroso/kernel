@@ -14,6 +14,8 @@ use structures::schedule::*;
 use threadstuffs::repl::*;
 use threadstuffs::bide::*;
 use threadstuffs::abscond::*;
+use loader::*;
+use entry::*;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -23,9 +25,23 @@ extern fn get_cr4() -> u32;
 extern fn set_cr0(val: u32);
 extern fn set_cr3(val: u32);
 extern fn set_cr4(val: u32);
+extern fn get_esp() -> u32;
+extern fn set_esp0(val: u32);
+
+
+
 
 
 fn parent() {
+    
+
+    let uregs: regs;
+    assert!(load("basic_test", &uregs) >= 0);
+    set_esp0(get_tcb()->kstack_top as u32);
+    leave_kernel(&uregs);
+    while(true) {
+
+    }
     let page: *u8 = USER_MEM_START as *u8;
     while (page as u32 < (USER_MEM_START + (4096*4))) {
         if (new_user_page(page, &(get_tcb()->proc->PD), READ_WRITE_BIT, KB) < 0) {
@@ -78,6 +94,7 @@ fn kernel_setup() {
 
 fn kernel_main() -> u32 {
     kernel_setup();
+
 
 
     /*** Create two threads and schedule them ***/

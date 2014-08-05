@@ -136,7 +136,6 @@ fn load_PD(PD: *PD_t) {
 /* Given a valid logical address and a page directory, returns address of the physical
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
-    assert!(is_addr_aligned(log_addr));
     assert!(PD != null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
