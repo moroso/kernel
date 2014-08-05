@@ -370,6 +370,41 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     0
 }
 
+fn free_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t) {
+    assert!(addr_start < addr_end);
+    assert!(addr_start as u32 >= USER_MEM_START && addr_end as u32 >= USER_MEM_START);
+    let page_destroy: *u8;
+    for (page_destroy = addr_start; page_destroy <= addr_end; page_destroy+=PAGE_SIZE) {
+        free_page(page_destroy as *u8, PD);
+    }
+}
+
+fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
+        u32) -> i32 {
+    assert!(addr_start as u32 >= USER_MEM_START && addr_end as u32 >= USER_MEM_START);
+    addr_start = get_aligned_addr(addr_start as *u32) as *u8;
+    if (addr_end > get_aligned_addr(addr_end as *u32) as *u8) {
+        addr_end = get_aligned_addr(addr_end as *u32) as *u8 + PAGE_SIZE;
+    } else {
+        addr_end = get_aligned_addr(addr_end as *u32) as *u8;  
+    }
+
+    let page_read: *u8;
+    for (page_read = addr_start; page_read <= addr_end; 
+            page_read+=PAGE_SIZE) {
+        printf1_("%x\n", page_read as u32);
+        if (new_user_page(page_read, PD, flags, size) < 0) {
+            if (page_read != addr_start) {
+                free_user_range(addr_start, (addr_end as u32 - PAGE_SIZE) as *u8, PD);
+            } 
+
+            return -1;
+        }
+
+    }
+    0
+}
+
 /* at some point, have all PDs reference the same set of direct-mapped kernel
  * pages
  */
@@ -451,8 +486,8 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     mos_memcpy(frame_new, log_addr, frame_size);
     free_page(log_addr, PD); // removes page and decs ref count
     let set_page_result = set_page(frame_new, log_addr, PD,
-                                   USER_SUPER_BIT | READ_WRITE_BIT,
-                                   frame_size);
+            USER_SUPER_BIT | READ_WRITE_BIT,
+            frame_size);
     assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
 }
