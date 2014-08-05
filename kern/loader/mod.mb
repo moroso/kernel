@@ -10,7 +10,7 @@ use fs::fs_read;
 use utils::slab_alloc::{slub_alloc, slub_free};
 use utils::buddy_alloc::frame_alloc;
 use consts::{USER_DS, USER_CS, PAGE_SIZE};
-use structures::VM::{new_user_page, free_page, is_user_addr, READ_WRITE_BIT, KB};
+use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_BIT, KB};
 use structures::schedule::get_tcb;
 use entry::regs;
 use utils::stdlib::mos_memcpy;
@@ -53,40 +53,29 @@ fn load(filename: *u8, ureg: *regs) -> i32 {
 
     }
 
-    let page_read: u32;
-    
     // allocate an additional page for the user stack
     let user_esp = header->load_addr + header->mapping_size + PAGE_SIZE; 
 
-    /* ensure that we can allocate the proper amount of space */
-    for (page_read = header->load_addr; page_read < user_esp + PAGE_SIZE; 
-            page_read+=PAGE_SIZE) {
-        let new_page: *u8 = (page_read as *u8); 
-        assert!(is_user_addr(new_page));
-        if (new_user_page(new_page, &get_tcb()->proc->PD, 
-                    READ_WRITE_BIT, KB) < 0) {
-            
-            // free the VM allocated so far
-            let page_destroy: u32;
-            for (page_destroy = header->load_addr; page_destroy < page_read; 
-                    page_destroy+=PAGE_SIZE) {
-
-                free_page(page_destroy as *u8, &get_tcb()->proc->PD);
-            }      
-            slub_free(header as *u32, sizeof(bsexe_header));
-            return -4;
-        } 
-
+    /* allocate the full mapping size */
+    if (new_user_range(header->load_addr as *u8, user_esp as *u8,
+                &get_tcb()->proc->PD, READ_WRITE_BIT, KB) < 0) {
+        slub_free(header as *u32, sizeof(bsexe_header));
+        return -4;
     }
 
+    let page_read: u32;
     /* copy the binary data into VM */
     for (page_read = 0; page_read < header->binary_size + PAGE_SIZE; page_read+=PAGE_SIZE) {
 
         let length_read: u32 = fs_read(filename, page_buf, PAGE_SIZE,
                 sizeof(bsexe_header) + page_read) as u32;
+        
+        /* we have been lied to about the contents of this file */
         if (length_read == -1) {
+            free_user_range(header->load_addr as *u8, user_esp as *u8,
+                    &get_tcb()->proc->PD);  
+
             slub_free(header as *u32, sizeof(bsexe_header));
-            // TODO remove prev allocated VM
             return -4;
         }
 
