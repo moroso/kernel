@@ -32,16 +32,16 @@ struct slab_descriptor {
     slab_link: list_node,
 }
 
-struct cache_descriptor {
+struct cache_head {
     size: u32,
     slab: *u32,
     link: list_node,
 }
 
 static head: list_head = LIST_HEAD_INIT!(head);
-static caches: *cache_descriptor = null;
+static caches: *cache_head = null;
 
-fn slab_add(size: u32, cache: *cache_descriptor) {
+fn slab_add(size: u32, cache: *cache_head) {
     let slab: *u32 = frame_alloc() as *u32;
     if (slab == null) {
         return ();
@@ -82,10 +82,10 @@ fn find_cache(size: u32) -> i32 {
     -1
 }
 
-/* creates a cache with a single slab, full of size-sized elements */
-fn cache_create(size: u32, cache: *cache_descriptor) -> i32 {
-    /* ensure this is a power of two */
-    assert!(size&1 != 1 && size >= UINT_SIZE);
+/* creates a cache with a single slab, full of size-sized elements
+ * We expect that size is a power of two
+ */
+fn cache_create(size: u32, cache: *cache_head) -> i32 {
     cache->size = size;
     slab_add(size, cache);
     if (cache->slab == null) {
@@ -96,7 +96,7 @@ fn cache_create(size: u32, cache: *cache_descriptor) -> i32 {
 
 /* remove an element from the given cache.  if cache is empty, a new slab is
  * allocated  */
-fn cache_remove (cache: *cache_descriptor) -> *u32 {
+fn cache_remove (cache: *cache_head) -> *u32 {
     if (cache->slab == null) {
         slab_add(cache->size, cache);
     }
@@ -109,7 +109,7 @@ fn cache_remove (cache: *cache_descriptor) -> *u32 {
 }
 
 /* add element back into cache */
-fn cache_add (element: *u32, cache: *cache_descriptor) {
+fn cache_add (element: *u32, cache: *cache_head) {
     /* TODO check memory bounds */
     *element = cache->slab as u32;
     cache->slab = element;
@@ -119,7 +119,7 @@ fn slub_init() {
     // we are doing this sham of an allocation because we can't have a sized
     // array as a global, due to the compiler's initialization requirement.
     // Would like if fix.
-    caches = frame_alloc() as *cache_descriptor;
+    caches = frame_alloc() as *cache_head;
     let i: u32;
     for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
         let cache = &caches[i - POWER_MIN];
