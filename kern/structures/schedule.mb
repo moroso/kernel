@@ -61,6 +61,17 @@ fn is_preempt_enabled() -> bool {
     run_queue.preempt_enabled
 }
 
+fn is_scheduled(tcb: *tcb) -> bool {
+    
+    if (run_queue.running == tcb) {
+        return true;
+    }
+    if (!(tcb->link.next == null && tcb->link.prev == null)) {
+        return true;
+    }       
+    false
+}
+
 /*
  * add a tcb to the run queue: position should be QUEUE_FRONT if tcb should be run immediately,
  * QUEUE_BACK if it should patiently wait its turn in the queue.

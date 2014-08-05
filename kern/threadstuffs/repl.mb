@@ -13,12 +13,12 @@ use structures::proc::*;
 use structures::VM::*;
 use structures::schedule::*;
 use threadstuffs::abscond::*;
+use structures::tcb_dir::tcb_dir_add;
 
 fn child_repl(parent_ucontext: *context) {
    // stick context somewhere
    // add to directory
    // return 0
-
 
    *((USER_MEM_START + 4096) as *u32) = 2;
    printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
@@ -31,8 +31,8 @@ fn child_repl(parent_ucontext: *context) {
 }
 
 fn thr_repl(parent_ucontext: *context) -> *tcb {
-    // 0x24 = sizeof(context)
-    let child_tcb = thr_create(((&child_repl) as *u8), (parent_ucontext as *u8), 0x24);
+    let child_tcb = thr_create(((&child_repl) as *u8), (parent_ucontext as *u8), sizeof(context));
+    // TODO add to directory for syscall 
     child_tcb
 }
 
@@ -40,14 +40,13 @@ fn thr_repl(parent_ucontext: *context) -> *tcb {
 fn repl(parent_ucontext: *context) -> i32 {
 
     let parent_proc = get_tcb()->proc;
-    /* if we don't have only on thread in parent process, return with error */
 
+    /* if we don't have only on thread in parent process, return with error */
     if (!list_is_singleton(&(parent_proc->peer_tcb_list))) {
         return -1;
     }
 
     let child_proc: *proc = slub_alloc(sizeof(proc)) as *proc;
-
 
     if (child_proc == null) {
         return -1;
@@ -61,22 +60,24 @@ fn repl(parent_ucontext: *context) -> i32 {
 
     if (proc_init(child_proc, child_tcb) == -1) {
         slub_free(child_proc as *u32, sizeof(proc));
+        thr_abort(child_tcb);
         return -1;
     }
+
     child_proc->parent_pid = parent_proc->pid as i32;
-    // TODO we *can't* fail here, we've already added the child tcb to the
-    // directory. some re-ordering/splitting up will have to be done
+
     let page: *u8;
     // copy over references to new PD
-
     for (page = USER_MEM_START as *u8; page <= (INT_MAX - PAGE_SIZE) as *u8; page += PAGE_SIZE) {
         if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
 
-            // free proc, PD (cleanup)
+            // TODO free proc, PD (cleanup)
             return -1;
         }
     }
 
+    // add tcb to directory, now that repl can no longer fail
+    tcb_dir_add(child_tcb);
     /* add new tcb to list of children */
     kmut_lock(&(parent_proc->child_mut));
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
