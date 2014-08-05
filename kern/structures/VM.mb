@@ -372,7 +372,7 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
 
 fn free_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t) {
     assert!(addr_start < addr_end);
-    assert!(addr_start as u32 >= USER_MEM_START && addr_end as u32 >= USER_MEM_START);
+    assert!(is_user_addr(addr_start) && is_user_addr(addr_end));
     let page_destroy: *u8;
     for (page_destroy = addr_start; page_destroy <= addr_end; page_destroy+=PAGE_SIZE) {
         free_page(page_destroy as *u8, PD);
@@ -381,7 +381,7 @@ fn free_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t) {
 
 fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
         u32) -> i32 {
-    assert!(addr_start as u32 >= USER_MEM_START && addr_end as u32 >= USER_MEM_START);
+    assert!(is_user_addr(addr_start) && is_user_addr(addr_end));
     addr_start = get_aligned_addr(addr_start as *u32) as *u8;
     if (addr_end > get_aligned_addr(addr_end as *u32) as *u8) {
         addr_end = get_aligned_addr(addr_end as *u32) as *u8 + PAGE_SIZE;
