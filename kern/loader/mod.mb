@@ -76,7 +76,7 @@ fn load(filename: *u8, ureg: *regs) -> i32 {
                     &get_tcb()->proc->PD);  
 
             slub_free(header as *u32, sizeof(bsexe_header));
-            return -4;
+            return -5;
         }
 
         let new_page: *u8 = header->load_addr + (page_read as *u8); 
@@ -85,7 +85,7 @@ fn load(filename: *u8, ureg: *regs) -> i32 {
     }
 
 
-    /* Populate the ureg with the apporpriate info for running the file */
+    /* Populate the ureg with the appropriate info for running the file */
     ureg->esp = user_esp; // allocated in the for-loop 
     ureg->eip = header->entry_point;
     let eflags: u32 = get_eflags();
