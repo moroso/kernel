@@ -46,17 +46,16 @@ fn tcb_lookup(tid: u32) -> *tcb {
     krw_read_lock(&(tcb_dir.dir_lock));
     list_foreach_entry!(tcb_node, &(tcb_dir.dir_head), tcb, dir_link, {
         if (tcb_node->tid == tid) {
-            break;
+            increase_ref(tcb_node);
+            krw_read_unlock(&(tcb_dir.dir_lock));
+            return tcb_node;
         }
     });
-    increase_ref(tcb_node);
-    krw_read_unlock(&(tcb_dir.dir_lock));
 
-    tcb_node
+    krw_read_unlock(&(tcb_dir.dir_lock));
+    null
 }
 
 fn tcb_end_lookup(tcb_read: *tcb) {
-    krw_read_lock(&(tcb_dir.dir_lock));
     decrease_ref(tcb_read);
-    krw_read_unlock(&(tcb_dir.dir_lock));
 }
