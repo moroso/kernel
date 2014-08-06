@@ -415,9 +415,6 @@ fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     success
 }
 
-/* Ideally, we page-align the PD allocation and have a static array of some
- * sort.  Until the compiler allows this, though, our init will have a page
- * table allocation step.  Sorry.  */
 fn PD_init(PD: *PD_t) -> i32 {
     assert!(PD != null);
     PD->PT_entries = frame_alloc() as **u32;

@@ -1,0 +1,12 @@
+use consts::*;
+
+extern fn outb(x: u32, y: u32);
+
+fn timer_init () {
+    
+    let num_cycs = (TIMER_RATE/100); 
+    outb(TIMER_MODE_IO_PORT, TIMER_SQUARE_WAVE);
+    outb(TIMER_PERIOD_IO_PORT, num_cycs&LOWER_16_BYTES);
+    outb(TIMER_PERIOD_IO_PORT, num_cycs&UPPER_16_BYTES);
+
+}

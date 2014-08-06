@@ -17,6 +17,7 @@ use threadstuffs::abscond::*;
 use loader::*;
 use entry::*;
 use structures::tcb_dir::tcb_dir_add;
+use drivers::timer::*;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -28,6 +29,7 @@ extern fn set_cr3(val: u32);
 extern fn set_cr4(val: u32);
 extern fn get_esp() -> u32;
 extern fn set_esp0(val: u32);
+extern fn enable_interrupts();
 
 fn parent() {
     
@@ -88,12 +90,11 @@ fn kernel_setup() {
     enable_paging();
 
     fs_init();
+    timer_init();
 }
 
 fn kernel_main() -> u32 {
     kernel_setup();
-
-
 
     /*** Create two threads and schedule them ***/
 
