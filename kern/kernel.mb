@@ -11,6 +11,7 @@ mod threadstuffs;
 mod entry;
 mod fs;
 mod loader;
+mod drivers;
 
 mod kernel_main;
 

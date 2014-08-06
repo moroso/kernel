@@ -3,6 +3,10 @@ use structures::VM::*;
 use structures::schedule::get_tcb;
 
 const PAGE_FAULT: u32 = 14;
+const TIMER_INTER: u32 = 32;
+static ticks: u32 = 0;
+
+extern fn pic_acknowledge_any_master();
 
 struct regs {
     ds: u32,
@@ -56,9 +60,15 @@ fn page_fault_handler() {
   }
 }
 
+
 fn kernel_entry(regs: *regs) {
     if (regs->cause == PAGE_FAULT) {
         page_fault_handler();
+    } else if (regs->cause == TIMER_INTER) {
+        ticks+=1;
+        printf1_("%d ticks\n", ticks);
+        pic_acknowledge_any_master();
+
     } else {printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
         assert!(false);
     }
