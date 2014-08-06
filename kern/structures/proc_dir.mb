@@ -52,13 +52,14 @@ fn proc_lookup(pid: i32) -> *proc {
     krw_read_lock(&(proc_dir.dir_lock));
     list_foreach_entry!(proc_node, &(proc_dir.dir_head), proc, dir_link, {
         if (proc_node->pid == pid as u32) {
-            break;
+            increase_proc_ref(proc_node);
+            krw_read_unlock(&(proc_dir.dir_lock));
+            return proc_node;
         }
     } );
-    increase_proc_ref(proc_node);
     krw_read_unlock(&(proc_dir.dir_lock));
 
-    proc_node
+    null
 }
 
 fn proc_end_lookup(proc_read: *proc) {
