@@ -1,16 +1,14 @@
 /** mut.mb: contains structures and "implementation" of kernel mutex
   *
-  * These mutexes are dreadfully untintelligent, because the new ISA will require
-  * something very different from what we can do in x86. The functions exist here so that
-  * once the mutexes do exist, it isn't a hassle to stick them into the code.
-  *
-  * Once the mutexes are implemented, threads waiting on a lock will deschedule
-  * until the lock is made available.
+  * Threads waiting on a mutex to become available will deschedule until they
+  * are given exclusive access
   *
   * Author: Amanda M. Watson
  */
 use list::*;
 use structures::schedule::*;
+use consts::*;
+use structures::tcb::*;
 
 struct kmut {
     lock_available: u32,
@@ -31,7 +29,8 @@ fn kmut_lock(km: *kmut) {
     let enable = cond_preempt_disable();
 
     while (km->lock_available != 1) {
-        scheduler_update(-1);
+        list_insert_head(&(get_tcb()->link), &(km->mut_head));
+        scheduler_update(STATE_MUTEX);
     }
 
     km->lock_available = 0;
@@ -40,6 +39,11 @@ fn kmut_lock(km: *kmut) {
 
 fn kmut_unlock(km: *kmut) {
     let enable = cond_preempt_disable();
+    let next_tcb: *tcb = list_head_entry!(&km->mut_head, tcb, link); 
+    if (next_tcb != null) {
+        list_del(&next_tcb->link);
+        schedule(next_tcb, QUEUE_FRONT);
+    }
     km->lock_available = 1;
     cond_preempt_enable(enable);
 }
