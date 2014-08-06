@@ -32,13 +32,14 @@ extern fn set_esp0(val: u32);
 fn parent() {
     
 
-    let uregs: regs;
+    /*let uregs: regs;
     assert!(load("basic_test", &uregs) >= 0);
     set_esp0(get_tcb()->kstack_top as u32);
     leave_kernel(&uregs);
     while(true) {
 
-    }
+    } */
+
     let page: *u8 = USER_MEM_START as *u8;
     while (page as u32 < (USER_MEM_START + (4096*4))) {
         if (new_user_page(page, &(get_tcb()->proc->PD), READ_WRITE_BIT, KB) < 0) {
