@@ -65,9 +65,8 @@ fn abscond()  {
 
     kmut_lock(&abscond_lock);
 
-    // XXX: this should be a decref, not a free, right??
     if (dead_tcb != null) {
-        frame_free(dead_tcb as *u8);
+        decrease_ref(dead_tcb);
     }
 
     preempt_disable();
