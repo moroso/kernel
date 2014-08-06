@@ -3,7 +3,7 @@
  *  contains the loader, used by the kernel to load user programs, and the
  *  exe header format.
  *
- *  TODO free VM on error, allocate MB as well as KB?
+ *  TODO allocate MB as well as KB?
  *  Author: Amanda M. Watson
 **/
 use fs::fs_read;
