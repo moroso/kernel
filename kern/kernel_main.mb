@@ -33,13 +33,11 @@ extern fn set_esp0(val: u32);
 extern fn enable_interrupts();
 
 fn parent(dummy: *u8) {
-    /*let uregs: regs;
+    /*let uregs: uregs;
     assert!(load("basic_test", &uregs) >= 0);
     set_esp0(get_tcb()->kstack_top as u32);
     leave_kernel(&uregs);
-    while(true) {
-
-    } */
+    while(true) {}*/
 
     let page: *u8 = USER_MEM_START as *u8;
     while (page as u32 < (USER_MEM_START + (4096*4))) {
