@@ -14,30 +14,32 @@ use structures::VM::*;
 use structures::schedule::*;
 use threadstuffs::abscond::*;
 use structures::tcb_dir::tcb_dir_add;
+use entry::{uregs, leave_kernel};
 
-fn child_repl(parent_ucontext: *context) {
-   // stick context somewhere
-   // add to directory
-   // return 0
 
-   *((USER_MEM_START + 4096) as *u32) = 2;
-   printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
-   abscond();
-   // on success, child returns 0
-   // the parent doesn't do this, but it manually pops
-   // its args, or something. I have not yet thought this through
-   parent_ucontext->gpregs.eax = 0;
-   // then we switch back to the user context in some reasonable mode-switch way
+fn child_repl(regs_i: *u8) {
+    let regs = regs_i as *uregs;
+    // stick context somewhere
+    // add to directory
+    // return 0
+
+    *((USER_MEM_START + 4096) as *u32) = 2;
+    printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
+    abscond();
+
+    // on success, child returns 0
+    regs->gpregs.eax = 0;
+    leave_kernel(regs);
 }
 
-fn thr_repl(parent_ucontext: *context) -> *tcb {
-    let child_tcb = thr_create(((&child_repl) as *u8), (parent_ucontext as *u8), sizeof(context));
-    // TODO add to directory for syscall 
+fn thr_repl(parent_regs: *uregs) -> *tcb {
+    let child_tcb = thr_create(child_repl, parent_regs as *u8, sizeof(uregs));
+    // TODO add to directory for syscall
     child_tcb
 }
 
 // currently assumes processes only have one thread
-fn repl(parent_ucontext: *context) -> i32 {
+fn repl(parent_regs: *uregs) -> i32 {
 
     let parent_proc = get_tcb()->proc;
 
@@ -52,7 +54,7 @@ fn repl(parent_ucontext: *context) -> i32 {
         return -1;
     }
 
-    let child_tcb: *tcb = thr_repl(parent_ucontext);
+    let child_tcb: *tcb = thr_repl(parent_regs);
     if (child_tcb == null) {
         slub_free(child_proc as *u32, sizeof(proc));
         return -1;
