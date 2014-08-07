@@ -51,7 +51,7 @@ fn entry_setup() {
 }
 
 fn register(idx: u32, handler: fn(*uregs) -> ()) {
-    assert!(idx < 256);
+    assert!(idx < MAX_FAULT_NUMS);
     assert!(fault_table[idx] as u32 == 0);
     fault_table[idx] = handler;
 }
