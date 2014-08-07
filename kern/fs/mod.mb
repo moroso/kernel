@@ -63,15 +63,17 @@ fn get_file_length(filename: *u8) -> i32 {
 
 fn fs_read(filename: *u8, buffer: *u8, length: u32, offset: u32) -> i32 {
     let fs_entry: *bsfs_entry = fs_search(filename);
-    
+
     if (fs_entry == null) {
         return -1;
     }
 
-    assert!(offset >= 0); 
+    if (offset > fs_entry->file_length) {
+        return -1;
+    }
 
     if (length + offset > fs_entry->file_length) {
-        length = fs_entry->file_length - offset; 
+        length = fs_entry->file_length - offset;
     }
 
     assert!(length <= fs_entry->file_length);
