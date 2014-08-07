@@ -12,6 +12,7 @@ mod entry;
 mod fs;
 mod loader;
 mod drivers;
+mod sys;
 
 mod kernel_main;
 

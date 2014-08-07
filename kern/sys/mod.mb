@@ -1,0 +1,10 @@
+use entry;
+use entry::uregs;
+
+fn syscall_entry(regs: *uregs) {
+    printf2_("Took syscall no %u, arg1 = %d\n", regs->gpregs.eax, regs->gpregs.ecx);
+}
+
+fn sys_init() {
+    entry::register(entry::SYSCALL, syscall_entry);
+}
