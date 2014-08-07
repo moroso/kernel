@@ -8,7 +8,7 @@ static ticks: u32 = 0;
 
 extern fn pic_acknowledge_any_master();
 
-struct regs {
+struct uregs {
     ds: u32,
     es: u32,
 
@@ -55,13 +55,13 @@ fn page_fault_handler() {
       printf0_("COW time\n");
       cow_copy(log_addr, PD);
   } else {
-    printf1_("Page Fault on address 0x%x\n", log_addr as u32);
-    assert!(false);
+      printf1_("Page Fault on address 0x%x\n", log_addr as u32);
+      assert!(false);
   }
 }
 
 
-fn kernel_entry(regs: *regs) {
+fn kernel_entry(regs: *uregs) {
     if (regs->cause == PAGE_FAULT) {
         page_fault_handler();
     } else if (regs->cause == TIMER_INTER) {
@@ -74,4 +74,4 @@ fn kernel_entry(regs: *regs) {
     }
 }
 
-extern fn leave_kernel(ureg: *regs);
+extern fn leave_kernel(ureg: *uregs);
