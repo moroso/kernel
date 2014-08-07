@@ -42,43 +42,25 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
         return -2;
     }
 
-    let page_buf: *u8 = frame_alloc();
-    if (page_buf == null) {
-        return -3;
-    }
-
     // allocate an additional page for the user stack
     let user_esp = header.load_addr + header.mapping_size + PAGE_SIZE;
 
     /* allocate the full mapping size */
     if (new_user_range(header.load_addr as *u8, user_esp as *u8,
                        &get_tcb()->proc->PD, READ_WRITE_BIT, KB) < 0) {
-        frame_free(page_buf);
         return -4;
     }
 
-    let page_read: u32;
-    /* copy the binary data into VM */
-    for (page_read = 0; page_read < header.binary_size; page_read+=PAGE_SIZE) {
-
-        let length_read: u32 = fs_read(filename, page_buf, PAGE_SIZE,
-                                       sizeof(bsexe_header) + page_read) as u32;
-
-        /* we have been lied to about the contents of this file */
-        if (length_read == -1) {
-            frame_free(page_buf);
-            free_user_range(header.load_addr as *u8, user_esp as *u8,
-                            &get_tcb()->proc->PD);
-
-            return -5;
-        }
-
-        let new_page: *u8 = header.load_addr + (page_read as *u8);
-        /* copy over the new data */
-        mos_memcpy(new_page, page_buf, length_read);
+    /* copy the binary data in */
+    let length_read: i32 = fs_read(filename, header.load_addr as *u8,
+                                   header.binary_size,
+                                   sizeof(bsexe_header));
+    if (length_read != header.binary_size as i32) {
+        // XXX: an assert seems to trip when this failure happens
+        free_user_range(header.load_addr as *u8, user_esp as *u8,
+                        &get_tcb()->proc->PD);
+        return -5;
     }
-
-    frame_free(page_buf);
 
     /* Populate the ureg with the appropriate info for running the file */
     ureg->esp = user_esp; // allocated in the for-loop
