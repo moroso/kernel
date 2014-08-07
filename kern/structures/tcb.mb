@@ -106,7 +106,7 @@ fn set_state(tcb: *tcb, state: u32) {
 
 /* given a function, some data and its length, creates a new tcb that, when
  * switched to, executes function with a pointer to data as its argument */
-fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
+fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
 
     let tcb: *tcb = frame_alloc() as *tcb;
     tcb_init(tcb);
@@ -122,7 +122,7 @@ fn thr_create(function: *u8, data: *u8, len: u32) -> *tcb {
 
     tcb->context->gpregs.ebp = (&(tcb->context->return_addr) as u32) -
         sizeof(u32);
-    tcb->context->return_addr = (function as u32);
+    tcb->context->return_addr = function as u32;
 
     /* place data onto the stack a place a pointer to data as an argument to
      * function */

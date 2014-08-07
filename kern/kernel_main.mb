@@ -31,9 +31,7 @@ extern fn get_esp() -> u32;
 extern fn set_esp0(val: u32);
 extern fn enable_interrupts();
 
-fn parent() {
-    
-
+fn parent(dummy: *u8) {
     /*let uregs: regs;
     assert!(load("basic_test", &uregs) >= 0);
     set_esp0(get_tcb()->kstack_top as u32);
@@ -53,7 +51,9 @@ fn parent() {
         page = ((page as u32)) + 4096 as *u8;
     }
 
-    repl(get_tcb()->context);
+    let regs: uregs;
+    repl(&regs);
+
     printf1_("Thread %d forked\n", get_tcb()->tid);
     let status: u32;
     bide(&status);
@@ -62,7 +62,7 @@ fn parent() {
 
 }
 
-fn idle() {
+fn idle(dummy: *u8) {
     while (true) {
         printf0_("idle\n");
         scheduler_update(-1);
@@ -100,7 +100,7 @@ fn kernel_main() -> u32 {
 
     let i: u32;
     for (i = 0; i < 5; i+=1) {
-        let new_tcb: *tcb = thr_create(&parent as *u8, null, 0);
+        let new_tcb: *tcb = thr_create(parent, null, 0);
         tcb_dir_add(new_tcb);
         assert!(new_tcb != null);
         let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
@@ -109,7 +109,7 @@ fn kernel_main() -> u32 {
         schedule(new_tcb, QUEUE_FRONT);
     }
 
-    let new_tcb: *tcb = thr_create(&idle as *u8, null, 0);
+    let new_tcb: *tcb = thr_create(idle, null, 0);
     assert!(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
     proc_init(proc1, new_tcb);
