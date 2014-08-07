@@ -1,4 +1,4 @@
-/** loader/mod.mb 
+/** loader/mod.mb
  *
  *  contains the loader, used by the kernel to load user programs, and the
  *  exe header format.
@@ -12,7 +12,7 @@ use utils::buddy_alloc::frame_alloc;
 use consts::{USER_DS, USER_CS, PAGE_SIZE};
 use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_BIT, KB};
 use structures::schedule::get_tcb;
-use entry::regs;
+use entry::uregs;
 use utils::stdlib::mos_memcpy;
 
 
@@ -31,9 +31,9 @@ struct bsexe_header {
 /* load a new program with name filename into the VM.  populates ureg with the
  * registers to pass to leave_kernel to load new program.  Returns with error if
  * file cannot be correctly loaded */
-fn load(filename: *u8, ureg: *regs) -> i32 {
+fn load(filename: *u8, ureg: *uregs) -> i32 {
     assert!(ureg != null);
-    
+
     let header: *bsexe_header = slub_alloc(sizeof(bsexe_header)) as
         *bsexe_header;
 
@@ -54,7 +54,7 @@ fn load(filename: *u8, ureg: *regs) -> i32 {
     }
 
     // allocate an additional page for the user stack
-    let user_esp = header->load_addr + header->mapping_size + PAGE_SIZE; 
+    let user_esp = header->load_addr + header->mapping_size + PAGE_SIZE;
 
     /* allocate the full mapping size */
     if (new_user_range(header->load_addr as *u8, user_esp as *u8,
@@ -69,30 +69,30 @@ fn load(filename: *u8, ureg: *regs) -> i32 {
 
         let length_read: u32 = fs_read(filename, page_buf, PAGE_SIZE,
                 sizeof(bsexe_header) + page_read) as u32;
-        
+
         /* we have been lied to about the contents of this file */
         if (length_read == -1) {
             free_user_range(header->load_addr as *u8, user_esp as *u8,
-                    &get_tcb()->proc->PD);  
+                    &get_tcb()->proc->PD);
 
             slub_free(header as *u32, sizeof(bsexe_header));
             return -5;
         }
 
-        let new_page: *u8 = header->load_addr + (page_read as *u8); 
+        let new_page: *u8 = header->load_addr + (page_read as *u8);
         /* copy over the new data */
         mos_memcpy(new_page, page_buf, length_read);
     }
 
 
     /* Populate the ureg with the appropriate info for running the file */
-    ureg->esp = user_esp; // allocated in the for-loop 
+    ureg->esp = user_esp; // allocated in the for-loop
     ureg->eip = header->entry_point;
     let eflags: u32 = get_eflags();
     ureg->eflags = eflags; // TODO do we have to set anything?
-    ureg->ss = USER_DS; 
+    ureg->ss = USER_DS;
     ureg->ds = USER_DS;
-    ureg->es = USER_DS;    
+    ureg->es = USER_DS;
     ureg->cs = USER_CS;
 
     slub_free(header as *u32, sizeof(bsexe_header));
