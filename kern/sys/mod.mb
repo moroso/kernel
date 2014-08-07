@@ -1,10 +1,39 @@
 use entry;
 use entry::uregs;
 
+const MAX_SYSCALLS: u32 = 256;
+
+static syscall_table: (fn(u32, u32, u32, u32, u32) -> i32)[MAX_SYSCALLS];
+
+fn register(idx: u32, syscall: fn(u32, u32, u32, u32, u32) -> i32) {
+    assert!(idx < MAX_SYSCALLS);
+    assert!(syscall_table[idx] as u32 == 0);
+    syscall_table[idx] = syscall;
+}
+
+macro syscall!(idx, syscall) {
+    ::sys::register($idx, $syscall as fn(u32, u32, u32, u32, u32) -> i32)
+}
+
 fn syscall_entry(regs: *uregs) {
-    printf2_("Took syscall no %u, arg1 = %d\n", regs->gpregs.eax, regs->gpregs.ecx);
+    let gp = &regs->gpregs;
+    let f: fn(u32, u32, u32, u32, u32) -> i32 = syscall_table[gp->eax];
+    if f as u32 == 0 {
+        gp->eax = -1 as u32;
+        return ();
+    }
+
+    gp->eax = f(gp->ecx, gp->edx, gp->ebx, gp->esi, gp->edi) as u32;
 }
 
 fn sys_init() {
     entry::register(entry::SYSCALL, syscall_entry);
+    syscall!(1, sys_test_sys);
+}
+
+
+/////////
+fn sys_test_sys(i: i32) -> i32 {
+    printf1_("test_sys(%d)\n", i as u32);
+    i
 }
