@@ -79,7 +79,7 @@ fn is_scheduled(tcb: *tcb) -> bool {
  * scheduler knows you really mean it.
  */
 fn schedule(tcb: *tcb, pos: u32) {
-    assert!(!is_preempt_enabled());
+    let enable = cond_preempt_disable();
     assert!(pos == QUEUE_FRONT || pos == QUEUE_BACK);
 
     if (tcb->state == STATE_NEW) {
@@ -88,14 +88,20 @@ fn schedule(tcb: *tcb, pos: u32) {
     assert!(tcb->state == STATE_RUNNABLE);
     if (pos == QUEUE_FRONT) {
         list_insert_head(&tcb->link, &run_queue.run_Q);
+        cond_preempt_enable(enable);
+
         return ();
     }
     if (pos == QUEUE_BACK) {
         list_insert_tail(&tcb->link, &run_queue.run_Q);
+        cond_preempt_enable(enable);
+
         return ();
     }
     // pos should specify either the front or back position
     assert!(false);
+    cond_preempt_enable(enable);
+
 }
 
 /* Remove a tcb from the run queue */
@@ -145,7 +151,7 @@ fn scheduler_update(state: i32) {
     if (new_running == null) {
         // there must be one thread running at all times
         assert!(old_running != null && state as u32 == STATE_RUNNABLE
-               || state == -1);
+                || state == -1);
         cond_preempt_enable(enable);
         return ();
     }

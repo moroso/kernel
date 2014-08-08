@@ -18,6 +18,7 @@ use entry::{uregs, leave_kernel};
 
 
 fn child_repl(regs_i: *u8) {
+    preempt_enable();
     let regs = regs_i as *uregs;
     // stick context somewhere
     // add to directory
