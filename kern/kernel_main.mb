@@ -32,13 +32,18 @@ extern fn get_esp() -> u32;
 extern fn set_esp0(val: u32);
 extern fn enable_interrupts();
 
-fn parent(dummy: *u8) {
-    /*let uregs: uregs;
+fn user_thread(dummy: *u8) {
+    preempt_enable();
+    
+    let uregs: uregs;
     assert!(load("basic_test", &uregs) >= 0);
     set_esp0(get_tcb()->kstack_top as u32);
     leave_kernel(&uregs);
-    while(true) {}*/
+    assert!(false);
+}
 
+fn parent(dummy: *u8) {
+    preempt_enable();
     let page: *u8 = USER_MEM_START as *u8;
     while (page as u32 < (USER_MEM_START + (4096*4))) {
         if (new_user_page(page, &(get_tcb()->proc->PD), READ_WRITE_BIT, KB) < 0) {
@@ -62,9 +67,9 @@ fn parent(dummy: *u8) {
 }
 
 fn idle(dummy: *u8) {
+    preempt_enable();
     while (true) {
         printf0_("idle\n");
-        scheduler_update(-1);
     }
 }
 
@@ -91,6 +96,7 @@ fn kernel_setup() {
     fs_init();
     timer_init();
     sys_init();
+    enable_interrupts();
 }
 
 fn kernel_main() -> u32 {
@@ -100,7 +106,12 @@ fn kernel_main() -> u32 {
 
     let i: u32;
     for (i = 0; i < 5; i+=1) {
-        let new_tcb: *tcb = thr_create(parent, null, 0);
+        let new_tcb: *tcb;
+        if (i == 0) {
+            new_tcb = thr_create(user_thread, null, 0);
+        } else {
+            new_tcb = thr_create(parent, null, 0);
+        }
         tcb_dir_add(new_tcb);
         assert!(new_tcb != null);
         let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
@@ -116,7 +127,7 @@ fn kernel_main() -> u32 {
     assert!(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 
-
+    preempt_enable();
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};

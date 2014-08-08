@@ -1,6 +1,6 @@
 use structures::tcb::gpregs;
 use structures::VM::*;
-use structures::schedule::get_tcb;
+use structures::schedule::*;
 
 const MAX_FAULT_NUMS: u32 = 256;
 
@@ -83,8 +83,15 @@ fn page_fault_handler(regs: *uregs) {
 
 fn timer_handler(regs: *uregs) {
     ticks += 1;
-    printf1_("%d ticks\n", ticks);
     pic_acknowledge_any_master();
+
+    printf1_("%d ticks\n", ticks);
+    if (is_preempt_enabled()) {
+        printf0_("YES\n");
+        scheduler_update(-1);
+    } else {
+        printf0_("NO\n");
+    }
 }
 
 fn kernel_entry(regs: *uregs) {
