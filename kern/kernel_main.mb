@@ -31,6 +31,9 @@ extern fn set_cr4(val: u32);
 extern fn get_esp() -> u32;
 extern fn set_esp0(val: u32);
 extern fn enable_interrupts();
+extern fn disable_interrupts();
+extern fn set_eflags(val: u32);
+
 
 fn user_thread(dummy: *u8) {
     preempt_enable();
@@ -102,7 +105,7 @@ fn kernel_setup() {
 fn kernel_main() -> u32 {
     kernel_setup();
 
-    /*** Create two threads and schedule them ***/
+    /*** Create n threads and schedule them ***/
 
     let i: u32;
     for (i = 0; i < 5; i+=1) {

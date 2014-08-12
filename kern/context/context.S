@@ -5,7 +5,7 @@ actually_switch_contexts_with_asm:
   pusha
   movl 0xc(%ebp), %eax
   movl %esp, (%eax)
-  movl 0x8(%ebp), %esp 
+  movl 0x8(%ebp), %esp
   popa
   leave
   ret

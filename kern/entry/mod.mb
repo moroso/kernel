@@ -88,6 +88,7 @@ fn timer_handler(regs: *uregs) {
     printf1_("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
         printf0_("YES\n");
+
         scheduler_update(-1);
     } else {
         printf0_("NO\n");
@@ -102,6 +103,7 @@ fn kernel_entry(regs: *uregs) {
     }
 
     f(regs);
+    //scheduler_update(-1);
 }
 
 extern fn leave_kernel(ureg: *uregs);

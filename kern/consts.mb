@@ -38,3 +38,5 @@ const TIMER_ONE_SHOT: u32 = 0x30;
 
 const UPPER_16_BYTES: u32 = 0xFF00;
 const LOWER_16_BYTES: u32 = ~UPPER_16_BYTES;
+
+const EF_IF: u32 = 0x00000200; 
