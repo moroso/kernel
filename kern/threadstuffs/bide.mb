@@ -3,7 +3,7 @@
  * Author: Amanda M. Watson
 */
 
-use list::*;
+use utils::list::*;
 use utils::slab_alloc::*;
 use locks::mutex::*;
 use locks::cond::*;

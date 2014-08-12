@@ -5,7 +5,7 @@
   *
   * Author: Amanda M. Watson
  */
-use list::*;
+use utils::list::*;
 use structures::schedule::*;
 use consts::*;
 use structures::tcb::*;

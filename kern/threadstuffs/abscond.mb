@@ -4,7 +4,7 @@
 */
 
 use consts::*;
-use list::*;
+use utils::list::*;
 use utils::slab_alloc::*;
 use utils::buddy_alloc::*;
 use locks::mutex::*;

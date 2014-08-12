@@ -12,7 +12,7 @@ use consts::*;
 use locks::lol_atomics::*;
 use utils::buddy_alloc::*;
 use utils::stdlib::*;
-use list::*;
+use utils::list::*;
 
 // XXX: these shouldn't be here!
 extern fn invalidate_tlb(frame: *u8);

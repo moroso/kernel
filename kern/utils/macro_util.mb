@@ -1,0 +1,17 @@
+// Struct offsets
+
+macro offset_of!(st, m) {
+    (&(null as *$st)->$m) as u32
+}
+
+macro container_of!(ptr, ty, member) {
+    (($ptr as u32) - offset_of!($ty, $member)) as *$ty
+}
+
+macro max!(a, b) {
+    (if $a > $b {$a} else {$b})
+}
+
+macro min!(a, b) {
+    (if $a < $b {$a} else {$b})
+}
