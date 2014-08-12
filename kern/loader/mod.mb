@@ -9,7 +9,7 @@
 use fs::fs_read;
 use utils::slab_alloc::{slub_alloc, slub_free};
 use utils::buddy_alloc::{frame_alloc, frame_free};
-use consts::{USER_DS, USER_CS, PAGE_SIZE};
+use consts::{USER_DS, USER_CS, PAGE_SIZE, EF_IF};
 use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_BIT, KB};
 use structures::schedule::get_tcb;
 use entry::uregs;
@@ -66,7 +66,8 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
     ureg->esp = user_esp; // allocated in the for-loop
     ureg->eip = header.entry_point;
     let eflags: u32 = get_eflags();
-    ureg->eflags = eflags; // TODO do we have to set anything?
+    ureg->eflags = eflags;
+ // TODO do we have to set anything?
     ureg->ss = USER_DS;
     ureg->ds = USER_DS;
     ureg->es = USER_DS;

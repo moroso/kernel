@@ -24,6 +24,7 @@ use structures::tcb::*;
 use structures::VM::*;
 use context::context_switch;
 
+extern fn enable_interrupts();
 extern fn get_cr3() -> u32; // hm.
 
 /* Used in schedule() to denote whether a tcb should be added to the front
@@ -55,6 +56,7 @@ fn preempt_disable() {
 
 fn preempt_enable() {
     run_queue.preempt_enabled = true;
+    enable_interrupts();
 }
 
 fn is_preempt_enabled() -> bool {
