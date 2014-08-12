@@ -1,0 +1,94 @@
+use utils::avl::*;
+use utils::slab_alloc::*;
+
+type rtree = avl_tree;
+
+/* 
+ * Each node represents the range of [low, high)
+ * (includes low, does not include high)
+ */
+struct rtree_node {
+    low: u32,
+    high: u32,
+    tlink: avl_node
+}
+
+/*
+ * Comparison function for the range tree.  We want to store only
+ * non-overlapping ranges, and for an insert to be rejected if a given range
+ * overlaps with any other in the tree, so two ranges are considered equal
+ * if they overlap at all.
+ */
+fn rtree_compare(a: *(), b: *()) -> order {
+    let anode: *rtree_node = a as *rtree_node;
+    let bnode: *rtree_node = b as *rtree_node;
+    if anode->high <= bnode->low {
+        return Less;
+    } else if anode->low >= bnode->high {
+        return Greater;
+    }
+    Equal
+}
+
+fn rtree_init(tree: *rtree) {
+    avl_create(tree as *avl_tree, rtree_compare, 
+               offset_of!(rtree_node, tlink))
+}
+
+/* Attempt to insert a range into the tree.
+ * If the range overlaps with an existing one, returns negative.
+ * Otherwise, the range is added to the tree, 0 returned.
+ */
+fn rtree_insert(tree: *rtree, low: u32, high: u32) -> i32 {
+    let range: *rtree_node = slub_alloc(sizeof(rtree_node)) as *rtree_node;
+    range->low = low;
+    range->high = high;
+    if avl_find(tree, range as *()) != null {
+        return -1;
+    }
+    avl_insert(tree, range as *());
+    0
+}
+
+/* Returns true if the supplied range does not overlap with one in the rangetree
+ * and false otherwise. */
+fn rtree_available(tree: *rtree, low: u32, high: u32) -> bool {
+    let range: rtree_node;
+    range.low = low;
+    range.high = high;
+    avl_find(tree as *avl_tree, &range as *()) == null
+}
+
+/* Remove the given range from the tree.  Must be exactly a previously inserted
+ * range.  Returns 0 on success or negative if the range is invalid */
+fn rtree_remove(tree: *rtree, low: u32, high: u32) -> i32 {
+    let error = 0;
+    let node: *rtree_node = slub_alloc(sizeof(rtree_node)) as *rtree_node;
+    node->low = low;
+    node->high = high;
+
+    let range: *rtree_node = avl_find(tree as *avl_tree, node as *()) 
+        as *rtree_node;
+    slub_free(node as *u32, sizeof(rtree_node));
+
+    if (range == null || range->low != low || range->high != high) {
+        error = -1;
+    } else {
+        avl_remove(tree, range as *());
+    }
+    slub_free(range as *u32, sizeof(rtree_node));
+    error
+}
+
+fn rtree_node_free(node: *()) {
+    slub_free(node as *u32, sizeof(rtree_node));
+}
+
+/* Free all the nodes in a tree. Caller responsible for freeing the header .*/
+fn rtree_free(tree: *rtree) {
+    if tree == null {
+        return ();
+    }
+    avl_foreach(tree, rtree_node_free);
+    avl_destroy(tree);
+}

@@ -4,3 +4,5 @@ mod buddy_alloc;
 mod slab_alloc;
 mod stdlib;
 mod list;
+mod avl;
+mod rangetree;
