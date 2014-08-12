@@ -1,0 +1,392 @@
+use utils::macro_util::*;
+
+enum order {
+    Less,
+    Equal,
+    Greater
+}
+
+enum avl_dir {
+    Avl_left,
+    Avl_right
+}
+
+struct avl_tree {
+    root: *avl_node,
+    compare: fn(*(),*()) -> order,
+    node_offset: u32,
+    num_nodes: u32
+}
+    
+struct avl_node {
+    child: (*avl_node)[2],
+    parent: *avl_node,
+    child_idx: avl_dir,
+    balance: i8
+}
+
+fn avl_node2container(tree: *avl_tree, node: *avl_node) -> *() {
+    ((node as u32) - tree->node_offset) as *()
+}
+
+fn avl_container2node(tree: *avl_tree, container: *()) -> *avl_node {
+    ((container as u32) + tree->node_offset) as *avl_node
+}
+
+/* translate a direction enum to an index */
+fn avl_cidx(dir: avl_dir) -> u8 {
+    match dir {
+        Avl_left => 0,
+        Avl_right => 1
+    }
+}
+
+/* 
+ * Initialize a new AVL tree.
+ * tree: pointer to the struct to initialize
+ * cmp: comparison ordering function for this tree
+ * offset: offset of the avl_node struct in the tree element struct, i.e.
+ *     to be called as avl_create(tree, cmp, offset_of!(elem_struct, avlnode))
+ */
+fn avl_create(tree: *avl_tree, cmp: fn(*(),*()) -> order, offset: u32) {
+    tree->root = null;
+    tree->compare = cmp;
+    tree->node_offset = offset;
+    tree->num_nodes = 0;
+}
+
+/* Mark a tree header as destroyed. */
+fn avl_destroy(tree: *avl_tree) {
+    assert!(tree->num_nodes == 0);
+    tree->root = 0xdeadbeef as *avl_node;
+}
+
+fn avl_rotate(tree: *avl_tree, node: *avl_node, dir: avl_dir) {
+    let oppdir = match dir {
+        Avl_left => Avl_right,
+        Avl_right => Avl_left
+    };
+    let newparent = node->child[avl_cidx(oppdir)];
+    assert!(newparent != null);
+    /* swap child pointers and set parents */
+    node->child[avl_cidx(oppdir)] = newparent->child[avl_cidx(dir)];
+    newparent->child[avl_cidx(dir)] = node;
+    newparent->parent = node->parent;
+    newparent->child_idx = node->child_idx;
+    node->child_idx = dir;
+    node->parent = newparent;
+    if tree->root == node {
+        tree->root = newparent;
+    }
+    /* Update balance */
+    let node_oldbal = node->balance;
+    let np_oldbal = newparent->balance;
+    match dir {
+        Avl_left => {
+            node->balance = node_oldbal - 1 - max!(np_oldbal, 0);
+            newparent->balance = np_oldbal - 1 + min!(node->balance, 0);
+        },
+        Avl_right => {
+            node->balance = node_oldbal + 1 - min!(np_oldbal, 0);
+            newparent->balance = np_oldbal + 1 + max!(node->balance, 0);
+        }
+    }
+}
+
+/* 
+ * Rebalance the tree at a given node. returns true if the rebalancing made
+ * the tree shorter, or false if it didn't.
+ */
+fn avl_rebalance(tree: *avl_tree, node: *avl_node) -> bool {
+    /* left-heavy */
+    if node->balance == -2 {
+        let lchild = node->child[avl_cidx(Avl_left)];
+        if lchild->balance == 1 {
+            /* left-right case */
+            avl_rotate(tree, lchild, Avl_left);
+            /* If the child's balance is now 0, the tree is shorter. */
+            return lchild->balance == 0;
+        }
+        /* left-left case */
+        avl_rotate(tree, node, Avl_right);
+        return true;
+    /* right-heavy */
+    } else {
+        assert!(node->balance == 2);
+        let rchild = node->child[avl_cidx(Avl_right)];
+        if rchild->balance == -1 {
+            /* right-left case */
+            avl_rotate(tree, rchild, Avl_right);
+            /* If the child's balance is now 0, the tree is shorter. */
+            return rchild->balance == 0;
+        }
+        /* right-right case */
+        avl_rotate(tree, node, Avl_left);
+        return false;
+    }
+    false
+}
+
+fn avl_find(tree: *avl_tree, node: *()) -> *() {
+    let cur: *avl_node = tree->root;
+    while (true) {
+        if cur == null {
+            return null;
+        }
+        match tree->compare(node, avl_node2container(tree, cur)) {
+            Equal => { return avl_node2container(tree, cur); },
+            Less => { cur = cur->child[avl_cidx(Avl_left)]; },
+            Greater => { cur = cur->child[avl_cidx(Avl_right)]; }
+        }
+    }
+    null // unreachable
+}
+
+fn avl_insert(tree: *avl_tree, node: *()) {
+    let new: *avl_node = avl_container2node(tree, node);
+    new->child[avl_cidx(Avl_left)] = null;
+    new->child[avl_cidx(Avl_right)] = null;
+    new->balance = 0;
+    /* If the tree's empty, just shove the node into the root and we're done */
+    if tree->root == null {
+        /* child_idx is undefined for the root node */
+        new->parent = null;
+        tree->root = new;
+        return ();
+    }
+    /* Otherwise, find the right spot to insert. */
+    let cur: *avl_node = tree->root;
+    let where = Avl_left;
+    while (true) {
+        match tree->compare(node, avl_node2container(tree, cur)) {
+            Less => {
+                if cur->child[avl_cidx(Avl_left)] == null {
+                    where = Avl_left;
+                    break;
+                } else {
+                    cur = cur->child[avl_cidx(Avl_left)];
+                }
+            },
+            Greater => {
+                if cur->child[avl_cidx(Avl_right)] == null {
+                    where = Avl_right;
+                    break;
+                } else {
+                    cur = cur->child[avl_cidx(Avl_right)];
+                }
+            },
+            Equal => {
+                assert!(false) // Invalid AVL tree insertion (exists)
+            }
+        }
+    }
+    /* insert the new node, then walk up the parents modifying balances */
+    new->child_idx = where;
+    cur->child[avl_cidx(where)] = new;
+    cur = new;
+    tree->num_nodes += 1;
+    let curchild = cur->child_idx;
+    let new_balance = 0;
+    while (true) {
+        cur = cur->parent;
+        /* hit the root, we're done. */
+        if (cur == null) {
+            return ();
+        }
+
+        let baldiff = match curchild {
+            Avl_left => -1,
+            Avl_right => 1
+        };
+        new_balance = cur->balance + baldiff;
+        /* If this insertion balanced the tree, we're done. */
+        if (new_balance == 0) {
+            cur->balance = new_balance;
+            return ();
+        /* We made the tree unbalanced. break out and rotate. */
+        } else if (new_balance == -2 || new_balance == 2) {
+            break;
+        }
+        cur->balance = new_balance;
+        curchild = cur->child_idx;
+    }
+    /* Fix da tree */
+    avl_rebalance(tree, new);
+}
+
+/* Remove the given element from the tree. */
+fn avl_remove(tree: *avl_tree, node: *()) {
+    let delete: *avl_node = avl_container2node(tree, node);
+    /* 
+     * If the node has 2 children, we need to swap it with a sequential
+     * neighbor. We arbitrarily choose the left one.
+     */
+    if (delete->child[avl_cidx(Avl_left)] != null && 
+        delete->child[avl_cidx(Avl_right)] != null) {
+
+        let swapped = avl_container2node(tree, avl_prev(tree, 
+                avl_node2container(tree, delete)));
+        let tmp: avl_node = *swapped;
+
+        /* Stick the previous node where delete was. (swapped stored in tmp) */
+        *swapped = *delete;
+        if (swapped->child[avl_cidx(Avl_left)] == swapped) {
+            swapped->child[avl_cidx(Avl_left)] = &tmp;
+        }
+        
+        let parent = swapped->parent;
+        if parent != null {
+            parent->child[avl_cidx(swapped->child_idx)] = swapped;
+        } else {
+            tree->root = swapped;
+        }
+        swapped->child[avl_cidx(Avl_left)]->parent = swapped;
+        swapped->child[avl_cidx(Avl_right)]->parent = swapped;
+        
+        /* shove tmp (==delete) where the swapped node was */
+        delete = &tmp;
+        parent = delete->parent;
+        parent->child[avl_cidx(delete->child_idx)] = delete;
+        /* this node now has at most one child. */
+        if delete->child[avl_cidx(Avl_right)] != null {
+            delete->child[avl_cidx(Avl_right)]->parent = delete;
+        } else {
+            delete->child[avl_cidx(Avl_left)]->parent = delete;
+        }
+    }
+
+    /* 
+     * If we get here, then delete is a node with at most one child. Connect
+     * the child directly to the deleted node's parent.
+     */
+    let delchild: *avl_node = null;
+    if delete->child[avl_cidx(Avl_left)] != null {
+        delchild = delete->child[avl_cidx(Avl_left)];
+    } else {
+        delchild = delete->child[avl_cidx(Avl_right)];
+    }
+    delete->parent->child[avl_cidx(delete->child_idx)] = delchild;
+    if delchild != null {
+        delchild->parent = delete->parent;
+        delchild->child_idx = delete->child_idx;
+    }
+    tree->num_nodes -= 1;
+    
+    /* Now walk up the tree and update balances */
+    let cur: *avl_node = null;
+    let parent = delete->parent;
+    let which_child = delete->child_idx;
+    let old_balance = 0;
+    let new_balance = 0;
+    while (true) {
+        cur = parent;
+        old_balance = cur->balance;
+        new_balance = match which_child {
+            Avl_left => old_balance - 1,
+            Avl_right => old_balance + 1
+        };
+        parent = cur->parent;
+        which_child = cur->child_idx;
+        cur->balance = new_balance;
+        /* 
+         * If the tree is already balanced, or does not change height after
+         * we rebalance it, then we're done. 
+         */
+        if old_balance == 0 || !avl_rebalance(tree, cur) {
+            break;
+        }
+    }
+}
+
+/* Given a stored element, Find the next smallest element stored in the tree. */
+fn avl_prev(tree: *avl_tree, node: *()) -> *() {
+    let cur: *avl_node = avl_container2node(tree, node);
+    /* If the node has a left child, find that node's rightmost child */
+    if cur->child[avl_cidx(Avl_left)] != null {
+        cur = cur->child[avl_cidx(Avl_left)];
+        while (true) {
+            cur = cur->child[avl_cidx(Avl_right)];   
+            if cur->child[avl_cidx(Avl_right)] == null {
+                return avl_node2container(tree, cur);
+            }
+        }
+    }
+    /* No left child. Walk up the tree until a node is found which we are on
+     * a right branch of - that node is the one before this in order.  If we
+     * hit the root without finding such a node, it doesn't exist. */
+    while (true) {
+        if cur == tree->root {
+            return null;
+        } else {
+            match cur->child_idx {
+                Avl_right => { return avl_node2container(tree, cur->parent); },
+                Avl_left => { cur = cur->parent; }
+            }
+        }
+    }
+    null //unreachable
+}
+
+/* Given a stored element, Find the next largest element stored in the tree. */
+fn avl_next(tree: *avl_tree, node: *()) -> *() {
+    let cur: *avl_node = avl_container2node(tree, node);
+    /* If the node has a right child, find that node's leftmost child */
+    if cur->child[avl_cidx(Avl_right)] != null {
+        cur = cur->child[avl_cidx(Avl_right)];
+        while (true) {
+            cur = cur->child[avl_cidx(Avl_left)];   
+            if cur->child[avl_cidx(Avl_left)] == null {
+                return avl_node2container(tree, cur);
+            }
+        }
+    }
+    /* No right child. Walk up the tree until a node is found which we are on
+     * a left branch of - that node is the one before this in order.  If we
+     * hit the root without finding such a node, it doesn't exist. */
+    while (true) {
+        if cur == tree->root {
+            return null;
+        } else {
+            match cur->child_idx {
+                Avl_left => { return avl_node2container(tree, cur->parent); },
+                Avl_right => { cur = cur->parent; }
+            }
+        }
+    }
+    null //unreachable
+}
+
+fn avl_first(tree: *avl_tree) -> *() {
+    let cur: *avl_node = tree->root;
+    while cur->child[avl_cidx(Avl_left)] != null {
+        cur = cur->child[avl_cidx(Avl_left)];
+    }
+    avl_node2container(tree, cur)
+}
+
+fn avl_last(tree: *avl_tree) -> *() {
+    let cur: *avl_node = tree->root;
+    while cur->child[avl_cidx(Avl_right)] != null {
+        cur = cur->child[avl_cidx(Avl_right)];
+    }
+    avl_node2container(tree, cur)
+}
+
+fn avl_foreach_helper_(tree: *avl_tree, func: fn(*()) -> (), node: *avl_node) {
+    if node == null {
+        return ();
+    } else {
+        avl_foreach_helper_(tree, func, node->child[avl_cidx(Avl_right)]);
+        avl_foreach_helper_(tree, func, node->child[avl_cidx(Avl_left)]);
+        func(avl_node2container(tree, node));
+    }
+}
+
+/* Call the given function on every element in the tree. */
+fn avl_foreach(tree: *avl_tree, func: fn(*()) -> ()) -> () {
+    avl_foreach_helper_(tree, func, tree->root);
+}
+
+fn avl_empty(tree: *avl_tree) -> bool {
+    tree->num_nodes == 0
+}
