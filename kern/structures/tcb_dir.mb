@@ -1,4 +1,4 @@
-use list::*;
+use utils::list::*;
 use locks::rw::*;
 use locks::cond::*;
 use locks::lol_atomics::*;

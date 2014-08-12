@@ -6,7 +6,7 @@
  * Author: Amanda M. Watson
 */
 
-use list::*;
+use utils::list::*;
 use locks::rw::*;
 use locks::lol_atomics::*;
 use structures::proc::*;

@@ -1,5 +1,5 @@
 use consts::*;
-use list::*;
+use utils::list::*;
 use structures::tcb::*;
 use structures::VM::*;
 use structures::proc_dir::*;

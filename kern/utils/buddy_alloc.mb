@@ -1,5 +1,5 @@
 use consts::*;
-use list::*;
+use utils::list::*;
 use utils::early_alloc::early_alloc;
 
 // Bitmaps!

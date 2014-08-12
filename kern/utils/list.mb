@@ -2,16 +2,7 @@
 // container_of is pretty necessary for
 // the whole scheme. The other macros are just convenient.
 
-// Generic defines
-macro offset_of!(st, m) {
-    (&(null as *$st)->$m) as u32
-}
-
-macro container_of!(ptr, ty, member) {
-    (($ptr as u32) - offset_of!($ty, $member)) as *$ty
-}
-
-// Now our actual code
+use utils::macro_util::*;
 
 struct list_node {
     next: *list_node,

@@ -19,7 +19,7 @@
  */
 
 use consts::*;
-use list::*;
+use utils::list::*;
 use structures::tcb::*;
 use structures::VM::*;
 use context::context_switch;
