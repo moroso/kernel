@@ -26,7 +26,7 @@ fn child_repl(regs_i: *u8) {
 
     *((USER_MEM_START + 4096) as *u32) = 2;
     printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
-    abscond();
+    //abscond();
 
     // on success, child returns 0
     regs->gpregs.eax = 0;

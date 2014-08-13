@@ -59,9 +59,9 @@ fn parent(dummy: *u8) {
     }
 
     let regs: uregs;
-    repl(&regs);
-
-    printf1_("Thread %d forked\n", get_tcb()->tid);
+    //repl(&regs);
+    //printf1_("Thread %d forked\n", get_tcb()->tid);
+    
     let status: u32;
     bide(&status);
     printf2_("Thread %d collected status %d\n", get_tcb()->tid, status);
