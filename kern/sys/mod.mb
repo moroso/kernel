@@ -1,5 +1,7 @@
 use entry;
 use entry::uregs;
+use shared::syscall_consts::*;
+use threadstuffs::repl::*;
 
 const MAX_SYSCALLS: u32 = 256;
 
@@ -29,6 +31,8 @@ fn syscall_entry(regs: *uregs) {
 fn sys_init() {
     entry::register(entry::SYSCALL, syscall_entry);
     syscall!(1, sys_test_sys);
+    syscall!(INT_REPL, repl_handler);
+
 }
 
 
