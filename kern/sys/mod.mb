@@ -4,6 +4,8 @@ use shared::syscall_consts::*;
 use threadstuffs::repl::*;
 use structures::schedule::get_tcb;
 
+extern fn enable_interrupts();
+
 const MAX_SYSCALLS: u32 = 256;
 
 static syscall_table: (fn(u32, u32, u32, u32, u32) -> i32)[MAX_SYSCALLS];
@@ -19,13 +21,16 @@ macro syscall!(idx, syscall) {
 }
 
 fn syscall_entry(regs: *uregs) {
+    // we're coming from an interrupt gate, so we want to re-enable interrupts
+    // for executing a syscall
+    enable_interrupts();
     let gp = &regs->gpregs;
     let f: fn(u32, u32, u32, u32, u32) -> i32 = syscall_table[gp->eax];
     if f as u32 == 0 {
         gp->eax = -1 as u32;
         return ();
     }
-
+ 
     gp->eax = f(gp->ecx, gp->edx, gp->ebx, gp->esi, gp->edi) as u32;
 }
 
