@@ -118,12 +118,12 @@ fn kernel_main() -> u32 {
         schedule(new_tcb, QUEUE_FRONT);
     }
 
-   /* let new_tcb: *tcb = thr_create(idle, null, 0);
+   let new_tcb: *tcb = thr_create(idle, null, 0);
     assert!(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
     proc_init(proc1, new_tcb);
     assert!(proc1 != null);
-    schedule(new_tcb, QUEUE_FRONT);*/
+    schedule(new_tcb, QUEUE_FRONT);
 
     preempt_enable();
     /*** Switch to the first thread in the run queue and jump to its execution ***/
