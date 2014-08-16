@@ -24,9 +24,7 @@ fn child_repl(regs_i: *u8) {
     // add to directory
     // return 0
 
-    *((USER_MEM_START + 4096) as *u32) = 2;
-    printf2_("child %d absconding (%d)\n", get_tcb()->tid, *((USER_MEM_START + 4096) as *u32));
-    //abscond();
+    abscond();
 
     // on success, child returns 0
     regs->gpregs.eax = 0;
@@ -37,6 +35,11 @@ fn thr_repl(parent_regs: *uregs) -> *tcb {
     let child_tcb = thr_create(child_repl, parent_regs as *u8, sizeof(uregs));
     // TODO add to directory for syscall
     child_tcb
+}
+
+fn repl_handler() -> i32 {
+    let parent_ureg: *uregs = (get_tcb()->kstack_top as *uregs) - 1;
+    repl(parent_ureg)
 }
 
 // currently assumes processes only have one thread
@@ -87,6 +90,6 @@ fn repl(parent_regs: *uregs) -> i32 {
     parent_proc->child_count+=1;
     kmut_unlock(&(parent_proc->child_mut));
 
-    schedule(child_tcb, QUEUE_BACK);
+    //schedule(child_tcb, QUEUE_BACK);
     child_tcb->tid as i32
 }
