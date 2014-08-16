@@ -14,7 +14,8 @@
   * preemption flag; the running thread will only be preempted if the flag is
   * enabled (even if interrupts and enabled).
   *
-  *
+  * // TODO set a flag that indicates thread missed interrupt with preemption
+  * disabeld, and should switch
   * Author: Amanda M. Watson
  */
 

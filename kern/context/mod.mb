@@ -1,10 +1,14 @@
 use structures::tcb::{tcb, context};
-use structures::schedule::{is_preempt_enabled, run_queue};
+use structures::schedule::{is_preempt_enabled, run_queue, get_tcb};
 
 extern fn actually_switch_contexts_with_asm(new_esp: *context,
                                             old_esp: **context);
+extern fn set_esp0(n: u32);
 
 fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
+    if (tcb_cur != null) {
+        printf2_("switching from %d to %d\n", tcb_cur->tid, tcb_new->tid);
+    }
     assert!(!is_preempt_enabled());
     /* the scheduler and context switcher
     should be disjoint; however, I think this is a valid guarantee */
@@ -17,4 +21,5 @@ fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
 
     actually_switch_contexts_with_asm(tcb_new->context, esp_old);
     assert!(!is_preempt_enabled());
+    set_esp0(get_tcb()->kstack_top as u32);
 }
