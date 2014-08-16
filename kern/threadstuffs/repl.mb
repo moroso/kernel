@@ -24,7 +24,6 @@ fn child_repl(regs_i: *u8) {
     // add to directory
     // return 0
 
-    //abscond();
 
     // on success, child returns 0
     regs->gpregs.eax = 0;

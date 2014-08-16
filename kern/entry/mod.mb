@@ -76,22 +76,32 @@ fn page_fault_handler(regs: *uregs) {
       printf0_("COW time\n");
       cow_copy(log_addr, PD);
   } else {
-      printf1_("Page Fault on address 0x%x\n", log_addr as u32);
+      let tid: u32 = -1;
+      if (get_tcb() != null) {
+          tid = get_tcb()->tid;
+      }
+      printf2_("Thread %d Page Fault on address 0x%x\n", tid, log_addr as u32);
       assert!(false);
   }
 }
 
 fn timer_handler(regs: *uregs) {
+    printf0_("ENTER TIMER\n");
+
     ticks += 1;
     pic_acknowledge_any_master();
 
     printf1_("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
+        printf0_("PREEMPT_ENABLED\n");
         scheduler_update(-1);
     } 
+    printf0_("LEAVE TIMER\n");
 }
 
 fn kernel_entry(regs: *uregs) {
+    printf0_("ENTER KERNEL\n");
+
     let f: fn(*uregs) -> () = fault_table[regs->cause];
     if f as u32 == 0 {
         printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
@@ -99,6 +109,8 @@ fn kernel_entry(regs: *uregs) {
     }
 
     f(regs);
+    printf0_("LEAVE KERNEL\n");
+
 }
 
 extern fn leave_kernel(ureg: *uregs);
