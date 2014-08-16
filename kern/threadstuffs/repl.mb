@@ -24,7 +24,7 @@ fn child_repl(regs_i: *u8) {
     // add to directory
     // return 0
 
-    abscond();
+    //abscond();
 
     // on success, child returns 0
     regs->gpregs.eax = 0;
@@ -90,6 +90,6 @@ fn repl(parent_regs: *uregs) -> i32 {
     parent_proc->child_count+=1;
     kmut_unlock(&(parent_proc->child_mut));
 
-    //schedule(child_tcb, QUEUE_BACK);
+    schedule(child_tcb, QUEUE_BACK);
     child_tcb->tid as i32
 }

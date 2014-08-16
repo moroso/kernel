@@ -2,8 +2,9 @@ mod syslib;
 
 fn main() -> i32 {
     let i = 0;
+    syslib::repl();
     while true {
-        syslib::repl();
+        syslib::test_sys(i);
         i += 1;
     }
     0

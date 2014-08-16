@@ -42,6 +42,7 @@ fn kmut_unlock(km: *kmut) {
     let next_tcb: *tcb = list_head_entry!(&km->mut_head, tcb, link); 
     if (next_tcb != null) {
         list_del(&next_tcb->link);
+        set_state(next_tcb, STATE_RUNNABLE);
         schedule(next_tcb, QUEUE_FRONT);
     }
     km->lock_available = 1;
