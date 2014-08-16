@@ -2,6 +2,7 @@ use entry;
 use entry::uregs;
 use shared::syscall_consts::*;
 use threadstuffs::repl::*;
+use structures::schedule::get_tcb;
 
 const MAX_SYSCALLS: u32 = 256;
 
@@ -38,6 +39,6 @@ fn sys_init() {
 
 /////////
 fn sys_test_sys(i: i32) -> i32 {
-    printf1_("test_sys(%d)\n", i as u32);
+    printf2_("thread %d test_sys(%d)\n", get_tcb()->tid, i as u32);
     i
 }
