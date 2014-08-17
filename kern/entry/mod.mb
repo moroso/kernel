@@ -86,21 +86,17 @@ fn page_fault_handler(regs: *uregs) {
 }
 
 fn timer_handler(regs: *uregs) {
-    printf0_("ENTER TIMER\n");
 
     ticks += 1;
     pic_acknowledge_any_master();
 
     printf1_("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
-        printf0_("PREEMPT_ENABLED\n");
         scheduler_update(-1);
     } 
-    printf0_("LEAVE TIMER\n");
 }
 
 fn kernel_entry(regs: *uregs) {
-    printf0_("ENTER KERNEL\n");
 
     let f: fn(*uregs) -> () = fault_table[regs->cause];
     if f as u32 == 0 {
@@ -109,7 +105,6 @@ fn kernel_entry(regs: *uregs) {
     }
 
     f(regs);
-    printf0_("LEAVE KERNEL\n");
 
 }
 
