@@ -169,7 +169,7 @@ fn scheduler_update(state: i32) {
         // TODO assert that the current stack pointer corresponds to a value on the
         // running tcb's kstack
         // TODO insert into sleep queue?
-        if (old_running->state == STATE_RUNNABLE) {
+        if (old_running->state == STATE_RUNNABLE && old_running->tid != 5) {
             // we may want this to be "running" instead
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
