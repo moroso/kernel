@@ -6,6 +6,8 @@ fn main() -> i32 {
     if (ret != 0) {
         syslib::abscond();
     }
+    let pointer: u32;
+    syslib::bide(&pointer);
     while true {
         syslib::test_sys(i);
         i += 1;
