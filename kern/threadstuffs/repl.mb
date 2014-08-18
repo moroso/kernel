@@ -19,7 +19,6 @@ use entry::{uregs, leave_kernel};
 /* function executed by child thread to return to the code the parent was
  * executing.  Assumes child has already been added to the directory */
 fn child_repl(regs_i: *u8) {
-    preempt_enable();
     let regs = regs_i as *uregs;
 
     // on success, child returns 0

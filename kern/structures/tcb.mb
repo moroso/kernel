@@ -11,7 +11,9 @@ use structures::proc::*;
 use structures::tcb_dir::*;
 use utils::buddy_alloc::{frame_alloc, frame_free};
 use utils::stdlib::*;
-use structures::schedule::is_scheduled;
+use structures::schedule::{is_scheduled, scheduler_unlock, preempt_enable};
+
+extern fn get_eflags() -> u32;
 
 /* this will be outmoded as soon as the new arch comes in */
 struct gpregs {
@@ -26,10 +28,15 @@ struct gpregs {
 }
 
 struct context {
-    // eflags: *u8, we'll want eflags at some point
+    eflags: u32, 
     gpregs: gpregs,
     stored_ebp: u32,
+    tbc_init_func: u32,
     return_addr: u32,
+}
+
+fn tbc_init_func() {
+    preempt_enable();
 }
 
 struct tcb {
@@ -119,10 +126,11 @@ fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
 
     /* make some room for the new context, the return function and its args */
     tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
-
-    tcb->context->gpregs.ebp = (&(tcb->context->return_addr) as u32) -
+    tcb->context->eflags = get_eflags();
+    tcb->context->gpregs.ebp = (&(tcb->context->tbc_init_func) as u32) -
         sizeof(u32);
     tcb->context->return_addr = function as u32;
+    tcb->context->tbc_init_func = tbc_init_func as u32;
 
     /* place data onto the stack a place a pointer to data as an argument to
      * function */
