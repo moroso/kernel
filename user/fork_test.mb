@@ -14,7 +14,7 @@ fn main() -> i32 {
         if (status == -1) {
             break;
         }
-        if (status == 0) {
+        if status == 0 {
             syslib::print("child!\n");
             break;
         } else {
@@ -22,9 +22,9 @@ fn main() -> i32 {
         }
     }
 
-    if (status < 0) {
+    if status < 0 {
         syslib::print("FAILURE: repl returned a negative number \n");
-    } else if (status != 0) {
+    } else if status != 0 {
         syslib::print("***SUCCESS***\n");
     }
     
