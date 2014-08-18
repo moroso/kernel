@@ -3,6 +3,7 @@ use entry::uregs;
 use shared::syscall_consts::*;
 use threadstuffs::repl::*;
 use threadstuffs::abscond::*;
+use threadstuffs::bide::*;
 use structures::schedule::get_tcb;
 
 extern fn enable_interrupts();
@@ -40,6 +41,8 @@ fn sys_init() {
     syscall!(1, sys_test_sys);
     syscall!(INT_REPL, repl_handler);
     syscall!(INT_ABSCOND, abscond);
+    syscall!(INT_BIDE, bide);
+
 }
 
 
