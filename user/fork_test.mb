@@ -1,0 +1,34 @@
+/* 
+ * Fork test: forks off 5 children and absconds.  Success means that all forks
+ * are successful.  test succeeds if SUCCESS is printed with no FAILUREs
+*/
+
+mod syslib;
+
+fn main() -> i32 {
+    let i = 0;
+    let status: u32;
+    
+    for (i = 0; i < 5; i+=1) {
+        status = syslib::repl();
+        if (status == -1) {
+            break;
+        }
+        if (status == 0) {
+            syslib::print("child!\n");
+            break;
+        } else {
+            syslib::print("parent forked!\n");
+        }
+    }
+
+    if (status < 0) {
+        syslib::print("FAILURE: repl returned a negative number \n");
+    } else if (status != 0) {
+        syslib::print("***SUCCESS***\n");
+    }
+    
+    syslib::abscond();
+    syslib::print("FAILURE: Thread failed to die\n");
+    0
+}

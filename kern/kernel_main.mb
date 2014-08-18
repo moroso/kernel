@@ -68,6 +68,7 @@ fn idle(dummy: *u8) {
 }
 
 fn kernel_setup() {
+    printf0_("Welcome to MorosOS!\n");
     /* this is what we do to avoid trying to wrangle the frame
      * allocator's powers-of-two bullshit */
     /* TODO get rid of this bullshit */

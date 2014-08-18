@@ -11,7 +11,7 @@ use structures::proc::*;
 use structures::tcb_dir::*;
 use utils::buddy_alloc::{frame_alloc, frame_free};
 use utils::stdlib::*;
-use structures::schedule::{is_scheduled, scheduler_unlock, preempt_enable};
+use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock, preempt_enable};
 
 extern fn get_eflags() -> u32;
 
@@ -71,12 +71,17 @@ static tid_counter: u32 = 0;
  * Atomically returns new tid for a tcb; all tids guaranteed to
  * be unique (barring overflow, if you wanna be all pedantic about it)
  */
-fn get_tid() -> u32 {
+fn new_tid() -> u32 {
     kmut_lock(&tid_lock);
     let tid: u32 = tid_counter;
     tid_counter+=1;
     kmut_unlock(&tid_lock);
     tid
+}
+
+fn get_tid() -> u32 {
+    assert!(get_tcb() != null);
+    get_tcb()->tid
 }
 
 /*
@@ -92,10 +97,11 @@ fn tcb_init(tcb: *tcb) {
     tcb->state = STATE_NEW;
     tcb->dir_ref = 1; // we decrement by one when tcb goes away
     tcb->proc = null;
-    tcb->tid = get_tid();
+    tcb->tid = new_tid();
     list_init_node(&(tcb->link));
     list_init_node(&(tcb->dir_link));
 }
+
 
 /* I don't know if we need this, so right now it's a placeholder */
 fn tcb_destroy(tcb: *tcb) {
