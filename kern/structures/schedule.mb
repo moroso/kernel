@@ -16,6 +16,8 @@
   *
   * // TODO set a flag that indicates thread missed interrupt with preemption
   * disabeld, and should switch
+  *  // TODO assert that the current stack pointer corresponds to a value on the
+  *  // running tcb's kstack
   * Author: Amanda M. Watson
  */
 
@@ -25,8 +27,10 @@ use structures::tcb::*;
 use structures::VM::*;
 use context::context_switch;
 
+extern fn disable_interrupts();
 extern fn enable_interrupts();
 extern fn get_cr3() -> u32; // hm.
+extern fn get_eflags() -> u32;
 
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.
@@ -39,6 +43,8 @@ struct rq_master {
     run_Q: list_head, // head of run queue
     running: *tcb, // actively running tcb
     preempt_enabled: bool, // whether preemption is enabled
+    inter_flag: bool, // set if an interrupt is missed while preemption isn't 
+                      // enabled; interrupt occurs as soon as it gets re-enabled 
 }
 
 /*
@@ -48,7 +54,8 @@ struct rq_master {
 static run_queue: rq_master = rq_master {
 run_Q: LIST_HEAD_INIT!(run_queue.run_Q),
            running: null,
-           preempt_enabled: false
+           preempt_enabled: false,
+           inter_flag: false,
 };
 
 fn preempt_disable() {
@@ -58,14 +65,21 @@ fn preempt_disable() {
 fn preempt_enable() {
     run_queue.preempt_enabled = true;
     enable_interrupts();
+    // if we missed an interrupt while preemption was disabled, 
+    // let's take it now
+    if (run_queue.inter_flag) {
+        run_queue.inter_flag = false;
+        scheduler_update(-1);
+    }
 }
+
 
 fn is_preempt_enabled() -> bool {
     run_queue.preempt_enabled
 }
 
 fn is_scheduled(tcb: *tcb) -> bool {
-    
+
     if (run_queue.running == tcb) {
         return true;
     }
@@ -128,10 +142,34 @@ fn cond_preempt_disable() -> bool {
 
     is_pre_enable
 }
+
+
 fn cond_preempt_enable(enable: bool) {
     if enable {
         preempt_enable();
     }
+}
+
+fn are_ints_enabled() -> bool {
+    if (get_eflags()&EF_IF == 1) {
+        return true;
+    }
+    false
+}
+
+fn scheduler_unlock(enable: bool) {
+    if enable {
+        enable_interrupts();
+    }
+}
+
+fn scheduler_lock() -> bool {
+    let ints_enabled = are_ints_enabled();
+    if ints_enabled {
+        disable_interrupts();
+    };
+
+    ints_enabled
 }
 
 /* Replaces the running thread with the next thread in the run queue, and then
@@ -140,8 +178,6 @@ fn cond_preempt_enable(enable: bool) {
  * for instance, it won't be re-added to the run queue)
  * State is ignored if state == -1 */
 fn scheduler_update(state: i32) {
-    /* preemption must be disabled for this section, but we also want to enable
-     * nesting */
     let enable = cond_preempt_disable();
 
     /* the head of the run queue, if non-null is to be run next.  a
@@ -152,9 +188,10 @@ fn scheduler_update(state: i32) {
     /* if there are no other threads in the run queue, continue with current
        thread and do not update */
     if (new_running == null) {
+
         // there must be one thread running at all times
-        assert!(old_running != null && state as u32 == STATE_RUNNABLE
-                || state == -1);
+        assert!(old_running != null && (state as u32 == STATE_RUNNABLE
+                || state == -1));
         cond_preempt_enable(enable);
         return ();
     }
@@ -166,14 +203,12 @@ fn scheduler_update(state: i32) {
     }
 
     if (old_running != null) {
-        // TODO assert that the current stack pointer corresponds to a value on the
-        // running tcb's kstack
-        // TODO insert into sleep queue?
-        if (old_running->state == STATE_RUNNABLE && old_running->tid != 5) {
-            // we may want this to be "running" instead
+        
+        if (old_running->state == STATE_RUNNABLE) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
         }
+
         if (old_running->state == STATE_DEAD) {
             printf1_("thread %d has perished\n", old_running->tid);
         }
