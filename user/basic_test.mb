@@ -2,7 +2,10 @@ mod syslib;
 
 fn main() -> i32 {
     let i = 0;
-    syslib::repl();
+    let ret: u32 = syslib::repl();
+    if (ret != 0) {
+        syslib::abscond();
+    }
     while true {
         syslib::test_sys(i);
         i += 1;

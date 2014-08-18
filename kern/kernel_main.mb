@@ -100,6 +100,7 @@ fn create_idle_tcb() {
     proc_init(proc1, new_tcb);
     assert!(proc1 != null);
     run_queue.idle_tcb = new_tcb;
+    schedule(new_tcb, QUEUE_FRONT);
 }
 
 fn kernel_main() -> u32 {
