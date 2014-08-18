@@ -403,14 +403,13 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     0
 }
 
-/* at some point, have all PDs reference the same set of direct-mapped kernel
- * pages
- */
+/*  
+ * given a logical address, maps the address to its physical frame 
+*/
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_kernel_addr(log_addr));
     assert!(is_addr_aligned(log_addr));
-    let success = set_page(log_addr, log_addr, PD, flags, size);
-    success
+    set_page(log_addr, log_addr, PD, flags, size)
 }
 
 fn PD_init(PD: *PD_t) -> i32 {
