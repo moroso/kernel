@@ -13,3 +13,7 @@ fn test_sys(arg: u32) -> u32 {
 fn repl() -> u32 {
     syscall_0(shared::syscall_consts::INT_REPL)
 }
+
+fn abscond() {
+    syscall_0(shared::syscall_consts::INT_ABSCOND);
+}

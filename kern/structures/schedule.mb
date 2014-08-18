@@ -192,14 +192,10 @@ fn scheduler_update(state: i32) {
     if (new_running == null) {
 
         // there must be one thread running at all times
-        
-        if (old_running == null) {
-            assert!(run_queue.idle_tcb != null);
-            new_running = run_queue.idle_tcb;
-        } else {
-            cond_preempt_enable(enable);
-            return ();
-        }
+        assert!(old_running != null && (state as u32 == STATE_RUNNABLE
+                || state == -1));
+        cond_preempt_enable(enable);
+        return ();
     }
 
     /* if a state was provided, assign it to the running thread */
@@ -209,9 +205,8 @@ fn scheduler_update(state: i32) {
     }
 
     if (old_running != null) {
-        assert!(run_queue.idle_tcb != null);
-        if (old_running->state == STATE_RUNNABLE && run_queue.idle_tcb !=
-                old_running) {
+        
+        if (old_running->state == STATE_RUNNABLE) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
         }

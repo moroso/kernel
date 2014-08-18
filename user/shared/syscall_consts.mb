@@ -1,1 +1,2 @@
 const INT_REPL: u32 = 2;
+const INT_ABSCOND: u32 = 3;
