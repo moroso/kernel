@@ -1,5 +1,5 @@
 /* 
- * Fork test: forks off 5 children and absconds.  Success means that all forks
+ * repl test: repls off 5 children and absconds.  Success means that all repls
  * are successful.  test succeeds if SUCCESS is printed with no FAILUREs
 */
 

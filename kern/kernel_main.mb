@@ -37,7 +37,7 @@ extern fn set_eflags(val: u32);
 
 fn user_thread(dummy: *u8) {
     let uregs: uregs;
-    assert!(load("fork_test", &uregs) >= 0);
+    assert!(load("repl_bide_test", &uregs) >= 0);
     leave_kernel(&uregs);
     assert!(false);
 }

@@ -41,7 +41,8 @@ fn bide(pointer: *u32) -> i32 {
             return -1;
         }
 
-        printf1_("thread %d choosing to wait\n", get_tcb()->tid);
+        printf3_("thread %d choosing to wait (%d vs %d)\n", get_tcb()->tid,
+proc->num_bide_waiters, proc->child_count);
         kcond_wait(&(proc->proc_cond), &(proc->child_mut));
     }
 
@@ -55,6 +56,10 @@ fn bide(pointer: *u32) -> i32 {
     let tid: u32 = new_status->tid;
 
     slub_free(new_status as *u32, sizeof(exit_status_t));
+
+    // TODO is this correct?  if so, it's named wrong      
+    proc->child_count-=1;
+
     kmut_unlock(&(proc->child_mut));
 
     *pointer = status;
