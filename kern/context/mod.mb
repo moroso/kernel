@@ -1,3 +1,12 @@
+/* context/mod.mb 
+ *
+ * contains the context switch function.  given two threads, tcb_cur and
+ * tcb_new, pushes the current context onto the stack of tcb_cur and restores
+ * the context of tcb_new 
+ *
+ * Author: Amanda M. Watson
+*/
+
 use structures::tcb::{tcb, context};
 use structures::schedule::{are_ints_enabled, is_preempt_enabled, run_queue, get_tcb};
 

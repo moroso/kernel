@@ -28,7 +28,7 @@ fn proc_dir_add(proc_new: *proc) {
 fn proc_dir_remove(proc_old: *proc) {
     krw_write_lock(&(proc_dir.dir_lock));
     list_del(&(proc_old->dir_link));
-    //decrease_proc_ref(proc_old);
+    decrease_proc_ref(proc_old);
     krw_write_unlock(&(proc_dir.dir_lock));
 }
 
@@ -64,7 +64,5 @@ fn proc_lookup(pid: i32) -> *proc {
 
 fn proc_end_lookup(proc_read: *proc) {
     assert!(proc_read != null);
-    krw_read_lock(&(proc_dir.dir_lock));
     decrease_proc_ref(proc_read);
-    krw_read_unlock(&(proc_dir.dir_lock));
 }
