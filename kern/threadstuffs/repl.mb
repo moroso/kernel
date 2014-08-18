@@ -16,24 +16,22 @@ use threadstuffs::abscond::*;
 use structures::tcb_dir::tcb_dir_add;
 use entry::{uregs, leave_kernel};
 
-
+/* function executed by child thread to return to the code the parent was
+ * executing.  Assumes child has already been added to the directory */
 fn child_repl(regs_i: *u8) {
     preempt_enable();
     let regs = regs_i as *uregs;
-    // stick context somewhere
-    // add to directory
-    // return 0
-
 
     // on success, child returns 0
     regs->gpregs.eax = 0;
     leave_kernel(regs);
 }
 
+/* given the parent's registers, creates a child thread that passes the regs to
+ * child_repl */
 fn thr_repl(parent_regs: *uregs) -> *tcb {
-    let child_tcb = thr_create(child_repl, parent_regs as *u8, sizeof(uregs));
+    thr_create(child_repl, parent_regs as *u8, sizeof(uregs))
     // TODO add to directory for syscall
-    child_tcb
 }
 
 fn repl_handler() -> i32 {
@@ -54,19 +52,19 @@ fn repl(parent_regs: *uregs) -> i32 {
     let child_proc: *proc = slub_alloc(sizeof(proc)) as *proc;
 
     if (child_proc == null) {
-        return -1;
+        return -2;
     }
 
     let child_tcb: *tcb = thr_repl(parent_regs);
     if (child_tcb == null) {
         slub_free(child_proc as *u32, sizeof(proc));
-        return -1;
+        return -3;
     }
 
     if (proc_init(child_proc, child_tcb) == -1) {
         slub_free(child_proc as *u32, sizeof(proc));
         thr_abort(child_tcb);
-        return -1;
+        return -4;
     }
 
     child_proc->parent_pid = parent_proc->pid as i32;
@@ -77,12 +75,13 @@ fn repl(parent_regs: *uregs) -> i32 {
         if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
 
             // TODO free proc, PD (cleanup)
-            return -1;
+            return -5;
         }
     }
 
     // add tcb to directory, now that repl can no longer fail
     tcb_dir_add(child_tcb);
+    
     /* add new tcb to list of children */
     kmut_lock(&(parent_proc->child_mut));
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
