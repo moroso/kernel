@@ -33,6 +33,15 @@ fn thr_repl(parent_regs: *uregs) -> *tcb {
     // TODO add to directory for syscall
 }
 
+fn thr_repl_handler(parent_regs: *uregs) -> i32 {
+    let new_tcb = thr_repl(parent_regs);
+    if (new_tcb != null) {
+        tcb_dir_add(new_tcb);
+        return new_tcb->tid as i32;
+    } 
+    -1
+}
+
 fn repl_handler() -> i32 {
     let parent_ureg: *uregs = (get_tcb()->kstack_top as *uregs) - 1;
     repl(parent_ureg)
@@ -80,7 +89,7 @@ fn repl(parent_regs: *uregs) -> i32 {
 
     // add tcb to directory, now that repl can no longer fail
     tcb_dir_add(child_tcb);
-    
+
     /* add new tcb to list of children */
     kmut_lock(&(parent_proc->child_mut));
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));

@@ -42,6 +42,7 @@ fn sys_init() {
     syscall!(INT_REPL, repl_handler);
     syscall!(INT_ABSCOND, abscond);
     syscall!(INT_BIDE, bide);
+    syscall!(INT_THR_REPL, thr_repl_handler);
 
 }
 
