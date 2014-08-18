@@ -37,7 +37,7 @@ extern fn set_eflags(val: u32);
 
 fn user_thread(dummy: *u8) {
     let uregs: uregs;
-    assert!(load("basic_test", &uregs) >= 0);
+    assert!(load("fork_test", &uregs) >= 0);
     leave_kernel(&uregs);
     assert!(false);
 }
@@ -63,7 +63,7 @@ fn parent(dummy: *u8) {
 
 fn idle(dummy: *u8) {
     while (true) {
-        printf0_("idle\n");
+        //printf0_("idle\n");
     }
 }
 
@@ -108,21 +108,14 @@ fn kernel_main() -> u32 {
 
     /*** Create n threads and schedule them ***/
 
-    let i: u32;
-    for (i = 0; i < 5; i+=1) {
-        let new_tcb: *tcb;
-        if (i == 0) {
-            new_tcb = thr_create(user_thread, null, 0);
-        } else {
-            new_tcb = thr_create(parent, null, 0);
-        }
-        tcb_dir_add(new_tcb);
-        assert!(new_tcb != null);
-        let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
-        proc_init(proc1, new_tcb);
-        assert!(proc1 != null);
-        schedule(new_tcb, QUEUE_FRONT);
-    }
+    let new_tcb: *tcb;
+    new_tcb = thr_create(user_thread, null, 0);
+    tcb_dir_add(new_tcb);
+    assert!(new_tcb != null);
+    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
+    proc_init(proc1, new_tcb);
+    assert!(proc1 != null);
+    schedule(new_tcb, QUEUE_FRONT);
 
     create_idle_tcb(); 
 

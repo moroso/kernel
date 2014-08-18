@@ -73,7 +73,6 @@ fn page_fault_handler(regs: *uregs) {
 
   // if page is COW page, copy info onto new frame and replace
   if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
-      printf0_("COW time\n");
       cow_copy(log_addr, PD);
   } else {
       let tid: u32 = -1;
@@ -90,7 +89,7 @@ fn timer_handler(regs: *uregs) {
     ticks += 1;
     pic_acknowledge_any_master();
 
-    printf1_("%d ticks\n", ticks);
+    //printf1_("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
         scheduler_update(-1);
     } 

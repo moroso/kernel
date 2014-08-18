@@ -390,7 +390,6 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     let page_read: *u8;
     for (page_read = addr_start; page_read <= addr_end; 
             page_read+=PAGE_SIZE) {
-        printf1_("%x\n", page_read as u32);
         if (new_user_page(page_read, PD, flags, size) < 0) {
             if (page_read != addr_start) {
                 free_user_range(addr_start, (addr_end as u32 - PAGE_SIZE) as *u8, PD);

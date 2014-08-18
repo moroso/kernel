@@ -15,7 +15,7 @@ fn repl() -> u32 {
 }
 
 fn thr_repl() -> i32 {
-    syscall_0(shared::syscall_consts::INT_THR_REPL)
+    syscall_0(shared::syscall_consts::INT_THR_REPL) as i32
 }
 
 fn abscond() {

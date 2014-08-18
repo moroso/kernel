@@ -42,7 +42,6 @@ fn abscond()  {
         // TODO destroy page directory
         load_PD(init_PD);
         proc_dir_remove(proc);
-        printf1_("parent %d\n", proc->parent_pid as u32);
         if (parent_proc != null) {
             kmut_lock(&(parent_proc->child_mut));
             // remove child from list
@@ -72,7 +71,6 @@ fn abscond()  {
     preempt_disable();
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
-    printf1_("thread %d is going to die\n", get_tcb()->tid);
     scheduler_update(STATE_DEAD as i32);
     printf1_("%d, abscond returned\n", get_tcb()->tid);
     assert!(false); // no return
