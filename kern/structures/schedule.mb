@@ -45,6 +45,7 @@ struct rq_master {
     preempt_enabled: bool, // whether preemption is enabled
     inter_flag: bool, // set if an interrupt is missed while preemption isn't 
                       // enabled; interrupt occurs as soon as it gets re-enabled 
+    idle_tcb: *tcb,
 }
 
 /*
@@ -56,6 +57,7 @@ run_Q: LIST_HEAD_INIT!(run_queue.run_Q),
            running: null,
            preempt_enabled: false,
            inter_flag: false,
+           idle_tcb: null,
 };
 
 fn preempt_disable() {
@@ -190,10 +192,14 @@ fn scheduler_update(state: i32) {
     if (new_running == null) {
 
         // there must be one thread running at all times
-        assert!(old_running != null && (state as u32 == STATE_RUNNABLE
-                || state == -1));
-        cond_preempt_enable(enable);
-        return ();
+        
+        if (old_running == null) {
+            assert!(run_queue.idle_tcb != null);
+            new_running = run_queue.idle_tcb;
+        } else {
+            cond_preempt_enable(enable);
+            return ();
+        }
     }
 
     /* if a state was provided, assign it to the running thread */
@@ -203,8 +209,9 @@ fn scheduler_update(state: i32) {
     }
 
     if (old_running != null) {
-        
-        if (old_running->state == STATE_RUNNABLE) {
+        assert!(run_queue.idle_tcb != null);
+        if (old_running->state == STATE_RUNNABLE && run_queue.idle_tcb !=
+                old_running) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
         }

@@ -93,6 +93,15 @@ fn kernel_setup() {
     enable_interrupts();
 }
 
+fn create_idle_tcb() {
+    let new_tcb: *tcb = thr_create(idle, null, 0);
+    assert!(new_tcb != null);
+    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
+    proc_init(proc1, new_tcb);
+    assert!(proc1 != null);
+    run_queue.idle_tcb = new_tcb;
+}
+
 fn kernel_main() -> u32 {
     kernel_setup();
 
@@ -114,12 +123,7 @@ fn kernel_main() -> u32 {
         schedule(new_tcb, QUEUE_FRONT);
     }
 
-   let new_tcb: *tcb = thr_create(idle, null, 0);
-    assert!(new_tcb != null);
-    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
-    proc_init(proc1, new_tcb);
-    assert!(proc1 != null);
-    schedule(new_tcb, QUEUE_FRONT);
+    create_idle_tcb(); 
 
     preempt_enable();
     /*** Switch to the first thread in the run queue and jump to its execution ***/
