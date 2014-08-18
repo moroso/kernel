@@ -9,6 +9,7 @@ fn main() -> i32 {
     let pointer: u32;
     syslib::bide(&pointer);
     while true {
+        syslib::printf("userland!\n");
         syslib::test_sys(i);
         i += 1;
     }
