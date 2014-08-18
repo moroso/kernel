@@ -22,8 +22,8 @@ fn abscond() {
     syscall_0(shared::syscall_consts::INT_ABSCOND);
 }
 
-fn bide(pointer: *u32) {
-    syscall_1(shared::syscall_consts::INT_BIDE, pointer as u32);
+fn bide(pointer: *u32) -> i32 {
+    syscall_1(shared::syscall_consts::INT_BIDE, pointer as u32) as i32
 }
 
 fn print(s: *u8) {
