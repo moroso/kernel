@@ -6,6 +6,7 @@
  *  Author: Amanda M. Watson
 **/
 
+
 use fs::fs_read;
 use utils::slab_alloc::{slub_alloc, slub_free};
 use utils::buddy_alloc::{frame_alloc, frame_free};
@@ -15,6 +16,7 @@ use structures::schedule::get_tcb;
 use entry::uregs;
 use utils::stdlib::mos_memcpy;
 
+mod perform;
 
 extern fn get_eflags() -> u32;
 
