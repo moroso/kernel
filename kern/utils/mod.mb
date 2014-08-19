@@ -4,5 +4,6 @@ mod early_alloc;
 mod buddy_alloc;
 mod slab_alloc;
 mod stdlib;
+mod string;
 //mod avl;
 //mod rangetree;

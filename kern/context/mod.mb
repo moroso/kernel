@@ -20,7 +20,6 @@ fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
     assert!(!is_preempt_enabled() || !are_ints_enabled());
     assert!(run_queue.running == tcb_new);
     
-    
     /* if tcb_cur is null, create a dummy value on the stack for the "old" context to
      * be pushed to*/
     let context_old: **context;
