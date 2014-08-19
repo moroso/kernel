@@ -1,0 +1,41 @@
+/**/
+use structures::proc::*;
+use structures::schedule::get_tcb;
+use structures::VM::*;
+use entry::*;
+use loader::*;
+use utils::string::mos_strncpy;
+
+
+fn perform(filename: *u8) -> i32 {
+    // TODO replace this with real people memory validation
+    let file_buffer: u8[500];
+    mos_strncpy(&file_buffer[0], filename, 500);
+    
+    let proc: *proc = get_tcb()->proc;
+    let old_entries: **u32 = proc->PD.PT_entries;    
+    proc->PD.PT_entries = null;
+
+    if PD_init(&(proc->PD)) < 0 {
+        proc->PD.PT_entries = old_entries;
+        load_PD(&(proc->PD)); 
+        printf0_("error\n");
+        return -1;
+    }
+
+    load_PD(&(proc->PD)); 
+
+    let uregs: uregs;
+    
+    if (load(&file_buffer[0], &uregs) < 0) {
+        proc->PD.PT_entries = old_entries;
+        load_PD(&(proc->PD)); 
+        // TODO destroy new PD
+        printf0_("error\n");
+        return -2;
+    }
+    leave_kernel(&uregs);
+    
+    assert!(false);
+    0
+}

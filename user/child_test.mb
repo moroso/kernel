@@ -1,0 +1,14 @@
+/* 
+ * child_test: called by child in repl_perform_test.  Should just print "CHILD"
+ * forever.
+ *
+*/
+
+mod syslib;
+
+fn main() -> i32 {
+		while(true) {
+				syslib::print("CHILD!\n");
+		}
+		0
+}

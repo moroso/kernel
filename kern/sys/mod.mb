@@ -6,6 +6,7 @@ use threadstuffs::abscond::*;
 use threadstuffs::bide::*;
 use structures::schedule::get_tcb;
 use structures::tcb::*;
+use loader::perform::*;
 
 extern fn enable_interrupts();
 
@@ -46,6 +47,7 @@ fn sys_init() {
     syscall!(INT_THR_REPL, thr_repl_handler);
     syscall!(INT_PRINTF, printf0_);
     syscall!(INT_GETTID, get_tid);
+    syscall!(INT_PERFORM, perform);
 }
 
 

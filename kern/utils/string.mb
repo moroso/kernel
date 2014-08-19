@@ -1,0 +1,12 @@
+
+
+fn mos_strncpy(buffer: *u8, string: *u8, len: u32) {
+    let i: u32;
+    for (i = 0; i < len; i+=1) {
+        buffer[i] = string[i];
+        if (string[i] == 0) {
+            break;
+        }
+    }
+
+}
