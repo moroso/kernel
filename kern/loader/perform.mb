@@ -28,9 +28,7 @@ fn perform(filename: *u8) -> i32 {
     let uregs: uregs;
     
     if (load(&file_buffer[0], &uregs) < 0) {
-        proc->PD.PT_entries = old_entries;
-        load_PD(&(proc->PD)); 
-        // TODO destroy new PD
+        PD_destroy(&(proc->PD), old_entries); 
         printf0_("error\n");
         return -2;
     }

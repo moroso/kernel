@@ -65,3 +65,8 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     proc_dir_add(new_proc);
     0
 }
+
+fn proc_destroy(old_proc: *proc) {
+   PD_destroy(&(old_proc->PD), init_PD->PT_entries);    
+   proc_dir_remove(old_proc); 
+}

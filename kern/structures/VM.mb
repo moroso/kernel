@@ -377,6 +377,27 @@ fn free_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t) {
     }
 }
 
+fn PD_destroy(PD: *PD_t, replace_entries: **u32) {
+    let failed_entries: **u32 = PD->PT_entries;
+    PD->PT_entries = replace_entries;
+    if (get_cr3() as **u32 == failed_entries) {
+        load_PD(PD);
+    }
+    PD_entries_destroy(failed_entries);
+}
+
+fn PD_entries_destroy(entries: **u32) {
+    // ensure we are not destroying the directory loaded into cr3
+    assert!(get_cr3() as **u32 != entries);
+  
+    // free all user pages
+    let dummy_PD: PD_t;
+    dummy_PD.PT_entries = entries;
+    free_user_range(USER_MEM_START as *u8, INT_MAX as *u8, &dummy_PD);
+    // free entries
+    frame_free(entries as *u8);
+}
+
 fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
         u32) -> i32 {
     assert!(is_user_addr(addr_start) && is_user_addr(addr_end));

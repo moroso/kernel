@@ -30,7 +30,6 @@ fn child_repl(regs_i: *u8) {
  * child_repl */
 fn thr_repl(parent_regs: *uregs) -> *tcb {
     thr_create(child_repl, parent_regs as *u8, sizeof(uregs))
-    // TODO add to directory for syscall
 }
 
 fn thr_repl_handler(parent_regs: *uregs) -> i32 {
@@ -81,8 +80,8 @@ fn repl(parent_regs: *uregs) -> i32 {
     // copy over references to new PD
     for (page = USER_MEM_START as *u8; page <= (INT_MAX - PAGE_SIZE) as *u8; page += PAGE_SIZE) {
         if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
-
-            // TODO free proc, PD (cleanup)
+            thr_abort(child_tcb);
+            proc_destroy(child_proc);
             return -5;
         }
     }
