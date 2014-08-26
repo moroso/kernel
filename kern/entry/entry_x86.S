@@ -7,7 +7,7 @@ common_entry_asm:
     pushl %es
 
     pushl %esp
-    call MANGLEDentry_kernel_entry
+    call __entry__kernel_entry
     addl $4, %esp
 
 common_exit_asm:
