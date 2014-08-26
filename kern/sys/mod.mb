@@ -34,7 +34,7 @@ fn syscall_entry(regs: *uregs) {
         gp->eax = -1 as u32;
         return ();
     }
- 
+
     gp->eax = f(gp->ecx, gp->edx, gp->ebx, gp->esi, gp->edi) as u32;
 }
 
@@ -45,7 +45,7 @@ fn sys_init() {
     syscall!(INT_ABSCOND, abscond);
     syscall!(INT_BIDE, bide);
     syscall!(INT_THR_REPL, thr_repl_handler);
-    syscall!(INT_PRINTF, printf0_);
+    syscall!(INT_PRINT, printf0_); // XXX: this is a hack!
     syscall!(INT_GETTID, get_tid);
     syscall!(INT_PERFORM, perform);
 }
