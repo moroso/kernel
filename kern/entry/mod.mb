@@ -6,6 +6,7 @@ const MAX_FAULT_NUMS: u32 = 256;
 
 const PAGE_FAULT: u32 = 14;
 const TIMER_INTER: u32 = 32;
+const KBD_INTER: u32 = 33;
 const SYSCALL: u32 = 0x80;
 
 struct uregs {
@@ -61,6 +62,7 @@ fn entry_init() {
 
     register(PAGE_FAULT, page_fault_handler);
     register(TIMER_INTER, timer_handler);
+    register(KBD_INTER, timer_handler);
 }
 
 extern fn pic_acknowledge_any_master();
@@ -85,18 +87,23 @@ fn page_fault_handler(regs: *uregs) {
 }
 
 fn timer_handler(regs: *uregs) {
-
     ticks += 1;
     pic_acknowledge_any_master();
 
    // printf1_("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
         scheduler_update(-1);
-    } 
+    }
 }
 
-fn kernel_entry(regs: *uregs) {
+fn kbd_handler(regs: *uregs) {
+    pic_acknowledge_any_master();
 
+    printf0_("took kbd interrupt, don't care\n");
+}
+
+
+fn kernel_entry(regs: *uregs) {
     let f: fn(*uregs) -> () = fault_table[regs->cause];
     if f as u32 == 0 {
         printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
