@@ -39,7 +39,7 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
     let header: bsexe_header;
 
     if (fs_read(filename, &header as *u8, sizeof(bsexe_header), 0) == -1) {
-        printf0_("error in loader\n");
+        printf!("error in loader\n");
         return -2;
     }
     // allocate an additional page for the user stack
@@ -48,7 +48,7 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
     /* allocate the full mapping size */
     if (new_user_range(header.load_addr as *u8, user_esp as *u8,
                        &get_tcb()->proc->PD, READ_WRITE_BIT, KB) < 0) {
-        printf0_("error in loader\n");
+        printf!("error in loader\n");
         return -4;
     }
 
@@ -60,7 +60,7 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
         // XXX: an assert seems to trip when this failure happens
         free_user_range(header.load_addr as *u8, user_esp as *u8,
                         &get_tcb()->proc->PD);
-        printf0_("error in loader\n");
+        printf!("error in loader\n");
         return -5;
     }
 

@@ -81,7 +81,7 @@ fn page_fault_handler(regs: *uregs) {
       if (get_tcb() != null) {
           tid = get_tcb()->tid;
       }
-      printf2_("Thread %d Page Fault on address 0x%x\n", tid, log_addr as u32);
+      printf!("Thread %d Page Fault on address 0x%x\n", tid, log_addr);
       assert!(false);
   }
 }
@@ -90,7 +90,7 @@ fn timer_handler(regs: *uregs) {
     ticks += 1;
     pic_acknowledge_any_master();
 
-   // printf1_("%d ticks\n", ticks);
+   // printf!("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
         scheduler_update(-1);
     }
@@ -99,14 +99,14 @@ fn timer_handler(regs: *uregs) {
 fn kbd_handler(regs: *uregs) {
     pic_acknowledge_any_master();
 
-    printf0_("took kbd interrupt, don't care\n");
+    printf!("took kbd interrupt, don't care\n");
 }
 
 
 fn kernel_entry(regs: *uregs) {
     let f: fn(*uregs) -> () = fault_table[regs->cause];
     if f as u32 == 0 {
-        printf2_("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
+        printf!("took a fault %u at 0x%08x\n", regs->cause, regs->eip);
         assert!(false);
     }
 

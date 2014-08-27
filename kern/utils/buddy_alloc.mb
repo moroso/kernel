@@ -222,13 +222,13 @@ fn buddy_alloc2(arena: *buddy_arena, order: u32) -> u32 {
 
 fn small_test(arena: *buddy_arena) {
     let n1: u32 = buddy_alloc2(arena, 0);
-    printf0_("\n");
+    printf!("\n");
     let n2: u32 = buddy_alloc2(arena, 0);
     let n3: u32 = buddy_alloc2(arena, 0);
     let n4: u32 = buddy_alloc2(arena, 0);
     let n5: u32 = buddy_alloc2(arena, 0);
 
-    printf0_("\n");
+    printf!("\n");
 
     print_uint(n1);
     print_uint(n2);
@@ -258,7 +258,7 @@ fn buddy_test() {
 
     let big_stig = buddy_alloc2(arena, MAX_ORDER);
     let big_stig2 = buddy_alloc2(arena, MAX_ORDER);
-    printf0_("\n");
+    printf!("\n");
     print_uint(big_stig);
     print_uint(big_stig2);
 

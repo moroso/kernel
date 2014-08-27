@@ -141,7 +141,7 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
     if (PD->PT_entries == null) {
-        printf0_("entries null\n");
+        printf!("entries null\n");
 
         return null;
     }
@@ -167,7 +167,7 @@ fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
     let pd_entry: u32 = get_pd_entry(log_addr);
 
     if (PD->PT_entries == null) {
-        printf0_("entries null\n");
+        printf!("entries null\n");
 
         return -1;
     }
@@ -264,7 +264,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     }
 
     let frame: *u8 = *page_entry;
-    
+
     if (frame == null) {
         return ();
     }
@@ -298,7 +298,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
         if (*page_table_addr == null) {
             *page_table_addr = frame_alloc() as *u32;
             if (*page_table_addr == null) {
-                printf0_("out of memory\n");
+                printf!("out of memory\n");
                 return -1;
             }
             mos_memset((*page_table_addr as *u32), 0, PAGE_SIZE);
@@ -329,8 +329,8 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
     if (get_aligned_addr((*(log_to_phys(log_addr, PD) as *u32)) as *u32) !=
         get_aligned_addr(frame as *u32) as *u32)
     {
-        printf2_("page not actually set in set_page(): %x %x\n",
-                 *(log_to_phys(log_addr, PD) as *u32) as u32, frame as u32);
+        printf!("page not actually set in set_page(): %x %x\n",
+                *(log_to_phys(log_addr, PD) as *u32), frame);
         assert!(false);
     }
     0
@@ -362,9 +362,9 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     // TODO I know there's a reason I shouldn't be doing this.  I just can't put
     // my finger on it
     mos_memset(new_frame, 0, PAGE_SIZE);
-    
+
     if (new_frame == null) {
-        printf0_("out of memory\n");
+        printf!("out of memory\n");
         return -1;
     }
 
@@ -396,7 +396,7 @@ fn PD_destroy(PD: *PD_t, replace_entries: **u32) {
 fn PD_entries_destroy(entries: **u32) {
     // ensure we are not destroying the directory loaded into cr3
     assert!(get_cr3() as **u32 != entries);
-  
+
     // free all user pages
     let dummy_PD: PD_t;
     dummy_PD.PT_entries = entries;
@@ -412,16 +412,16 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     if (addr_end > get_aligned_addr(addr_end as *u32) as *u8) {
         addr_end = get_aligned_addr(addr_end as *u32) as *u8 + PAGE_SIZE;
     } else {
-        addr_end = get_aligned_addr(addr_end as *u32) as *u8;  
+        addr_end = get_aligned_addr(addr_end as *u32) as *u8;
     }
 
     let page_read: *u8;
-    for (page_read = addr_start; page_read <= addr_end; 
+    for (page_read = addr_start; page_read <= addr_end;
             page_read+=PAGE_SIZE) {
         if (new_user_page(page_read, PD, flags, size) < 0) {
             if (page_read != addr_start) {
                 free_user_range(addr_start, (addr_end as u32 - PAGE_SIZE) as *u8, PD);
-            } 
+            }
 
             return -1;
         }
@@ -430,8 +430,8 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     0
 }
 
-/*  
- * given a logical address, maps the address to its physical frame 
+/*
+ * given a logical address, maps the address to its physical frame
 */
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_kernel_addr(log_addr));

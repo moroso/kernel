@@ -43,12 +43,12 @@ fn user_thread(dummy: *u8) {
 
 fn idle(dummy: *u8) {
     while (true) {
-        //printf0_("idle\n");
+        //printf!("idle\n");
     }
 }
 
 fn kernel_setup() {
-    printf0_("Welcome to MorosOS!\n");
+    printf!("Welcome to MorosOS!\n");
     /* this is what we do to avoid trying to wrangle the frame
      * allocator's powers-of-two bullshit */
     /* TODO get rid of this bullshit */
