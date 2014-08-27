@@ -333,7 +333,6 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
                  *(log_to_phys(log_addr, PD) as *u32) as u32, frame as u32);
         assert!(false);
     }
-    // TODO make sure the pages are zeroed out
     0
 }
 
@@ -360,6 +359,10 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_addr_aligned(log_addr));
     let new_frame: *u8 = get_frame(KB);
 
+    // TODO I know there's a reason I shouldn't be doing this.  I just can't put
+    // my finger on it
+    mos_memset(new_frame, 0, PAGE_SIZE);
+    
     if (new_frame == null) {
         printf0_("out of memory\n");
         return -1;
