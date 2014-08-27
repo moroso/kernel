@@ -18,8 +18,8 @@ fn thr_repl() -> i32 {
     syscall_0(shared::syscall_consts::INT_THR_REPL) as i32
 }
 
-fn abscond() {
-    syscall_0(shared::syscall_consts::INT_ABSCOND);
+fn abscond(status: u32) {
+    syscall_1(shared::syscall_consts::INT_ABSCOND, status);
 }
 
 fn bide(pointer: *u32) -> i32 {

@@ -23,7 +23,7 @@ use structures::VM::*;
 static dead_tcb: *tcb = null;
 static abscond_lock: kmut = KMUT_INIT!(abscond_lock);
 
-fn abscond()  {
+fn abscond(status: u32)  {
 
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
@@ -36,7 +36,7 @@ fn abscond()  {
     // if we are the only thread in the process, free our pcb
     if (list_is_singleton(&(proc->peer_tcb_list))) {
 
-        set_exit_status(proc, -1);
+        set_exit_status(proc, status);
         let parent_proc: *proc = proc_lookup(proc->parent_pid);
 
         proc_destroy(proc);
