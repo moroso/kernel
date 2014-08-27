@@ -26,8 +26,6 @@ struct uregs {
     ss: u32,
 }
 
-
-
 static fault_table: (fn(*uregs) -> ())[MAX_FAULT_NUMS];
 
 static ticks: u32 = 0;

@@ -3,7 +3,7 @@
  * to retrieve.  Success if parent collects exactly n exit statuses 
 */
 
-const NUM_CHILD: u32 = 50;
+const NUM_CHILD: u32 = 2;
 mod syslib;
 
 fn main() -> i32 {
