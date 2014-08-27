@@ -43,8 +43,8 @@ struct rq_master {
     run_Q: list_head, // head of run queue
     running: *tcb, // actively running tcb
     preempt_enabled: bool, // whether preemption is enabled
-    inter_flag: bool, // set if an interrupt is missed while preemption isn't 
-                      // enabled; interrupt occurs as soon as it gets re-enabled 
+    inter_flag: bool, // set if an interrupt is missed while preemption isn't
+                      // enabled; interrupt occurs as soon as it gets re-enabled
     idle_tcb: *tcb,
 }
 
@@ -66,8 +66,7 @@ fn preempt_disable() {
 
 fn preempt_enable() {
     run_queue.preempt_enabled = true;
-    enable_interrupts();
-    // if we missed an interrupt while preemption was disabled, 
+    // if we missed an interrupt while preemption was disabled,
     // let's take it now
     if (run_queue.inter_flag) {
         run_queue.inter_flag = false;
@@ -87,7 +86,7 @@ fn is_scheduled(tcb: *tcb) -> bool {
     }
     if (!(tcb->link.next == null && tcb->link.prev == null)) {
         return true;
-    }       
+    }
     false
 }
 
@@ -205,7 +204,7 @@ fn scheduler_update(state: i32) {
     }
 
     if (old_running != null) {
-        
+
         if (old_running->state == STATE_RUNNABLE) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
