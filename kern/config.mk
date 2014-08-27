@@ -11,7 +11,7 @@ MBC=../compiler/mbc
 MBC_TARGET ?= c
 
 %.c: %.mb $(MBC)
-	$(MBC) $< -d --target $(MBC_TARGET) -o $@
+	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf:../compiler/lib/printf.mb
 
 # Wee.
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
