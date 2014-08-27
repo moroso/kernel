@@ -45,7 +45,7 @@ fn sys_init() {
     syscall!(INT_ABSCOND, abscond);
     syscall!(INT_BIDE, bide);
     syscall!(INT_THR_REPL, thr_repl_handler);
-    syscall!(INT_PRINT, printf0_); // XXX: this is a hack!
+    syscall!(INT_PRINT, sys_print);
     syscall!(INT_GETTID, get_tid);
     syscall!(INT_PERFORM, perform);
 }
@@ -53,6 +53,11 @@ fn sys_init() {
 
 /////////
 fn sys_test_sys(i: i32) -> i32 {
-    printf2_("thread %d test_sys(%d)\n", get_tcb()->tid, i as u32);
+    printf!("thread %d test_sys(%d)\n", get_tcb()->tid, i);
     i
+}
+
+fn sys_print(s: *u8) -> i32 {
+    // XXX memory validation
+    printf!("%s", s)
 }

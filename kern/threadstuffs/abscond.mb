@@ -70,6 +70,6 @@ fn abscond(status: u32)  {
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
     scheduler_update(STATE_DEAD as i32);
-    printf1_("%d, abscond returned\n", get_tcb()->tid);
+    printf!("%d, abscond returned\n", get_tcb()->tid);
     assert!(false); // no return
 }

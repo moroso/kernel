@@ -34,12 +34,12 @@ fn fs_init() {
     // Some debug spew!
 
     // Print the header and the size
-    printf2_("FS info: %.4s %d\n", &fs_img_start as u32, fs_img_size);
+    printf!("FS info: %.4s %d\n", &fs_img_start, fs_img_size);
     // Print the name of the first file and its size and offset
-    printf3_("First file: %s %d %d\n",
-             &file_table[0].filename as u32,
-             file_table[0].file_length,
-             file_table[0].offset);
+    printf!("First file: %s %d %d\n",
+            &file_table[0].filename,
+            file_table[0].file_length,
+            file_table[0].offset);
 }
 
 fn fs_search(filename: *u8) -> *bsfs_entry {
