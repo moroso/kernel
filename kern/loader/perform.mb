@@ -32,6 +32,9 @@ fn perform(filename: *u8) -> i32 {
         printf!("error\n");
         return -2;
     }
+
+    PD_entries_destroy(old_entries); 
+    
     leave_kernel(&uregs);
     
     assert!(false);
