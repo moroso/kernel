@@ -11,7 +11,8 @@ use structures::proc::*;
 use structures::tcb_dir::*;
 use utils::buddy_alloc::{frame_alloc, frame_free};
 use utils::stdlib::*;
-use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock, preempt_enable};
+use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock,
+                           preempt_enable, enable_interrupts};
 
 extern fn get_eflags() -> u32;
 
@@ -28,7 +29,7 @@ struct gpregs {
 }
 
 struct context {
-    eflags: u32, 
+    eflags: u32,
     gpregs: gpregs,
     stored_ebp: u32,
     tbc_init_func: u32,
@@ -36,6 +37,7 @@ struct context {
 }
 
 fn tbc_init_func() {
+    enable_interrupts();
     preempt_enable();
 }
 
