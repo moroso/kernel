@@ -11,7 +11,7 @@ fn main() -> i32 {
 		if (child == 0) {
 				syslib::perform("child_test");
 				syslib::print("ERROR: return from perform\n");
-				syslib::abscond();
+				syslib::abscond(-1);
 		} 
 		while(true) {
 				syslib::print("PARENT\n");

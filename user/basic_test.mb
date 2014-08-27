@@ -4,7 +4,7 @@ fn main() -> i32 {
     let i = 0;
     let ret: u32 = syslib::repl();
     if (ret != 0) {
-        syslib::abscond();
+        syslib::abscond(0);
     }
     let pointer: u32;
     syslib::bide(&pointer);

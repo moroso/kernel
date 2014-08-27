@@ -28,7 +28,7 @@ fn main() -> i32 {
         syslib::print("***SUCCESS***\n");
     }
     
-    syslib::abscond();
+    syslib::abscond(0);
     syslib::print("FAILURE: Thread failed to die\n");
     0
 }
