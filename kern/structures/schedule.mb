@@ -74,7 +74,21 @@ fn preempt_enable() {
     }
 }
 
+fn cond_preempt_disable() -> bool {
+    let is_pre_enable = is_preempt_enabled();
+    if is_pre_enable {
+        preempt_disable();
+    };
 
+    is_pre_enable
+}
+
+
+fn cond_preempt_enable(enable: bool) {
+    if enable {
+        preempt_enable();
+    }
+}
 fn is_preempt_enabled() -> bool {
     run_queue.preempt_enabled
 }
@@ -97,7 +111,7 @@ fn is_scheduled(tcb: *tcb) -> bool {
  * scheduler knows you really mean it.
  */
 fn schedule(tcb: *tcb, pos: u32) {
-    let enable = cond_preempt_disable();
+    let enable = scheduler_lock();
     assert!(pos == QUEUE_FRONT || pos == QUEUE_BACK);
 
     if (tcb->state == STATE_NEW) {
@@ -106,19 +120,19 @@ fn schedule(tcb: *tcb, pos: u32) {
     assert!(tcb->state == STATE_RUNNABLE);
     if (pos == QUEUE_FRONT) {
         list_insert_head(&tcb->link, &run_queue.run_Q);
-        cond_preempt_enable(enable);
+        scheduler_unlock(enable);
 
         return ();
     }
     if (pos == QUEUE_BACK) {
         list_insert_tail(&tcb->link, &run_queue.run_Q);
-        cond_preempt_enable(enable);
+        scheduler_unlock(enable);
 
         return ();
     }
     // pos should specify either the front or back position
     assert!(false);
-    cond_preempt_enable(enable);
+    scheduler_unlock(enable);
 
 }
 
@@ -135,21 +149,7 @@ fn get_tcb() -> *tcb {
     run_queue.running
 }
 
-fn cond_preempt_disable() -> bool {
-    let is_pre_enable = is_preempt_enabled();
-    if is_pre_enable {
-        preempt_disable();
-    };
 
-    is_pre_enable
-}
-
-
-fn cond_preempt_enable(enable: bool) {
-    if enable {
-        preempt_enable();
-    }
-}
 
 fn are_ints_enabled() -> bool {
     if (get_eflags()&EF_IF == 1) {
@@ -158,16 +158,18 @@ fn are_ints_enabled() -> bool {
     false
 }
 
+// TODO there is a bug if we mess around with interrupts.  This is cheap hack.
+// pls fix
 fn scheduler_unlock(enable: bool) {
     if enable {
-        enable_interrupts();
+        preempt_enable();
     }
 }
 
 fn scheduler_lock() -> bool {
-    let ints_enabled = are_ints_enabled();
+    let ints_enabled = is_preempt_enabled();
     if ints_enabled {
-        disable_interrupts();
+        preempt_disable();
     };
 
     ints_enabled
@@ -179,7 +181,7 @@ fn scheduler_lock() -> bool {
  * for instance, it won't be re-added to the run queue)
  * State is ignored if state == -1 */
 fn scheduler_update(state: i32) {
-    let enable = cond_preempt_disable();
+    let enable = scheduler_lock();
 
     /* the head of the run queue, if non-null is to be run next.  a
      * non-round-robin scheduler would likely change this */
@@ -193,7 +195,7 @@ fn scheduler_update(state: i32) {
         // there must be one thread running at all times
         assert!(old_running != null && (state as u32 == STATE_RUNNABLE
                 || state == -1));
-        cond_preempt_enable(enable);
+        scheduler_unlock(enable);
         return ();
     }
 
@@ -223,5 +225,5 @@ fn scheduler_update(state: i32) {
 
     context_switch(old_running, new_running);
 
-    cond_preempt_enable(enable);
+    scheduler_unlock(enable);
 }
