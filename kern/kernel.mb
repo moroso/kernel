@@ -1,5 +1,7 @@
 // Main file.
 
+mod printf; // We shouldn't need to add this, but life is unfair.
+
 mod consts;
 mod shared;
 mod utils;
