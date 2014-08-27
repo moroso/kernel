@@ -39,9 +39,7 @@ fn abscond()  {
         set_exit_status(proc, -1);
         let parent_proc: *proc = proc_lookup(proc->parent_pid);
 
-        // TODO destroy page directory
-        load_PD(init_PD);
-        proc_dir_remove(proc);
+        proc_destroy(proc);
         if (parent_proc != null) {
             kmut_lock(&(parent_proc->child_mut));
             // remove child from list

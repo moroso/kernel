@@ -37,7 +37,7 @@ extern fn set_eflags(val: u32);
 
 
 fn user_thread(dummy: *u8) {
-    assert!(perform("repl_perform_test") >= 0);
+    assert!(perform("repl_bide_test") >= 0);
     assert!(false);
 }
 
