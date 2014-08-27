@@ -218,6 +218,7 @@ fn inc_frame_ref(frame: *u8) {
     assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
     let ref_count: *u32 = &(frame_table[frame_num]);
     atomic_add(ref_count, 1);
+
     assert!(*ref_count > 0);
 }
 
@@ -243,7 +244,6 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
     let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size);
 
     // No extraneous increments, no sir
-    assert!(get_frame_ref(frame) == old_frame_ref + 1);
     // if setting the page failed, return with failure
     if (ret < 0) {
         return ret;
@@ -268,7 +268,6 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     if (frame == null) {
         return ();
     }
-    printf2_("free frame %x at log addr %x\n", frame as u32, log_addr as u32);
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
@@ -398,8 +397,6 @@ fn PD_entries_destroy(entries: **u32) {
     // free all user pages
     let dummy_PD: PD_t;
     dummy_PD.PT_entries = entries;
-    printf2_("freeing range %x through %x\n", USER_MEM_START, INT_MAX -
-PAGE_SIZE); 
     free_user_range(USER_MEM_START as *u8, INT_MAX as *u8 - PAGE_SIZE, &dummy_PD);
     // free entries
     frame_free(entries as *u8);
