@@ -15,11 +15,20 @@ fn perform(filename: *u8, argv: **u8) -> i32 {
     let arg_pointer: *u8 = &arg_buffer[0];
     let word_idx: u32 = 0;
     // TODO length check
+    // TODO args prooobably should be reversed?
     if (argv != null || word_idx >= MAX_ARG_NUM) {
         while(argv[word_idx] != null) {
+            let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
+            /* if the arguments extend beyond our buffer length, return with
+             * failure */
+            if (buffer_len + mos_strnlen(argv[word_idx],
+                        MAX_ARG_LEN) > MAX_ARG_LEN) {
+                return -1;
+            } 
+
             mos_strncpy(arg_pointer, argv[word_idx], mos_strnlen(argv[word_idx],
                         MAX_ARG_LEN));
- 
+
             arg_pointer+=mos_strnlen(argv[word_idx], MAX_ARG_LEN) + 1;
 
             word_idx+=1;
@@ -53,7 +62,7 @@ fn perform(filename: *u8, argv: **u8) -> i32 {
     }
 
     PD_entries_destroy(old_entries); 
-    
+
     let arg_start: *u8 = (uregs.esp - buffer_len) as *u8;
     mos_memcpy((uregs.esp - buffer_len) as *u8, &arg_buffer[0], buffer_len);
     uregs.esp-=4;
