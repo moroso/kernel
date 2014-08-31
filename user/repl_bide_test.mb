@@ -9,6 +9,8 @@ mod syslib;
 fn main(argc: u32, argv: **u8) -> i32 {
     let i = 0;
     syslib::print(argv[1]);
+    syslib::print(argv[0]);
+
     for (i = 0; i < NUM_CHILD; i+=1) {
         let status: u32 = syslib::repl();
         if (status == 0) {
