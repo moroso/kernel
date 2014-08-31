@@ -10,12 +10,16 @@ const MAX_ARG_LEN: u32 = 500;
 const MAX_ARG_NUM: u32 = 50;
 
 fn perform(filename: *u8, argv: **u8) -> i32 {
-    
+    /* kernel-mem buffer for storing arguments.  Really, we should read this
+     * into a page directly, but are not doing this because we do not want to expose
+     * get_frame at this moment */
     let arg_buffer: u8[MAX_ARG_LEN];
     let arg_pointer: *u8 = &arg_buffer[0];
+
     let word_idx: u32 = 0;
-    // TODO length check
     // TODO args prooobably should be reversed?
+
+    /* reads all strings in argv into buffer */
     if (argv != null || word_idx >= MAX_ARG_NUM) {
         while(argv[word_idx] != null) {
             let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
@@ -63,6 +67,7 @@ fn perform(filename: *u8, argv: **u8) -> i32 {
 
     PD_entries_destroy(old_entries); 
 
+    /* copy buffer of strings onto stack */
     let arg_start: *u8 = (uregs.esp - buffer_len) as *u8;
     mos_memcpy((uregs.esp - buffer_len) as *u8, &arg_buffer[0], buffer_len);
     uregs.esp-=4;
@@ -70,11 +75,15 @@ fn perform(filename: *u8, argv: **u8) -> i32 {
     let arg_addr = arg_start;
 
     let i:u32;
+    /* create array of addresses of the aforementioned strings */
     for (i = 0; i < word_idx; i+=1) {
         *(uregs.esp as *u32) = arg_addr as u32; 
         arg_addr+=sizeof(*u8);
         uregs.esp-=sizeof(u32);
     }
+
+    /* place address of array (argv) and argument count (argc) on stack as
+     * arguments to the program getting called */
     *(uregs.esp as *u32) = uregs.esp + sizeof(*u8);
     uregs.esp-=sizeof(u32);
     *(uregs.esp as *u32) = word_idx;
