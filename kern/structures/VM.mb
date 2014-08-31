@@ -453,9 +453,11 @@ fn PD_init(PD: *PD_t) -> i32 {
     }
     let kernel_addr: *u8 = (PAGE_SIZE as *u8);
     /* leave the 0 page unmapped */
-    /* if the init PD is not available or this is the init PD, map own copy of
-     * kernel memory*/
-    if (init_PD == null || PD == init_PD) {
+    
+    /* we require an init_PD to be available so we never have to worry about
+     * freeing kernel pages */
+    assert!(init_PD != null);
+    if (PD == init_PD) {
         while is_kernel_addr(kernel_addr) {
             if (get_pd_entry(kernel_addr) == 0) {
                 if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
