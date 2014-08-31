@@ -4,14 +4,33 @@ use structures::schedule::get_tcb;
 use structures::VM::*;
 use entry::*;
 use loader::*;
-use utils::string::mos_strncpy;
+use utils::stdlib::mos_memcpy;
+use utils::string::{mos_strncpy, mos_strnlen};
+const MAX_ARG_LEN: u32 = 500;
+const MAX_ARG_NUM: u32 = 50;
 
+fn perform(filename: *u8, argv: **u8) -> i32 {
+    
+    let arg_buffer: u8[MAX_ARG_LEN];
+    let arg_pointer: *u8 = &arg_buffer[0];
+    let word_idx: u32 = 0;
+    // TODO length check
+    if (argv != null || word_idx >= MAX_ARG_NUM) {
+        while(argv[word_idx] != null) {
+            mos_strncpy(arg_pointer, argv[word_idx], mos_strnlen(argv[word_idx],
+                        MAX_ARG_LEN));
+ 
+            arg_pointer+=mos_strnlen(argv[word_idx], MAX_ARG_LEN) + 1;
 
-fn perform(filename: *u8) -> i32 {
+            word_idx+=1;
+        }
+    }
+    let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
+
     // TODO replace this with real people memory validation
     let file_buffer: u8[500];
     mos_strncpy(&file_buffer[0], filename, 500);
-    
+
     let proc: *proc = get_tcb()->proc;
     let old_entries: **u32 = proc->PD.PT_entries;    
     proc->PD.PT_entries = null;
@@ -26,7 +45,7 @@ fn perform(filename: *u8) -> i32 {
     load_PD(&(proc->PD)); 
 
     let uregs: uregs;
-    
+
     if (load(&file_buffer[0], &uregs) < 0) {
         PD_destroy(&(proc->PD), old_entries); 
         printf!("error\n");
@@ -35,8 +54,25 @@ fn perform(filename: *u8) -> i32 {
 
     PD_entries_destroy(old_entries); 
     
+    let arg_start: *u8 = (uregs.esp - buffer_len) as *u8;
+    mos_memcpy((uregs.esp - buffer_len) as *u8, &arg_buffer[0], buffer_len);
+    uregs.esp-=4;
+    uregs.esp-= buffer_len;
+    let arg_addr = arg_start;
+
+    let i:u32;
+    for (i = 0; i < word_idx; i+=1) {
+        *(uregs.esp as *u32) = arg_addr as u32; 
+        arg_addr+=sizeof(*u8);
+        uregs.esp-=sizeof(u32);
+    }
+    *(uregs.esp as *u32) = uregs.esp + sizeof(*u8);
+    uregs.esp-=sizeof(u32);
+    *(uregs.esp as *u32) = word_idx;
+    uregs.esp-=sizeof(u32);
+
     leave_kernel(&uregs);
-    
+
     assert!(false);
     0
 }

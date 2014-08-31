@@ -1,5 +1,5 @@
-use utils::stdlib::{strcmp, mos_memcpy};
-
+use utils::stdlib::mos_memcpy;
+use utils::string::mos_strcmp;
 // Really basic things for the built in fs.
 
 // The start and end of the linked in fs image.
@@ -46,7 +46,7 @@ fn fs_search(filename: *u8) -> *bsfs_entry {
 
     let i: u32;
     for (i = 0; i < header->num_files; i+=1) {
-        if (strcmp(&file_table[i].filename[0], filename) == 0) {
+        if (mos_strcmp(&file_table[i].filename[0], filename) == 0) {
             return &file_table[i];
         }
     }

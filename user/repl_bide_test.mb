@@ -1,14 +1,14 @@
 /* 
  * repl_bide_test: replicates n times and bides until there are no more statuses
  * to retrieve.  Success if parent collects exactly n exit statuses 
-*/
+ */
 
 const NUM_CHILD: u32 = 2;
 mod syslib;
 
-fn main() -> i32 {
+fn main(argc: u32, argv: **u8) -> i32 {
     let i = 0;
-    
+    syslib::print(argv[1]);
     for (i = 0; i < NUM_CHILD; i+=1) {
         let status: u32 = syslib::repl();
         if (status == 0) {

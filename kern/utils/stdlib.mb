@@ -17,14 +17,4 @@ fn mos_memcpy<T>(destT: *T, srcT: *T, n: u32) {
     }
 }
 
-fn strcmp(s1: *u8, s2: *u8) -> i32 {
-    let c: u32 = 0;
-    while (s1[c] != 0 && s2[c] != 0) {
-        if (s1[c] != s2[c]) {
-            return -1;
-        }
 
-        c+=1;
-    }
-    0
-}
