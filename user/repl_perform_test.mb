@@ -1,7 +1,7 @@
-/* 
+/*
  * repl_perform_test: replicates and has the child perform "child_test".
  * Success if user sees the parent printing "PARENT" and the child printing
- * "CHILD" 
+ * "CHILD"
 */
 
 mod syslib;
@@ -10,12 +10,12 @@ fn main() -> i32 {
     let child: u32 = syslib::repl();
 		if (child == 0) {
 				syslib::perform("child_test");
-				syslib::print("ERROR: return from perform\n");
+				printf!("ERROR: return from perform\n");
 				syslib::abscond(-1);
-		} 
-		while(true) {
-				syslib::print("PARENT\n");
 		}
-		
+		while(true) {
+				printf!("PARENT\n");
+		}
+
     0
 }

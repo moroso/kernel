@@ -1,46 +1,45 @@
-/* 
+/*
  * repl_bide_test: replicates n times and bides until there are no more statuses
- * to retrieve.  Success if parent collects exactly n exit statuses 
+ * to retrieve.  Success if parent collects exactly n exit statuses
  */
 
 const NUM_CHILD: u32 = 2;
-mod syslib;
 
 fn main(argc: u32, argv: **u8) -> i32 {
     let i = 0;
-    syslib::print(argv[1]);
-    syslib::print(argv[0]);
+    printf!("Running %s with argc=%d, argv[1]=%s\n",
+            argv[0], argc, argv[1]);
 
     for (i = 0; i < NUM_CHILD; i+=1) {
         let status: u32 = syslib::repl();
         if (status == 0) {
             syslib::abscond(1);
         } else {
-            syslib::print("CHILD\n");
+            printf!("CHILD\n");
         }
     }
 
     i = 0;
     let status: u32;
-    
+
     if syslib::get_tid() != 0 {
-        syslib::print("ERROR: child failed to abscond\n");
+        printf!("ERROR: child failed to abscond\n");
     }
 
     while true {
         if (syslib::bide(&status) < 0) {
             break;
-        } 
+        }
         i+=1;
     }
 
     if (i == NUM_CHILD) {
-        syslib::print("***SUCCESS***\n");
+        printf!("***SUCCESS***\n");
     } else {
-        syslib::print("***FAILURE***\n");
+        printf!("***FAILURE***\n");
     }
-    
+
     syslib::abscond(0);
-    syslib::print("FAILURE: Thread failed to die\n");
+    printf!("FAILURE: Thread failed to die\n");
     0
 }
