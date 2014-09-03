@@ -39,7 +39,7 @@ PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
 all: $(BUILDDIR)/fs_img.o
 
 $(BUILDDIR)/%.c: %.mb $(MBC)
-	$(MBC) $< -d --target $(MBC_TARGET) -o $@
+	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf:../../compiler/lib/printf.mb --lib=prelude:prelude.mb
 
 $(BUILDDIR)/%.o: %.S
 	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<

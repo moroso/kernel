@@ -1,5 +1,3 @@
-mod syslib;
-
 fn main() -> i32 {
     let i = 1000000000;
     while true {
