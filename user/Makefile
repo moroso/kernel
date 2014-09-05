@@ -58,7 +58,7 @@ $(BUILDDIR)/%.o: %.S
 -include $(PROG_DEPS)
 
 GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c) $(PROG_DEPS)
-.INTERMEDIATE: $(GENERATED_FILES) $(LIB_OBJS)
+.SECONDARY: $(GENERATED_FILES) $(LIB_OBJS)
 
 # We don't want the path in the names in the script, so cd
 $(BUILDDIR)/fs.img: $(PROG_BINS)
