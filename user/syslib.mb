@@ -26,8 +26,8 @@ fn bide(pointer: *u32) -> i32 {
     syscall_1(shared::syscall_consts::INT_BIDE, pointer as u32) as i32
 }
 
-fn print(s: *u8) {
-    syscall_1(shared::syscall_consts::INT_PRINT, s as u32);
+fn print(s: *u8, n: u32) {
+    syscall_2(shared::syscall_consts::INT_PRINT, s as u32, n);
 }
 
 fn get_tid() -> u32 {

@@ -5,8 +5,8 @@ fn print_char(x: i32) -> i32 {
     // TODO: printf! implemented by repeatedly calling this print_char
     // isn't great because it will make a lot of system calls and will
     // interleave.  Change things so it gets buffered.
-    let s = [ x as u8, 0 ];
-    syslib::print(&s[0]);
+    let c: u8 = x as u8;
+    syslib::print(&c, 1);
     x
 }
 
