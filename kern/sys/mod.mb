@@ -57,7 +57,11 @@ fn sys_test_sys(i: i32) -> i32 {
     i
 }
 
-fn sys_print(s: *u8) -> i32 {
-    // XXX memory validation
-    printf!("%s", s)
+fn sys_print(s: *u8, n: u32) -> i32 {
+    // XXX this is super bogus; do validation, etc
+    let i: u32;
+    for (i = 0; i < n; i += 1) {
+        print_char(s[i] as i32);
+    }
+    0
 }
