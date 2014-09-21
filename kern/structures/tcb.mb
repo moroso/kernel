@@ -70,6 +70,7 @@ struct tcb {
      */
     context: *context,
     proc: *proc,
+    pid: i32,
 }
 
 /* tid-granting structures; ensures uniqueness and atomicity so that
@@ -116,6 +117,7 @@ fn tcb_init(tcb: *tcb) {
     kmut_init(&(tcb->ipc_mut));
     tcb->ipc_recv_flag = false;
     tcb->ipc_send_count = 0;
+    tcb->pid = -1;
 
 }
 

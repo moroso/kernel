@@ -3,7 +3,7 @@ mod syslib;
 fn main() -> i32 {
     let ret = syslib::repl();
     if (syslib::get_tid() == 0) {
-        syslib::ipc_send(ret);
+        syslib::ipc_send(ret, 0xDEADBEEF as *u8);
     } else {
         syslib::ipc_recv();
     }

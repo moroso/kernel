@@ -514,3 +514,28 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
 }
+
+fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t)
+-> i32 {
+
+    assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
+    let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
+    assert!(frame_src_addr != null && *frame_src_addr != null);
+    let frame_src = *frame_src_addr;
+    let frame_size = get_frame_size(addr_src, PD_src);
+    let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
+    if (frame_dest_addr == null) {
+        if (new_user_page(addr_dest, PD_dest, get_flags(addr_src),
+                    frame_size) < 0) {
+            return -1;
+        }     
+    } 
+    assert!(log_to_phys(addr_dest, PD_dest) != null);
+    let frame_dest = *log_to_phys(addr_dest, PD_dest);
+    assert!(frame_dest != null);
+
+    mos_memcpy(frame_dest, frame_src, frame_size);
+
+    0
+}
+

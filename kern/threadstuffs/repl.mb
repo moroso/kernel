@@ -35,6 +35,8 @@ fn thr_repl(parent_regs: *uregs) -> *tcb {
 fn thr_repl_handler(parent_regs: *uregs) -> i32 {
     let new_tcb = thr_repl(parent_regs);
     if (new_tcb != null) {
+        new_tcb->proc = get_tcb()->proc;
+        new_tcb->pid = get_tcb()->pid;
         tcb_dir_add(new_tcb);
         return new_tcb->tid as i32;
     } 
