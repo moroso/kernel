@@ -2,10 +2,22 @@ mod syslib;
 
 fn main() -> i32 {
     let ret = syslib::repl();
+    let addr: *u32 = 0xDEADBEEF as *u32;
     if (syslib::get_tid() == 0) {
+
+        if (syslib::new_pages(addr as *u8, 4096,
+                    1024) < 0) {
+            printf!("error allocating page!\n");
+            syslib::abscond(-1);
+        }
+
+        *addr = 2;
         syslib::ipc_send(ret, 0xDEADBEEF as *u8);
     } else {
         syslib::ipc_recv();
+        let addr: *u32 = 0xDEADBEEF as *u32;
+        printf!("%d\n", *addr);
+
     }
     printf!("thread %d returned!\n", syslib::get_tid());
     syslib::abscond(0);

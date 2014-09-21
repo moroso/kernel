@@ -13,6 +13,8 @@ use locks::lol_atomics::*;
 use utils::buddy_alloc::*;
 use utils::stdlib::*;
 use utils::list::*;
+use structures::schedule::get_tcb;
+
 
 // XXX: these shouldn't be here!
 extern fn invalidate_tlb(frame: *u8);
@@ -356,8 +358,8 @@ fn free_frame(frame: *u8, size: u32) {
 
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_user_addr(log_addr));
-    assert!(is_addr_aligned(log_addr));
     let new_frame: *u8 = get_frame(KB);
+    log_addr = get_aligned_addr(log_addr as *u32) as *u8;
 
     // TODO I know there's a reason I shouldn't be doing this.  I just can't put
     // my finger on it
@@ -405,6 +407,14 @@ fn PD_entries_destroy(entries: **u32) {
     frame_free(entries as *u8);
 }
 
+// TODO locks, management of regions
+fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
+       
+    new_user_range(addr, addr + len, &(get_tcb()->proc->PD), READ_WRITE_BIT,
+            size)
+
+}
+
 fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
         u32) -> i32 {
     assert!(is_user_addr(addr_start) && is_user_addr(addr_end));
@@ -432,7 +442,7 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
 
 /*
  * given a logical address, maps the address to its physical frame
-*/
+ */
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_kernel_addr(log_addr));
     assert!(is_addr_aligned(log_addr));
@@ -453,7 +463,7 @@ fn PD_init(PD: *PD_t) -> i32 {
     }
     let kernel_addr: *u8 = (PAGE_SIZE as *u8);
     /* leave the 0 page unmapped */
-    
+
     /* we require an init_PD to be available so we never have to worry about
      * freeing kernel pages */
     assert!(init_PD != null);
@@ -515,27 +525,31 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     // but should not once we deal with overcommitting
 }
 
+// this needs locking around the PD's
+// NEEDS So MANY THINGS!  DO NOT LET THE USERS USE THIS
 fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t)
--> i32 {
+    -> i32 {
 
-    assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
-    let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
-    assert!(frame_src_addr != null && *frame_src_addr != null);
-    let frame_src = *frame_src_addr;
-    let frame_size = get_frame_size(addr_src, PD_src);
-    let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
-    if (frame_dest_addr == null) {
-        if (new_user_page(addr_dest, PD_dest, get_flags(addr_src),
+        assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
+        let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
+        assert!(frame_src_addr != null && *frame_src_addr != null);
+        let frame_src = *frame_src_addr;
+        let frame_size = get_frame_size(addr_src, PD_src);
+        let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
+        if (frame_dest_addr != null) {
+            free_page(addr_dest, PD_dest);
+        } 
+        inc_frame_ref(frame_src);
+        free_page(addr_src, PD_src); 
+        if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
                     frame_size) < 0) {
-            return -1;
-        }     
-    } 
-    assert!(log_to_phys(addr_dest, PD_dest) != null);
-    let frame_dest = *log_to_phys(addr_dest, PD_dest);
-    assert!(frame_dest != null);
+            assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
+                        frame_size) >=
+                    0);
+        } 
+        dec_frame_ref(frame_src, PD_dest);
 
-    mos_memcpy(frame_dest, frame_src, frame_size);
+        0
+    }
 
-    0
-}
 

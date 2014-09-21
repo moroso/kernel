@@ -4,7 +4,7 @@ use locks::mutex::*;
 use locks::cond::*;
 use consts::STATE_DEAD;
 use structures::schedule::get_tcb;
-use structures::VM::is_user_addr;
+use structures::VM::{is_user_addr, page_transfer};
 
 
 // id: u32, addr_src: *u8, len: u32, timeout: u32)
@@ -50,7 +50,7 @@ fn ipc_send(id: u32, addr_src: *u8) -> i32 {
     }
     printf!("perform transfer\n");
     let proc_recv = proc_lookup(tcb_recv->pid);
-
+    
     if (proc_recv == null) {
         printf!("recipiant proc is dead: return with error\n"); 
         kmut_unlock(&(tcb_recv->ipc_mut));
@@ -58,6 +58,14 @@ fn ipc_send(id: u32, addr_src: *u8) -> i32 {
         return -4;
     }
     
+    if (page_transfer(addr_src, addr_src, &(get_tcb()->proc->PD),
+                &(proc_recv->PD)) < 0) {
+        printf!("problem in page transfer\n");
+        kmut_unlock(&(tcb_recv->ipc_mut));
+        proc_end_lookup(proc_recv);
+        tcb_end_lookup(tcb_recv);
+        return -5;
+    }
 
     kcond_signal(&(tcb_recv->ipc_recv_cond));
     kmut_unlock(&(tcb_recv->ipc_mut));
