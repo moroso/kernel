@@ -8,6 +8,7 @@ use structures::schedule::get_tcb;
 use structures::tcb::*;
 use loader::perform::*;
 use ipc::*;
+use structures::VM::*;
 
 extern fn enable_interrupts();
 
@@ -51,6 +52,8 @@ fn sys_init() {
     syscall!(INT_PERFORM, perform);
     syscall!(INT_IPC_SEND, ipc_send);
     syscall!(INT_IPC_RECV, ipc_recv);
+    syscall!(INT_NEW_PAGES, new_pages);
+
 
 
 }

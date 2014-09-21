@@ -43,7 +43,12 @@ fn ipc_send(id: u32, addr_send: *u8) -> i32 {
     syscall_2(shared::syscall_consts::INT_IPC_SEND, id, addr_send as u32) as i32
 }
 
+fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
+				syscall_3(shared::syscall_consts::INT_NEW_PAGES, addr_start as u32, len,
+												size) as i32
+}
+
 fn ipc_recv() {
-    syscall_0(shared::syscall_consts::INT_IPC_RECV);
+				syscall_0(shared::syscall_consts::INT_IPC_RECV);
 }
 
