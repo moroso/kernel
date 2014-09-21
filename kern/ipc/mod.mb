@@ -1,3 +1,9 @@
+/* ipc/mod.mb
+ * Contains implementation of ipc request primitives, such as send and recv 
+ *
+ * Author: Amanda M. Watson
+*/
+
 use structures::tcb_dir::*;
 use structures::proc_dir::*;
 use locks::mutex::*;
@@ -8,6 +14,15 @@ use structures::VM::{is_user_addr, page_transfer};
 
 
 // id: u32, addr_src: *u8, len: u32, timeout: u32)
+/* 
+ * given a valid tid and userspace address, transfers frame at addr_src to the
+ * corresponding address in the destination tcb.  \rainbow{SECURITY}
+ * mapping to frame is removed from source
+ * deschedules until thread id is ready to receive or thread absconds
+ * returns with error if address is invalid or dest tcb is not active
+ * addr_src must be mapped in to the sender's address space
+ * TODO dest addr, timeouts, async, shared memory
+*/
 fn ipc_send(id: u32, addr_src: *u8) -> i32 {
   
     if (!is_user_addr(addr_src)) {
@@ -22,25 +37,36 @@ fn ipc_send(id: u32, addr_src: *u8) -> i32 {
     }
 
     kmut_lock(&(tcb_recv->ipc_mut));
-    
+
+    /* do a quick check to see if tcb has died since we looked it up.  if so,
+     * terminate early */ 
     if (tcb_recv->state == STATE_DEAD) {
-        printf!("recipiant is dead: return with error\n"); 
+        printf!("recipient is dead: return with error\n"); 
         kmut_unlock(&(tcb_recv->ipc_mut));
         tcb_end_lookup(tcb_recv);
         return -2;
-    
+
     } else {
-        // deschedule until recipient is asleep
+        // deschedule until recipient is asleep.  note that a sender might be
+        // woken up, but another call to send might have already serviced the
+        // receiver.  In this case, we deschedule again
+        // TODO maybe require ordering so this case doesn't hapen and we avoid
+        // starvation?
         while (!tcb_recv->ipc_recv_flag) {
 
+            // inform dest tcb that a thread is trying to send, then deschedule.
+            // when dest is ready, it will see there is a sender waiting, and
+            // wake us up
             tcb_recv->ipc_send_count+=1;
             printf!("going to sleep on send condvar\n");
             kcond_wait(&(tcb_recv->ipc_send_cond), &(tcb_recv->ipc_mut));
             tcb_recv->ipc_send_count-=1;
             assert!(tcb_recv->ipc_send_count >= 0); 
 
+            // do another quick check to see if recipient is dead; otherwise,
+            // we'll wait forever
             if (tcb_recv->state == STATE_DEAD) {
-                printf!("recipiant is dead: return with error\n"); 
+                printf!("recipient is dead: return with error\n"); 
                 kmut_unlock(&(tcb_recv->ipc_mut));
                 tcb_end_lookup(tcb_recv);
                 return -3;
@@ -48,25 +74,28 @@ fn ipc_send(id: u32, addr_src: *u8) -> i32 {
 
         }
     }
-    printf!("perform transfer\n");
+    // do a lookup to make sure the address space is still intact
     let proc_recv = proc_lookup(tcb_recv->pid);
-    
+    // this ensures the proc won't go away as we do things to it
+
     if (proc_recv == null) {
         printf!("recipiant proc is dead: return with error\n"); 
         kmut_unlock(&(tcb_recv->ipc_mut));
         tcb_end_lookup(tcb_recv);
         return -4;
     }
-    
+
+    printf!("perform transfer\n");
     if (page_transfer(addr_src, addr_src, &(get_tcb()->proc->PD),
                 &(proc_recv->PD)) < 0) {
         printf!("problem in page transfer\n");
-        kmut_unlock(&(tcb_recv->ipc_mut));
         proc_end_lookup(proc_recv);
+        kmut_unlock(&(tcb_recv->ipc_mut));
         tcb_end_lookup(tcb_recv);
         return -5;
     }
 
+    // finally, wake up recipient to return from recv
     kcond_signal(&(tcb_recv->ipc_recv_cond));
     kmut_unlock(&(tcb_recv->ipc_mut));
     tcb_end_lookup(tcb_recv);
@@ -75,15 +104,20 @@ fn ipc_send(id: u32, addr_src: *u8) -> i32 {
     0
 }
 
+/* 
+ * deschedules until a sending tcb sends a message
+ */
 fn ipc_recv() -> i32 {
     let tcb_recv = get_tcb();
     assert!(tcb_recv != null);
     kmut_lock(&(tcb_recv->ipc_mut));
 
+    // if a tcb is descheduled waiting to send us a message, wake it up
     if (tcb_recv->ipc_send_count > 0) {
         kcond_signal(&(tcb_recv->ipc_send_cond));
     }
 
+    // deschedule until we are woken up by ipc_send
     tcb_recv->ipc_recv_flag = true;
     kcond_wait(&(tcb_recv->ipc_recv_cond), &(tcb_recv->ipc_mut));
     tcb_recv->ipc_recv_flag = false;
