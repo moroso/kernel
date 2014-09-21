@@ -12,6 +12,7 @@ mod fs;
 mod loader;
 mod drivers;
 mod sys;
+mod ipc;
 
 mod kernel_main;
 

@@ -37,3 +37,13 @@ fn get_tid() -> u32 {
 fn perform(filename: *u8) -> i32 {
     syscall_1(shared::syscall_consts::INT_PERFORM, filename as u32) as i32
 }
+
+
+fn ipc_send(id: u32) -> i32 {
+    syscall_1(shared::syscall_consts::INT_IPC_SEND, id) as i32
+}
+
+fn ipc_recv() {
+    syscall_0(shared::syscall_consts::INT_IPC_RECV);
+}
+

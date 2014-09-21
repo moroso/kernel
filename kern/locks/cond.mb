@@ -50,3 +50,20 @@ fn kcond_signal(kc: *kcond) {
     }
     cond_preempt_enable(enable);
 }
+
+fn kcond_broadcast(kc: *kcond) {
+    let enable = cond_preempt_disable();
+
+    while (list_head_entry!(&kc->head, tcb, link) != null) {
+
+        let tcb = list_head_entry!(&kc->head, tcb, link);         
+        list_del(&tcb->link);
+        assert!(tcb->state == STATE_COND);
+        set_state(tcb, STATE_RUNNABLE);
+        schedule(tcb, QUEUE_FRONT);
+    }
+
+    cond_preempt_enable(enable);
+
+}
+
