@@ -17,7 +17,7 @@ fn ipc_send(id: u32) -> i32 {
     kmut_lock(&(tcb_recv->ipc_mut));
     
     if (tcb_recv->state == STATE_DEAD) {
-        
+        printf!("recipiant is dead: return with error\n"); 
         kmut_unlock(&(tcb_recv->ipc_mut));
         tcb_end_lookup(tcb_recv);
         return -2;
@@ -27,11 +27,13 @@ fn ipc_send(id: u32) -> i32 {
         while (!tcb_recv->ipc_recv_flag) {
 
             tcb_recv->ipc_send_count+=1;
+            printf!("going to sleep on send condvar\n");
             kcond_wait(&(tcb_recv->ipc_send_cond), &(tcb_recv->ipc_mut));
             tcb_recv->ipc_send_count-=1;
             assert!(tcb_recv->ipc_send_count >= 0); 
 
             if (tcb_recv->state == STATE_DEAD) {
+                printf!("recipiant is dead: return with error\n"); 
                 kmut_unlock(&(tcb_recv->ipc_mut));
                 tcb_end_lookup(tcb_recv);
                 return -3;
@@ -39,8 +41,9 @@ fn ipc_send(id: u32) -> i32 {
 
         }
     }
-
+    printf!("perform transfer\n");
     // perform transfer
+    kcond_signal(&(tcb_recv->ipc_recv_cond));
     kmut_unlock(&(tcb_recv->ipc_mut));
     tcb_end_lookup(tcb_recv);
     0
