@@ -31,6 +31,14 @@ fn abscond(status: u32)  {
 
     assert!(tcb != null);
     tcb_dir_remove(tcb);
+    
+    set_state(get_tcb(), STATE_DEAD);
+   
+    // wake up anyone waiting on us for ipc 
+    //kmut_lock(&tcb->ipc_mut);     
+    //kcond_broadcast(&tcb->ipc_send_cond);
+    //kmut_unlock(&tcb->ipc_mut);     
+
     // if we still have a parent
 
     // if we are the only thread in the process, free our pcb

@@ -1,0 +1,13 @@
+mod syslib;
+
+fn main() -> i32 {
+    let ret = syslib::repl();
+    if (syslib::get_tid() == 0) {
+        //syslib::ipc_send(ret);
+    } else {
+        //syslib::ipc_recv();
+    }
+    printf!("thread %d returned!\n", syslib::get_tid());
+
+    0
+}
