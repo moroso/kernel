@@ -55,6 +55,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     list_init_node(&(new_proc->exit_status->link));
     new_proc->exit_status->status = 1; // TODO change
     new_proc->pid = new_proc->exit_status->tid = new_tcb->tid;
+    new_tcb->pid = new_proc->pid as i32;
     list_insert_head(&new_tcb->proc_link, &(new_proc->peer_tcb_list));
     list_init_node(&(new_proc->dir_link));
     list_init_node(&(new_proc->child_link));

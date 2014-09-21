@@ -75,6 +75,7 @@ fn abscond(status: u32)  {
     // wake up anyone waiting on us for ipc 
     kmut_lock(&tcb->ipc_mut);     
     kcond_broadcast(&tcb->ipc_send_cond);
+    tcb->ipc_recv_flag = true;
     kmut_unlock(&tcb->ipc_mut);
 
     scheduler_update(STATE_DEAD as i32);

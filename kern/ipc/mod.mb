@@ -1,11 +1,18 @@
 use structures::tcb_dir::*;
+use structures::proc_dir::*;
 use locks::mutex::*;
 use locks::cond::*;
 use consts::STATE_DEAD;
 use structures::schedule::get_tcb;
+use structures::VM::is_user_addr;
+
 
 // id: u32, addr_src: *u8, len: u32, timeout: u32)
-fn ipc_send(id: u32) -> i32 {
+fn ipc_send(id: u32, addr_src: *u8) -> i32 {
+  
+    if (!is_user_addr(addr_src)) {
+        return -3;
+    }  
 
     /* find the receiving tcb -- it cannot go away as long as we're looking at
     * it */
@@ -42,10 +49,21 @@ fn ipc_send(id: u32) -> i32 {
         }
     }
     printf!("perform transfer\n");
-    // perform transfer
+    let proc_recv = proc_lookup(tcb_recv->pid);
+
+    if (proc_recv == null) {
+        printf!("recipiant proc is dead: return with error\n"); 
+        kmut_unlock(&(tcb_recv->ipc_mut));
+        tcb_end_lookup(tcb_recv);
+        return -4;
+    }
+    
+
     kcond_signal(&(tcb_recv->ipc_recv_cond));
     kmut_unlock(&(tcb_recv->ipc_mut));
     tcb_end_lookup(tcb_recv);
+    proc_end_lookup(proc_recv);
+
     0
 }
 
@@ -53,7 +71,7 @@ fn ipc_recv() -> i32 {
     let tcb_recv = get_tcb();
     assert!(tcb_recv != null);
     kmut_lock(&(tcb_recv->ipc_mut));
-    
+
     if (tcb_recv->ipc_send_count > 0) {
         kcond_signal(&(tcb_recv->ipc_send_cond));
     }
