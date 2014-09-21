@@ -5,3 +5,5 @@ const INT_THR_REPL: u32 = 5;
 const INT_PRINT: u32 = 6;
 const INT_GETTID: u32 = 7;
 const INT_PERFORM: u32 = 8;
+const INT_IPC_SEND: u32 = 9;
+const INT_IPC_RECV: u32 = 10;
