@@ -527,6 +527,8 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
 
 // this needs locking around the PD's
 // NEEDS So MANY THINGS!  DO NOT LET THE USERS USE THIS
+/* takes a frame at addr_src in PD_src, and moves it to addr_dest in PD_dest.
+ * original mapping is removed */
 fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t)
     -> i32 {
 
