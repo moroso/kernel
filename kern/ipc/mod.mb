@@ -1,0 +1,69 @@
+use structures::tcb_dir::*;
+use locks::mutex::*;
+use locks::cond::*;
+use consts::STATE_DEAD;
+use structures::schedule::get_tcb;
+
+// id: u32, addr_src: *u8, len: u32, timeout: u32)
+fn ipc_send(id: u32) -> i32 {
+
+    /* find the receiving tcb -- it cannot go away as long as we're looking at
+    * it */
+    let tcb_recv = tcb_lookup(id);
+    if (tcb_recv == null) {
+        return -1;
+    }
+
+    kmut_lock(&(tcb_recv->ipc_mut));
+    
+    if (tcb_recv->state == STATE_DEAD) {
+        printf!("recipiant is dead: return with error\n"); 
+        kmut_unlock(&(tcb_recv->ipc_mut));
+        tcb_end_lookup(tcb_recv);
+        return -2;
+    
+    } else {
+        // deschedule until recipient is asleep
+        while (!tcb_recv->ipc_recv_flag) {
+
+            tcb_recv->ipc_send_count+=1;
+            printf!("going to sleep on send condvar\n");
+            kcond_wait(&(tcb_recv->ipc_send_cond), &(tcb_recv->ipc_mut));
+            tcb_recv->ipc_send_count-=1;
+            assert!(tcb_recv->ipc_send_count >= 0); 
+
+            if (tcb_recv->state == STATE_DEAD) {
+                printf!("recipiant is dead: return with error\n"); 
+                kmut_unlock(&(tcb_recv->ipc_mut));
+                tcb_end_lookup(tcb_recv);
+                return -3;
+            }
+
+        }
+    }
+    printf!("perform transfer\n");
+    // perform transfer
+    kcond_signal(&(tcb_recv->ipc_recv_cond));
+    kmut_unlock(&(tcb_recv->ipc_mut));
+    tcb_end_lookup(tcb_recv);
+    0
+}
+
+fn ipc_recv() -> i32 {
+    let tcb_recv = get_tcb();
+    assert!(tcb_recv != null);
+    kmut_lock(&(tcb_recv->ipc_mut));
+    
+    if (tcb_recv->ipc_send_count > 0) {
+        kcond_signal(&(tcb_recv->ipc_send_cond));
+    }
+
+    tcb_recv->ipc_recv_flag = true;
+    kcond_wait(&(tcb_recv->ipc_recv_cond), &(tcb_recv->ipc_mut));
+    tcb_recv->ipc_recv_flag = false;
+    kmut_unlock(&(tcb_recv->ipc_mut));
+
+    0
+}
+
+

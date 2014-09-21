@@ -7,6 +7,7 @@
 use consts::*;
 use utils::list::*;
 use locks::mutex::*;
+use locks::cond::*;
 use structures::proc::*;
 use structures::tcb_dir::*;
 use utils::buddy_alloc::{frame_alloc, frame_free};
@@ -44,6 +45,14 @@ fn tbc_init_func() {
 struct tcb {
     tid: u32,
     kstack_top: *u8,
+    
+    
+    ipc_mut: kmut,
+    ipc_send_cond: kcond,
+    ipc_recv_cond: kcond,
+    ipc_recv_flag: bool, // true = ready to receive
+    ipc_send_count: u32, // counts how many tcbs are waiting to send
+
 
     link: list_node, // used for putting on run queue
     proc_link: list_node,
@@ -102,6 +111,12 @@ fn tcb_init(tcb: *tcb) {
     tcb->tid = new_tid();
     list_init_node(&(tcb->link));
     list_init_node(&(tcb->dir_link));
+    kcond_init(&(tcb->ipc_send_cond)); 
+    kcond_init(&(tcb->ipc_recv_cond)); 
+    kmut_init(&(tcb->ipc_mut));
+    tcb->ipc_recv_flag = false;
+    tcb->ipc_send_count = 0;
+
 }
 
 

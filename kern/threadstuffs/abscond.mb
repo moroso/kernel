@@ -30,7 +30,8 @@ fn abscond(status: u32)  {
     assert!(proc != null && tcb != null);
 
     assert!(tcb != null);
-    tcb_dir_remove(tcb);
+    tcb_dir_remove(tcb);     
+
     // if we still have a parent
 
     // if we are the only thread in the process, free our pcb
@@ -69,6 +70,13 @@ fn abscond(status: u32)  {
     preempt_disable();
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
+    
+    // TODO make this not suck
+    // wake up anyone waiting on us for ipc 
+    kmut_lock(&tcb->ipc_mut);     
+    kcond_broadcast(&tcb->ipc_send_cond);
+    kmut_unlock(&tcb->ipc_mut);
+
     scheduler_update(STATE_DEAD as i32);
     printf!("%d, abscond returned\n", get_tcb()->tid);
     assert!(false); // no return
