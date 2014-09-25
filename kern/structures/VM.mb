@@ -139,6 +139,8 @@ fn load_PD(PD: *PD_t) {
  * frame that maps to the address in PD. returns null if no frame is found.  */
 fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     assert!(PD != null);
+    // TODO we'll need to grab two PD locks here.  How do we prevent deadlock when we
+    // have multiple threads per proc?
 
     let pd_entry: u32 = get_pd_entry(log_addr);
     let pt_entry: u32 = get_pt_entry(log_addr);
@@ -526,7 +528,6 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
 }
 
 // this needs locking around the PD's
-// NEEDS So MANY THINGS!  DO NOT LET THE USERS USE THIS
 /* takes a frame at addr_src in PD_src, and moves it to addr_dest in PD_dest.
  * original mapping is removed 
 */
