@@ -39,7 +39,7 @@ fn perform(filename: *u8) -> i32 {
     syscall_1(shared::syscall_consts::INT_PERFORM, filename as u32) as i32
 }
 
-
+// TODO ipc send and recv need to be able to pass more args
 fn ipc_send(id: u32, addr_send: *u8, message: **u32, len: u32, timeout: u32) -> i32 {
 				syscall_3(shared::syscall_consts::INT_IPC_SEND, id, addr_send as u32,
 												message as u32) as i32
