@@ -5,6 +5,7 @@ extern fn syscall_1(idx: u32, arg1: u32) -> u32;
 extern fn syscall_2(idx: u32, arg1: u32, arg2: u32) -> u32;
 extern fn syscall_3(idx: u32, arg1: u32, arg2: u32, arg3: u32) -> u32;
 
+
 // A system call
 fn test_sys(arg: u32) -> u32 {
     syscall_1(1, arg)
@@ -39,8 +40,9 @@ fn perform(filename: *u8) -> i32 {
 }
 
 
-fn ipc_send(id: u32, addr_send: *u8) -> i32 {
-    syscall_2(shared::syscall_consts::INT_IPC_SEND, id, addr_send as u32) as i32
+fn ipc_send(id: u32, addr_send: *u8, message: **u32) -> i32 {
+				syscall_3(shared::syscall_consts::INT_IPC_SEND, id, addr_send as u32,
+												message as u32) as i32
 }
 
 fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
@@ -48,7 +50,8 @@ fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
 												size) as i32
 }
 
-fn ipc_recv() {
-				syscall_0(shared::syscall_consts::INT_IPC_RECV);
+fn ipc_recv(addr_recv: *u8, message: **u32, timeout: u32) {
+				syscall_3(shared::syscall_consts::INT_IPC_RECV, addr_recv as u32,
+												message as u32, timeout);
 }
 

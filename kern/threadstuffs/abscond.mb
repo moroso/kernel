@@ -71,13 +71,7 @@ fn abscond(status: u32)  {
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
     
-    // TODO make this not suck
-    // wake up anyone waiting on us for ipc 
-    kmut_lock(&tcb->ipc_mut);     
-    kcond_broadcast(&tcb->ipc_send_cond);
-    tcb->ipc_recv_flag = true;
-    kmut_unlock(&tcb->ipc_mut);
-
+    // TODO wake up things on rend
     scheduler_update(STATE_DEAD as i32);
     printf!("%d, abscond returned\n", get_tcb()->tid);
     assert!(false); // no return
