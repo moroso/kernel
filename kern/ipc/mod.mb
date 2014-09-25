@@ -2,6 +2,7 @@
  * Contains implementation of ipc request primitives, such as send and recv 
  *
  * Implementation is currently synchronous, and moves unshared pages
+ * TODO timeouts, async, fast path, reply, shared memory, messages
  *
  * Author: Amanda M. Watson
 */
@@ -16,9 +17,6 @@ use structures::VM::{is_user_addr, page_transfer, log_to_phys};
 use locks::rendezvous::*;
 use consts::*;
 use utils::stdlib;
-
-// id: u32, addr_src: *u8, len: u32, timeout: u32)
-
 
 struct message_node {
     buffer_addr: *u8,
@@ -70,6 +68,8 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
         return -1;
     }
 
+    // I think we're ok on the "what if receiver died?" thing, as we have
+    // timeouts
     let new_message: message_node;
     new_message.buffer_addr = addr_src as *u8;
     let node_recv = rend_wait(&tcb_recv->ipc_rend, (&new_message) as *u32, timeout, SEND);
