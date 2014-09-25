@@ -1,6 +1,8 @@
 /* ipc/mod.mb
  * Contains implementation of ipc request primitives, such as send and recv 
  *
+ * Implementation is currently synchronous, and moves unshared pages
+ *
  * Author: Amanda M. Watson
 */
 
@@ -10,37 +12,59 @@ use locks::mutex::*;
 use locks::cond::*;
 use consts::STATE_DEAD;
 use structures::schedule::get_tcb;
-use structures::VM::{is_user_addr, page_transfer};
+use structures::VM::{is_user_addr, page_transfer, log_to_phys};
 use locks::rendezvous::*;
 use consts::*;
 use utils::stdlib;
 
 // id: u32, addr_src: *u8, len: u32, timeout: u32)
-/* 
- * given a valid tid and userspace address, transfers frame at addr_src to the
- * corresponding address in the destination tcb.  \rainbow{SECURITY}
- * mapping to frame is removed from source
- * deschedules until thread id is ready to receive or thread absconds
- * returns with error if address is invalid or dest tcb is not active
- * addr_src must be mapped into the sender's address space
- * TODO timeouts, async
-*/
+
 
 struct message_node {
     buffer_addr: *u8,
     buffer_len: u32,
 }
 
-
+/*
+ * given a valid source buffer and an active tid, sends a source addr_src with
+ * length message_len to thread id.  currently synchronous: acting tcb will
+ * deschedule until tcb tid is ready to receive.  If sending tcb is called while
+ * tcb id is waiting, it will perform the transfer itself. If not, it
+ * deschedules with a message, and relies on the receiver to perform the
+ * transfer.  
+ *
+ * Requires that addr_src be mapped in and be a user address 
+ * Transfer removes mapping ar addr src and stores the frames at addr_dest
+ * Returns successful length of section copied, a negative error
+ * value otherwise 
+ *
+ * id: currently the TID of the receiving tcb
+ * addr_src: the address at which the starting soure frame is mapped
+ * message: not sure yet.  a message of some sort for the receiver
+ * message_len: maximum length of transfer in bytes
+ * timeout: time (in ms) before we return failure 
+*/
 fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
+    /* we're not currently reading in these args from userspace, so we set them
+     * here */
     message_len = 4096; 
     timeout = 0;
+
     if (!is_user_addr(addr_src)) {
         return -3;
     }  
 
+    /* if source address isn't mapped in, return failure */
+    let page: u32;
+    for (page = 0; page < message_len + PAGE_SIZE; page+=PAGE_SIZE) {
+
+        if (log_to_phys(addr_src + page, &(get_tcb()->proc->PD)) == null) {
+            return -7;
+        }
+    }
+
     /* find the receiving tcb -- it cannot go away as long as we're looking at
-    * it */
+     * it */
     let tcb_recv = tcb_lookup(id);
     if (tcb_recv == null) {
         return -1;
@@ -56,6 +80,8 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     if (node_recv == null) {
         // *message has already been set
         tcb_end_lookup(tcb_recv);
+        // TODO read from message to get receiver data
+        // TODO check message to see if we timed out and should return failure
         return 0;
     } 
 
@@ -73,12 +99,17 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     }
 
     printf!("perform transfer\n");
-    if (page_transfer(addr_src, m_node->buffer_addr, &(get_tcb()->proc->PD),
-                &(proc_recv->PD), 0) < 0) {
-        printf!("problem in page transfer\n");
-        proc_end_lookup(proc_recv);
-        tcb_end_lookup(tcb_recv);
-        return -5;
+    let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
+    for (page = 0; page < transfer_len + PAGE_SIZE; page+=PAGE_SIZE) {
+
+        if (page_transfer(addr_src + page, m_node->buffer_addr + page, &(get_tcb()->proc->PD),
+                    &(proc_recv->PD), 0) < 0) {
+            printf!("problem in page transfer\n");
+            proc_end_lookup(proc_recv);
+            tcb_end_lookup(tcb_recv);
+            // TODO either put pages back or return a length
+            return -5;
+        }
     }
 
     // TODO compose message as response
@@ -87,12 +118,23 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     tcb_end_lookup(tcb_recv);
     proc_end_lookup(proc_recv);
 
-    0
+    transfer_len
 }
 
 /* 
- * deschedules until a sending tcb sends a message
- */
+ * receives a number of pages up to message_len bytes, mapped in starting with address
+ * addr_dest.  If a sender is waiting to send, retrieves their info and performs
+ * the transfer.  Otherwise, deschedules until a sender becomes available and
+ * does the transfer itself.  Returns the number of bytes copied on success,
+ * negative error code on failure
+ *
+ * Requires addr_dest be a userland address
+ *
+ * addr_dest: userspace address where new pages are to be mapped in
+ * message: not sure yet
+ * message_len: length of transfer, not of mesage
+ * timeout: time (in ms) before we give up waiting and return failure
+*/
 fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
     message_len = 4096 * 2;
     if (!is_user_addr(addr_dest)) {
@@ -107,6 +149,8 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     let node_send = rend_wait(&tcb_recv->ipc_rend, &m_node_temp as *u32, timeout, RECV);
 
     if (node_send == null) {
+        // TODO read from message to get receiver data
+        // TODO check message to see if we timed out and should return failure
         return 0;
     }
 
@@ -119,6 +163,7 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
         if (page_transfer(m_node->buffer_addr + page, addr_dest + page,
                     &(node_send->tcb->proc->PD), &(get_tcb()->proc->PD), 0) < 0) {
             printf!("problem in page transfer\n");
+            // TODO either put pages back or return a length
             return -1;
         }
     }
@@ -127,7 +172,7 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
 
     rend_signal(null, node_send, RECV);
 
-    0
+    transfer_len
 }
 
 
