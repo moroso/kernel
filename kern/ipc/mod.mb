@@ -20,7 +20,7 @@ use structures::VM::{is_user_addr, page_transfer};
  * mapping to frame is removed from source
  * deschedules until thread id is ready to receive or thread absconds
  * returns with error if address is invalid or dest tcb is not active
- * addr_src must be mapped in to the sender's address space
+ * addr_src must be mapped into the sender's address space
  * TODO dest addr, timeouts, async, shared memory
 */
 fn ipc_send(id: u32, addr_src: *u8) -> i32 {
@@ -69,7 +69,7 @@ fn ipc_send(id: u32, addr_src: *u8) -> i32 {
                 printf!("recipient is dead: return with error\n"); 
                 kmut_unlock(&(tcb_recv->ipc_mut));
                 tcb_end_lookup(tcb_recv);
-                return -3;
+                return -6;
             }
 
         }

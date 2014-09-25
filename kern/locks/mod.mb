@@ -4,3 +4,4 @@ mod mutex;
 mod cond;
 mod sem;
 mod rw;
+mod rendezvous;

@@ -546,8 +546,7 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t)
         if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
                     frame_size) < 0) {
             assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
-                        frame_size) >=
-                    0);
+                        frame_size) >= 0);
         } 
         dec_frame_ref(frame_src, PD_dest);
 
