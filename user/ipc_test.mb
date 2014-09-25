@@ -13,9 +13,9 @@ fn main() -> i32 {
         }
 
         *addr = 2;
-        syslib::ipc_send(ret, 0xDEADBEEF as *u8, &message);
+        syslib::ipc_send(ret, 0xDEADBEEF as *u8, &message, 0, 0);
     } else {
-        syslib::ipc_recv(0xDEADBEEF as *u8, &message, 0);
+        syslib::ipc_recv(0xDEADBEEF as *u8, &message, 0, 0);
         let addr: *u32 = 0xDEADBEEF as *u32;
         printf!("%d\n", *addr);
 

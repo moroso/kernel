@@ -12,7 +12,8 @@ use consts::STATE_DEAD;
 use structures::schedule::get_tcb;
 use structures::VM::{is_user_addr, page_transfer};
 use locks::rendezvous::*;
-
+use consts::*;
+use utils::stdlib;
 
 // id: u32, addr_src: *u8, len: u32, timeout: u32)
 /* 
@@ -22,7 +23,7 @@ use locks::rendezvous::*;
  * deschedules until thread id is ready to receive or thread absconds
  * returns with error if address is invalid or dest tcb is not active
  * addr_src must be mapped into the sender's address space
- * TODO dest addr, timeouts, async, shared memory
+ * TODO timeouts, async
 */
 
 struct message_node {
@@ -30,8 +31,9 @@ struct message_node {
     buffer_len: u32,
 }
 
-fn ipc_send(id: u32, addr_src: *u8, message: **u32, timeout: u32) -> i32 {
-  
+
+fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
+    message_len = 4096; 
     timeout = 0;
     if (!is_user_addr(addr_src)) {
         return -3;
@@ -44,9 +46,10 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, timeout: u32) -> i32 {
         return -1;
     }
 
-    // TODO compose message 
-    let node_recv = rend_wait(&tcb_recv->ipc_rend, message, timeout, SEND);
-    
+    let new_message: message_node;
+    new_message.buffer_addr = addr_src as *u8;
+    let node_recv = rend_wait(&tcb_recv->ipc_rend, (&new_message) as *u32, timeout, SEND);
+
 
     // if it's null, this means we went to sleep before recv, and the transfer
     // was done and we got a reply 
@@ -57,6 +60,7 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, timeout: u32) -> i32 {
     } 
 
     let m_node = node_recv->message as *message_node;
+    assert!(is_user_addr(m_node->buffer_addr));
 
     // do a lookup to make sure the address space is still intact
     let proc_recv = proc_lookup(tcb_recv->pid);
@@ -69,9 +73,8 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, timeout: u32) -> i32 {
     }
 
     printf!("perform transfer\n");
-    // TODO add transfer length
-    if (page_transfer(addr_src, addr_src, &(get_tcb()->proc->PD),
-                &(proc_recv->PD)) < 0) {
+    if (page_transfer(addr_src, m_node->buffer_addr, &(get_tcb()->proc->PD),
+                &(proc_recv->PD), 0) < 0) {
         printf!("problem in page transfer\n");
         proc_end_lookup(proc_recv);
         tcb_end_lookup(tcb_recv);
@@ -90,24 +93,34 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, timeout: u32) -> i32 {
 /* 
  * deschedules until a sending tcb sends a message
  */
-fn ipc_recv(buffer_dest: *u8, message: **u32, timeout: u32) -> i32 {
+fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
+    message_len = 4096;
+    if (!is_user_addr(addr_dest)) {
+        return -3;
+    }  
+
     let tcb_recv = get_tcb();
     assert!(tcb_recv != null);
 
-    // TODO compose message
+    let m_node_temp : message_node;
+    m_node_temp.buffer_addr = addr_dest;
+    let node_send = rend_wait(&tcb_recv->ipc_rend, &m_node_temp as *u32, timeout, RECV);
 
-    let node_send = rend_wait(&tcb_recv->ipc_rend, message, timeout, RECV);
     if (node_send == null) {
         return 0;
     }
-    
+
     let m_node = node_send->message as *message_node;
-    
-    // TODO add transfer length
-    if (page_transfer(buffer_dest, buffer_dest,
-                &(node_send->tcb->proc->PD), &(get_tcb()->proc->PD)) < 0) {
-        printf!("problem in page transfer\n");
-        return -1;
+    assert!(is_user_addr(m_node->buffer_addr));
+
+    let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
+    let page: u32;
+    for (page = 0; page < transfer_len + PAGE_SIZE; page+=PAGE_SIZE) {
+        if (page_transfer(m_node->buffer_addr + page, addr_dest + page,
+                    &(node_send->tcb->proc->PD), &(get_tcb()->proc->PD), 0) < 0) {
+            printf!("problem in page transfer\n");
+            return -1;
+        }
     }
 
     // TODO compose message as response

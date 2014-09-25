@@ -528,8 +528,9 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
 // this needs locking around the PD's
 // NEEDS So MANY THINGS!  DO NOT LET THE USERS USE THIS
 /* takes a frame at addr_src in PD_src, and moves it to addr_dest in PD_dest.
- * original mapping is removed */
-fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t)
+ * original mapping is removed 
+*/
+fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, page_share: u32)
     -> i32 {
 
         assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
@@ -541,8 +542,11 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t)
         if (frame_dest_addr != null) {
             free_page(addr_dest, PD_dest);
         } 
+
         inc_frame_ref(frame_src);
-        free_page(addr_src, PD_src); 
+        if (page_share == 0) {
+            free_page(addr_src, PD_src); 
+        }
         if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
                     frame_size) < 0) {
             assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
