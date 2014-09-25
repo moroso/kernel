@@ -94,7 +94,7 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
  * deschedules until a sending tcb sends a message
  */
 fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
-    message_len = 4096;
+    message_len = 4096 * 2;
     if (!is_user_addr(addr_dest)) {
         return -3;
     }  
@@ -125,7 +125,7 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
 
     // TODO compose message as response
 
-    rend_signal(null, node_send, SEND);
+    rend_signal(null, node_send, RECV);
 
     0
 }
