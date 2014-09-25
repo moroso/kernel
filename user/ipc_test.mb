@@ -3,8 +3,9 @@ mod syslib;
 fn main() -> i32 {
     let ret = syslib::repl();
     let addr: *u32 = 0xDEADBEEF as *u32;
-    if (syslib::get_tid() == 0) {
 
+    let message: *u32 = null;
+    if (syslib::get_tid() == 0) {
         if (syslib::new_pages(addr as *u8, 4096,
                     1024) < 0) {
             printf!("error allocating page!\n");
@@ -12,9 +13,9 @@ fn main() -> i32 {
         }
 
         *addr = 2;
-        syslib::ipc_send(ret, 0xDEADBEEF as *u8);
+        syslib::ipc_send(ret, 0xDEADBEEF as *u8, &message);
     } else {
-        syslib::ipc_recv();
+        syslib::ipc_recv(0xDEADBEEF as *u8, &message, 0);
         let addr: *u32 = 0xDEADBEEF as *u32;
         printf!("%d\n", *addr);
 
