@@ -21,6 +21,7 @@ use utils::stdlib;
 struct message_node {
     buffer_addr: *u8,
     buffer_len: u32,
+    message: *u32,
 }
 
 /*
@@ -72,20 +73,26 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     // timeouts
     let new_message: message_node;
     new_message.buffer_addr = addr_src as *u8;
-    let node_recv = rend_wait(&tcb_recv->ipc_rend, (&new_message) as *u32, timeout, SEND);
+    new_message.message = *message;
+    let message_buf: *u32;
+    printf!("send sends message %p (contains %p)\n", &new_message as *u8, *message as *u8);
+    let node_recv = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
+            &message_buf, timeout, SEND);
 
 
     // if it's null, this means we went to sleep before recv, and the transfer
     // was done and we got a reply 
     if (node_recv == null) {
-        // *message has already been set
+        *message = message_buf; 
         tcb_end_lookup(tcb_recv);
-        // TODO read from message to get receiver data
         // TODO check message to see if we timed out and should return failure
+        printf!("send(1) returns message %p\n", *message as *u8);
+
         return 0;
     } 
 
     let m_node = node_recv->message as *message_node;
+    *message = m_node->message;
     assert!(is_user_addr(m_node->buffer_addr));
 
     // do a lookup to make sure the address space is still intact
@@ -114,11 +121,12 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
 
     // TODO compose message as response
 
-    rend_signal(null, node_recv, SEND);
+    rend_signal(*message, node_recv, SEND);
     tcb_end_lookup(tcb_recv);
     proc_end_lookup(proc_recv);
+    printf!("send(2) returns message %p\n", *message as *u8);
 
-    transfer_len
+    transfer_len as i32
 }
 
 /* 
@@ -134,7 +142,7 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
  * message: not sure yet
  * message_len: length of transfer, not of mesage
  * timeout: time (in ms) before we give up waiting and return failure
-*/
+ */
 fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
     message_len = 4096 * 2;
     if (!is_user_addr(addr_dest)) {
@@ -146,15 +154,22 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
 
     let m_node_temp : message_node;
     m_node_temp.buffer_addr = addr_dest;
-    let node_send = rend_wait(&tcb_recv->ipc_rend, &m_node_temp as *u32, timeout, RECV);
+    m_node_temp.message = *message;
+    printf!("recv sends message %p (contains %p)\n", &m_node_temp as *u8, *message as *u8);
+    let message_buf: *u32;
+    let node_send = rend_wait(&tcb_recv->ipc_rend, &m_node_temp as *u32,
+            &message_buf, timeout, RECV);
 
+    let m_node = node_send->message as *message_node;
     if (node_send == null) {
-        // TODO read from message to get receiver data
+        *message = &m_node_temp as *u32;
+        printf!("recv returns message %p\n", *message as *u8);
+
         // TODO check message to see if we timed out and should return failure
         return 0;
     }
 
-    let m_node = node_send->message as *message_node;
+
     assert!(is_user_addr(m_node->buffer_addr));
 
     let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
@@ -170,9 +185,11 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
 
     // TODO compose message as response
 
-    rend_signal(null, node_send, RECV);
+    rend_signal(*message, node_send, RECV);
+    *message = m_node->message;
+    printf!("recv returns message %p\n", *message as *u8);
 
-    transfer_len
+    transfer_len as i32
 }
 
 

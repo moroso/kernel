@@ -28,7 +28,7 @@ fn rend_init(rend: *rend) {
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
  * *message gets set to the message of the opposing node; else, message is null */
-fn rend_wait(rend: *rend, message: *u32, timeout: u32, option: u32) -> *rend_node {
+fn rend_wait(rend: *rend, message: *u32, message_recv: **u32, timeout: u32, option: u32) -> *rend_node {
 
     let enable = cond_preempt_disable();
     let other_head: *list_head;
@@ -49,6 +49,7 @@ fn rend_wait(rend: *rend, message: *u32, timeout: u32, option: u32) -> *rend_nod
         assert!(other_node != null);
         list_del(&other_node->rend_link);
         cond_preempt_enable(enable);
+        *message_recv = other_node->message;
         return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
     } 
     
@@ -59,11 +60,11 @@ fn rend_wait(rend: *rend, message: *u32, timeout: u32, option: u32) -> *rend_nod
 
     // TODO timeout queue
     list_insert_tail(&my_node.rend_link, own_head);
-    scheduler_update(STATE_COND as i32);
+    printf!("before wakeup: %p\n", my_node.message);
 
-    // TODO store reply
-    // we've been taken off the list
-    
+    scheduler_update(STATE_COND as i32);
+    printf!("after wakeup: %p\n", my_node.message);
+    *message_recv = my_node.message; 
     cond_preempt_enable(enable);
 
     null
@@ -73,6 +74,7 @@ fn rend_wait(rend: *rend, message: *u32, timeout: u32, option: u32) -> *rend_nod
 /* give new message to rend_node and wake it up */
 fn rend_signal(message: *u32, rend_node: *rend_node, option: u32) {
     rend_node->message = message;
+    printf!("set to %p\n", message);
     let enable = cond_preempt_disable();
     rend_node->tcb->state = STATE_RUNNABLE;
     schedule(rend_node->tcb, QUEUE_FRONT);
