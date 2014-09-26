@@ -4,7 +4,7 @@ fn main() -> i32 {
     let ret = syslib::repl();
     let addr: *u32 = 0xDEADBEEF as *u32;
 
-    let message: *u32 = null;
+    let message: *u32 = (ret + 1) as *u32;
     if (syslib::get_tid() == 0) {
         if (syslib::new_pages(addr as *u8, 4096,
                     1024) < 0) {
