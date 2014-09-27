@@ -5,18 +5,17 @@
   *
   * Author: Amanda M. Watson
  */
+use utils;
 use utils::list::*;
 use structures::schedule::*;
 use consts::*;
 use structures::tcb::*;
 
-struct kmut {
-    lock_available: u32,
-    mut_head: list_head,
-}
+type kmut = utils::kmut;
 
 macro KMUT_INIT!(name) {
-    ::locks::mutex::kmut {
+//    ::locks::mutex::kmut {
+    ::utils::kmut {
         lock_available: 1, mut_head: LIST_HEAD_INIT!($name.mut_head) }
 }
 
@@ -39,7 +38,7 @@ fn kmut_lock(km: *kmut) {
 
 fn kmut_unlock(km: *kmut) {
     let enable = cond_preempt_disable();
-    let next_tcb: *tcb = list_head_entry!(&km->mut_head, tcb, link); 
+    let next_tcb: *tcb = list_head_entry!(&km->mut_head, tcb, link);
 
     if (next_tcb != null) {
         list_del(&next_tcb->link);

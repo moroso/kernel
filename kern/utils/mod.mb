@@ -1,4 +1,13 @@
 mod list;
+
+// XXX: this doesn't belong here. this is a workaround for a ccross bug
+// that requires struct inclusion to be processed in order.
+// This puts it after list_head but before anything that might need mutexes.
+struct kmut {
+    lock_available: u32,
+    mut_head: list::list_head,
+}
+
 mod macro_util;
 mod early_alloc;
 mod buddy_alloc;
