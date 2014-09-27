@@ -1,26 +1,35 @@
 mod syslib;
 
 fn main() -> i32 {
-    let ret = syslib::repl();
-    let addr: *u32 = 0xDEADBEEF as *u32;
+    while(true) {
+        let ret = syslib::repl();
+        if (ret != 0) {
+            let page = 0xDEADBEEF as *u8;
+            syslib::new_pages(page, 4096, 1024);
+            let message: *u32 = syslib::get_tid() +1 as *u32;
+            printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
+                    page, message);
+            *(page as *u32) = syslib::get_tid();
+            syslib::ipc_send(ret, page, &message, 4096, 0);
+            printf!("thread %d received message %p from send\n", syslib::get_tid(),
+                    message);
 
-    let message: *u32 = (ret + 1) as *u32;
-    if (syslib::get_tid() == 0) {
-        if (syslib::new_pages(addr as *u8, 4096,
-                    1024) < 0) {
-            printf!("error allocating page!\n");
-            syslib::abscond(-1);
+
+        } else {
+            printf!("thread %d repled thread %d\n", ret, syslib::get_tid());
+            let page = 0xDEADBEEF  + 4096 as *u8;
+
+            let message: *u32 = syslib::get_tid() as *u32;
+
+            syslib::ipc_recv(page, &message, 4096, 0);
+            printf!("thread %d received message %p\n", syslib::get_tid(),
+                    message);
+
+            
+
+            syslib::abscond(1);
         }
 
-        *addr = 2;
-        syslib::ipc_send(ret, 0xDEADBEEF as *u8, &message, 0, 0);
-    } else {
-        syslib::ipc_recv((0xDEADBEEF + 4096) as *u8, &message, 0, 0);
-        let addr: *u32 = (0xDEADBEEF + 4096) as *u32;
-        printf!("%d\n", *addr);
-
     }
-    printf!("thread %d returned!\n", syslib::get_tid());
-    syslib::abscond(0);
     0
 }

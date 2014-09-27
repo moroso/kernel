@@ -60,10 +60,8 @@ fn rend_wait(rend: *rend, message: *u32, message_recv: **u32, timeout: u32, opti
 
     // TODO timeout queue
     list_insert_tail(&my_node.rend_link, own_head);
-    printf!("before wakeup: %p\n", my_node.message);
 
     scheduler_update(STATE_COND as i32);
-    printf!("after wakeup: %p\n", my_node.message);
     *message_recv = my_node.message; 
     cond_preempt_enable(enable);
 
@@ -74,7 +72,6 @@ fn rend_wait(rend: *rend, message: *u32, message_recv: **u32, timeout: u32, opti
 /* give new message to rend_node and wake it up */
 fn rend_signal(message: *u32, rend_node: *rend_node, option: u32) {
     rend_node->message = message;
-    printf!("set to %p\n", message);
     let enable = cond_preempt_disable();
     rend_node->tcb->state = STATE_RUNNABLE;
     schedule(rend_node->tcb, QUEUE_FRONT);

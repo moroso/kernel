@@ -11,7 +11,8 @@
  * are not currently preserving struct initialization
  *
  * In order for this to actually work, we will need globals
- * TODO remove slabs when they are freed
+ * TODO remove slabs when they are freed, object caches, ACTUALLY MAKE
+ * THREADSAFE
  *
  * Author: Amanda M. Watson
  */
@@ -19,6 +20,7 @@
 use consts::*;
 use utils::list::*;
 use utils::buddy_alloc::{frame_alloc,frame_alloc_pow2};
+use locks::mutex::*;
 
 const SLAB_SIZE: u32 = PAGE_SIZE; /* this really isn't the right size*/
 const UINT_SIZE: u32 = 4;
