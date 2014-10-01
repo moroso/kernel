@@ -4,20 +4,24 @@ fn main() -> i32 {
     while(true) {
         let ret = syslib::repl();
         if (ret != 0) {
-            let page = 0xDEADBEEF as *u8;
+            let page = 0xDEADB000 as *u8;
+            printf!("calling new_pages on address %p\n", page);
             syslib::new_pages(page, 4096, 1024);
+            printf!("end new_pages\n");
             let message: *u32 = syslib::get_tid() +1 as *u32;
             printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
                     page, message);
             *(page as *u32) = syslib::get_tid();
-            syslib::ipc_send(ret, page, &message, 4096, 0);
+            printf!("send returned %d\n", syslib::ipc_send(ret, page, &message,
+                        4096, 0));
+            printf!("here %d\n", syslib::get_tid()); 
             printf!("thread %d received message %p from send\n", syslib::get_tid(),
                     message);
 
 
         } else {
             printf!("thread %d repled thread %d\n", ret, syslib::get_tid());
-            let page = 0xDEADBEEF  + 4096 as *u8;
+            let page = 0xDEADB000  + 4096 as *u8;
 
             let message: *u32 = syslib::get_tid() as *u32;
 
@@ -25,7 +29,7 @@ fn main() -> i32 {
             printf!("thread %d received message %p\n", syslib::get_tid(),
                     message);
 
-            
+
 
             syslib::abscond(1);
         }
