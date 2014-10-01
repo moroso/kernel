@@ -74,6 +74,8 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     let new_message: message_node;
     new_message.buffer_addr = addr_src as *u8;
     new_message.message = *message;
+    new_message.buffer_len = message_len;
+
     let message_buf: *u32;
     let node_recv = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
             &message_buf, timeout, SEND);
@@ -105,8 +107,9 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
 
     printf!("perform transfer\n");
     let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
-    for (page = 0; page < transfer_len + PAGE_SIZE; page+=PAGE_SIZE) {
-
+    printf!("transfer len %d\n", transfer_len);
+    for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+        printf!("%p %p (%d)\n", addr_src, m_node->buffer_addr, page);
         if (page_transfer(addr_src + page, m_node->buffer_addr + page, &(get_tcb()->proc->PD),
                     &(proc_recv->PD), 0) < 0) {
             printf!("problem in page transfer\n");
@@ -153,14 +156,17 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     let m_node_temp : message_node;
     m_node_temp.buffer_addr = addr_dest;
     m_node_temp.message = *message;
+    m_node_temp.buffer_len = message_len;
+
     let message_buf: *u32;
     let node_send = rend_wait(&tcb_recv->ipc_rend, &m_node_temp as *u32,
             &message_buf, timeout, RECV);
 
     if (node_send == null) {
-        printf!("here\n");
+        printf!("this is the path we take\n");
         *message = message_buf;
         // TODO make sure this can't be a success case; only for timeouts
+
         if (message_buf == null) {
             return -2
         }
@@ -171,10 +177,15 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     assert!(is_user_addr(m_node->buffer_addr));
 
     let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
+    printf!("transfer len %d (%d, %d)\n", transfer_len, message_len,
+m_node->buffer_len);
+
     let page: u32;
-    for (page = 0; page < transfer_len + PAGE_SIZE; page+=PAGE_SIZE) {
+    for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
         if (page_transfer(m_node->buffer_addr + page, addr_dest + page,
                     &(node_send->tcb->proc->PD), &(get_tcb()->proc->PD), 0) < 0) {
+            printf!("%p %p (%d)\n", m_node->buffer_addr, addr_dest, page);
+
             printf!("problem in page transfer\n");
             // TODO either put pages back or return a length
             return -1;
