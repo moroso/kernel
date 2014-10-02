@@ -551,6 +551,7 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, p
         let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
         assert!(frame_src_addr != null && *frame_src_addr != null);
         let frame_src = *frame_src_addr;
+
         let frame_size = get_frame_size(addr_src, PD_src);
         let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
         if (frame_dest_addr != null) {
