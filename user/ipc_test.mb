@@ -13,7 +13,7 @@ fn main() -> i32 {
             printf!("calling new_pages on address %p\n", page);
             syslib::new_pages(page, 4096, 1024);
             *(page as *u32) = ret;
-            printf!("end new_pages\n");
+            printf!("assigning %d to page\n", *(page as *u32));
             let message: *u32 = syslib::get_tid() +1 as *u32;
             printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
                     page, message);
@@ -36,7 +36,11 @@ fn main() -> i32 {
             syslib::ipc_recv(page, &message, 4096, 0);
             printf!("thread %d received message %p\n", syslib::get_tid(),
                     message);
-
+            if (*(page as *u32) != syslib::get_tid()) {
+                printf!("error: page does not hold previous value (%d)\n",
+                        *(page as *u32));
+                syslib::abscond(-2);
+            }
 
 
             syslib::abscond(1);
