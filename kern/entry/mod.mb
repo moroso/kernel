@@ -79,7 +79,8 @@ fn page_fault_handler(regs: *uregs) {
       if (get_tcb() != null) {
           tid = get_tcb()->tid;
       }
-      printf!("Thread %d Page Fault on address 0x%x\n", tid, log_addr);
+      printf!("Thread %d Page Fault on address 0x%x, instruction 0x%x\n", tid,
+              log_addr, regs->eip);
       assert!(false);
   }
 }
@@ -88,7 +89,7 @@ fn timer_handler(regs: *uregs) {
     ticks += 1;
     pic_acknowledge_any_master();
 
-   // printf!("%d ticks\n", ticks);
+    // printf!("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
         scheduler_update(-1);
     }

@@ -63,6 +63,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     new_tcb->proc = new_proc;
     new_proc->parent_pid = -1;
     new_proc->child_count = 0;
+    new_proc->dir_ref = 1;
     proc_dir_add(new_proc);
     0
 }

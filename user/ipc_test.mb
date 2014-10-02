@@ -12,9 +12,7 @@ fn main() -> i32 {
             printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
                     page, message);
             *(page as *u32) = syslib::get_tid();
-            printf!("send returned %d\n", syslib::ipc_send(ret, page, &message,
-                        4096, 0));
-            printf!("here %d\n", syslib::get_tid()); 
+            syslib::ipc_send(ret, page, &message, 4096, 0);
             printf!("thread %d received message %p from send\n", syslib::get_tid(),
                     message);
 
