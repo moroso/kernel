@@ -18,6 +18,9 @@ use locks::rendezvous::*;
 use consts::*;
 use utils::stdlib;
 
+
+extern fn get_cr3() -> u32;
+
 struct message_node {
     buffer_addr: *u8,
     buffer_len: u32,
@@ -96,7 +99,7 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     assert!(is_user_addr(m_node->buffer_addr));
 
     // do a lookup to make sure the address space is still intact
-    let proc_recv = proc_lookup(tcb_recv->pid);
+    let proc_recv = tcb_recv->proc;
     // this ensures the proc won't go away as we do things to it
 
     if (proc_recv == null) {
@@ -104,16 +107,11 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
         tcb_end_lookup(tcb_recv);
         return -4;
     }
-
-    printf!("perform transfer\n");
     let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
-    printf!("transfer len %d\n", transfer_len);
     for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
-        printf!("%p %p (%d)\n", addr_src, m_node->buffer_addr, page);
         if (page_transfer(addr_src + page, m_node->buffer_addr + page, &(get_tcb()->proc->PD),
                     &(proc_recv->PD), 0) < 0) {
             printf!("problem in page transfer\n");
-            proc_end_lookup(proc_recv);
             tcb_end_lookup(tcb_recv);
             // TODO either put pages back or return a length
             return -5;
@@ -121,11 +119,10 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     }
 
     // TODO compose message as response
-
+    
     rend_signal(*message, node_recv, SEND);
 
     tcb_end_lookup(tcb_recv);
-    proc_end_lookup(proc_recv);
 
     transfer_len as i32
 }
@@ -163,13 +160,13 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
             &message_buf, timeout, RECV);
 
     if (node_send == null) {
-        printf!("this is the path we take\n");
         *message = message_buf;
         // TODO make sure this can't be a success case; only for timeouts
 
         if (message_buf == null) {
             return -2
         }
+
         return 0;
     }
 
@@ -177,14 +174,11 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     assert!(is_user_addr(m_node->buffer_addr));
 
     let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
-    printf!("transfer len %d (%d, %d)\n", transfer_len, message_len,
-m_node->buffer_len);
 
     let page: u32;
     for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
         if (page_transfer(m_node->buffer_addr + page, addr_dest + page,
                     &(node_send->tcb->proc->PD), &(get_tcb()->proc->PD), 0) < 0) {
-            printf!("%p %p (%d)\n", m_node->buffer_addr, addr_dest, page);
 
             printf!("problem in page transfer\n");
             // TODO either put pages back or return a length
