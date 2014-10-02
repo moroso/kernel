@@ -415,8 +415,6 @@ fn PD_entries_destroy(entries: **u32) {
 // TODO locks, management of regions
 fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
     len-=1;
-    printf!("new_pages with len %d. start: %p, end: %p\n", len, addr, (addr as
-u32 + len) as *u8);
     new_user_range(addr, ((addr as u32) + len) as *u8, &(get_tcb()->proc->PD), READ_WRITE_BIT,
             size)
 
