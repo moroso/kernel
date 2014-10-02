@@ -428,8 +428,19 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     addr_start = get_aligned_addr(addr_start as *u32) as *u8;
     addr_end = get_aligned_addr(addr_end as *u32) as *u8;
     printf!("new range starts at %p and ends at %p\n", addr_start, addr_end);
-
+    // TODO take lock so we can lookup
     let page_read: *u8;
+
+    // if any pages are already allocated, return with error
+    for (page_read = addr_start; page_read <= addr_end;
+            page_read+=PAGE_SIZE) {
+
+        let frame_addr: **u8 = log_to_phys(page_read, PD);
+        if (frame_addr != null && *frame_addr != null) {
+            return -2;
+        }
+    }
+
     for (page_read = addr_start; page_read <= addr_end;
             page_read+=PAGE_SIZE) {
         if (new_user_page(page_read, PD, flags, size) < 0) {

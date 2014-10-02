@@ -1,3 +1,8 @@
+/* ipc_test.mb 
+ * Test of long IPC; repls a child thread, and then sends the page 0xdeadb000 to it
+ * Author: Amanda M. Watson
+*/
+
 mod syslib;
 
 fn main() -> i32 {
@@ -7,6 +12,7 @@ fn main() -> i32 {
             let page = 0xDEADB000 as *u8;
             printf!("calling new_pages on address %p\n", page);
             syslib::new_pages(page, 4096, 1024);
+            *(page as *u32) = ret;
             printf!("end new_pages\n");
             let message: *u32 = syslib::get_tid() +1 as *u32;
             printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
@@ -15,6 +21,10 @@ fn main() -> i32 {
             syslib::ipc_send(ret, page, &message, 4096, 0);
             printf!("thread %d received message %p from send\n", syslib::get_tid(),
                     message);
+            if ((message as u32) != ret) {
+                printf!("FAILURE\n");
+                syslib::abscond(-1);
+            }
 
 
         } else {
