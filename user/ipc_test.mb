@@ -20,7 +20,7 @@ fn main() -> i32 {
             printf!("thread %d received message %p from send\n", syslib::get_tid(),
                     message);
             if ((message as u32) != ret) {
-                printf!("FAILURE\n");
+                printf!("***FAILURE***\n");
                 syslib::abscond(-1);
             }
 
@@ -39,7 +39,6 @@ fn main() -> i32 {
                         *(page as *u32));
                 syslib::abscond(-2);
             }
-
 
             syslib::abscond(1);
         }
