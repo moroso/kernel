@@ -5,10 +5,13 @@ common_entry_asm:
     pusha
     pushl %ds
     pushl %es
-
-    pushl %esp
+    movl %esp, %eax
+    pushl 0x50(%esp) # push eip
+    pushl %ebp # push ebp
+    movl %esp, %ebp # move esp to ebp
+    pushl %eax # push address of ureg
     call __entry__kernel_entry
-    addl $4, %esp
+    addl $12, %esp
 
 common_exit_asm:
     popl %es

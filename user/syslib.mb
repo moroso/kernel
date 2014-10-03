@@ -50,8 +50,8 @@ fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
 												size) as i32
 }
 
-fn ipc_recv(addr_recv: *u8, message: **u32, len: u32, timeout: u32) {
+fn ipc_recv(addr_recv: *u8, message: **u32, len: u32, timeout: u32) -> i32 {
 				syscall_3(shared::syscall_consts::INT_IPC_RECV, addr_recv as u32,
-												message as u32, len);
+												message as u32, len) as i32
 }
 
