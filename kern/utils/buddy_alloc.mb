@@ -1,6 +1,7 @@
 use consts::*;
 use utils::list::*;
 use utils::early_alloc::early_alloc;
+use locks::mutex::*;
 
 // Bitmaps!
 struct bitmap {
@@ -33,7 +34,8 @@ struct buddy_category {
 struct buddy_arena {
     total_frames: u32,
     zones: buddy_category[MAX_ORDER+1],
-    nodes: *list_node
+    nodes: *list_node,
+    mut: kmut
 }
 
 // Total amount needs to be divisible by 4MB
@@ -45,7 +47,7 @@ fn buddy_init(num_frames: u32) -> *buddy_arena {
     // we don't have array literals. Should fix.
     let arena: *buddy_arena = early_alloc(sizeof(buddy_arena));
     assert!(arena != null);
-
+    kmut_init(&arena->mut);
     arena->total_frames = num_frames;
     arena->nodes = early_alloc(num_frames * sizeof(list_node));
     assert!(arena->nodes != null);
@@ -103,6 +105,7 @@ fn _split_block(arena: *buddy_arena, block: u32,
 
 // Returns -1 on failure
 fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
+    kmut_lock(&arena->mut);
     let cur_order: u32;
     // Search the different orders
     for (cur_order = order; cur_order <= MAX_ORDER; cur_order += 1) {
@@ -121,17 +124,18 @@ fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
 
             // Mark it allocated in the bitmap
             bm_clear_bit(&zone->bitmap, block);
-
+            kmut_unlock(&arena->mut);
             return block as i32;
         }
     };
 
+    kmut_unlock(&arena->mut);
     // Nothing
     -1
 }
 
 fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
-
+    kmut_lock(&arena->mut);
     while (order < MAX_ORDER) {
         let zone: *buddy_category = &arena->zones[order];
         let buddy: u32 = _get_buddy(block, order);
@@ -156,6 +160,8 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
     let node: *list_node = _get_node(arena, block);
     list_insert_head(node, &zone->free_list);
     bm_set_bit(&zone->bitmap, block);
+    kmut_unlock(&arena->mut);
+
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -185,12 +191,12 @@ fn frame_init() {
     let next_free_page: u32 = ROUND_UP!(last_allocated as u32, PAGE_SIZE);
     // Round up to the next 4MB bit
     let first_free_block = ROUND_UP!(next_free_page / PAGE_SIZE,
-                                     frames_per_block);
+            frames_per_block);
 
     // Put blocks into the arena
     let i: u32;
     for (i = first_free_block; i < frames_rounded_down;
-         i += frames_per_block) {
+            i += frames_per_block) {
         buddy_free(frame_arena, i, MAX_ORDER);
     };
 
