@@ -16,7 +16,7 @@ fn main() -> i32 {
             let message: *u32 = syslib::get_tid() +1 as *u32;
             printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
                     page, message);
-            syslib::ipc_send(ret, page, &message, 4096, 0);
+            let send_ret = syslib::ipc_send(ret, page, &message, 4096, 0);
             printf!("thread %d received message %p from send\n", syslib::get_tid(),
                     message);
             if ((message as u32) != ret) {
@@ -31,9 +31,21 @@ fn main() -> i32 {
 
             let message: *u32 = syslib::get_tid() as *u32;
 
-            syslib::ipc_recv(page, &message, 4096, 0);
+            let recv_ret = syslib::ipc_recv(page, &message, 4096, 0);
+                        
+            if (recv_ret < 0) {
+                printf!("recv failed with error code %d\n", recv_ret);
+                printf!("***FAILURE***\n");
+                syslib::abscond(-1);  
+            }
+
             printf!("thread %d received message %p\n", syslib::get_tid(),
                     message);
+            if (message as u32 != 1) {
+                printf!("failed message transfer!\n");
+                printf!("***FAILURE***\n");
+                syslib::abscond(-1);                
+            }
             if (*(page as *u32) != syslib::get_tid()) {
                 printf!("error: page does not hold previous value (%d)\n",
                         *(page as *u32));
