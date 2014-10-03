@@ -83,7 +83,6 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     let node_recv = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
             &message_buf, timeout, SEND);
 
-
     // if it's null, this means we went to sleep before recv, and the transfer
     // was done and we got a reply 
     if (node_recv == null) {
@@ -95,10 +94,11 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     } 
 
     let m_node = node_recv->message as *message_node;
-    *message = m_node->message;
+    let recv_message = m_node->message;
     assert!(is_user_addr(m_node->buffer_addr));
 
     // do a lookup to make sure the address space is still intact
+    // TODO figure out if receiver is dead, and proc might no longer exist 
     let proc_recv = tcb_recv->proc;
     // this ensures the proc won't go away as we do things to it
 
@@ -121,6 +121,8 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     // TODO compose message as response
     
     rend_signal(*message, node_recv, SEND);
+    *message = recv_message;
+
 
     tcb_end_lookup(tcb_recv);
 
@@ -162,7 +164,6 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     if (node_send == null) {
         *message = message_buf;
         // TODO make sure this can't be a success case; only for timeouts
-
         if (message_buf == null) {
             return -2
         }
@@ -190,6 +191,7 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
 
     rend_signal(*message, node_send, RECV);
     *message = m_node->message;
+    assert!((*message) as u32 != get_tcb()->tid);
 
     transfer_len as i32
 }
@@ -201,3 +203,9 @@ fn reply(id: u32) {
 
 }
 
+/* asynchronous */
+fn ipc_short_send(id: u32, message: **u32, message_len: *u32, sync: bool, timeout: u32) -> i32{
+
+
+    0
+}
