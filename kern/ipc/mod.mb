@@ -150,13 +150,13 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     let tcb_recv = get_tcb();
     assert!(tcb_recv != null);
 
-    let m_node_temp : message_node;
-    m_node_temp.buffer_addr = addr_dest;
-    m_node_temp.message = *message;
-    m_node_temp.buffer_len = message_len;
+    let new_message : message_node;
+    new_message.buffer_addr = addr_dest;
+    new_message.message = *message;
+    new_message.buffer_len = message_len;
 
     let message_buf: *u32;
-    let node_send = rend_wait(&tcb_recv->ipc_rend, &m_node_temp as *u32,
+    let node_send = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
             &message_buf, timeout, RECV);
 
     if (node_send == null) {

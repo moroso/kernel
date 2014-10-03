@@ -520,6 +520,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
     assert!(frame_orig_addr != null);
     let frame_orig: *u8 = *frame_orig_addr;
+    printf!("COW addr %p has frame %p\n", log_addr, frame_orig);
 
     // if we are the only one holding the page, let's make it writable again
     if (get_frame_ref(frame_orig) == 1) {
@@ -529,7 +530,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     // otherwise, we make a new page and copy it over
     let frame_size = get_frame_size(log_addr, PD);
     let frame_new: *u8 = get_frame(frame_size);
-    mos_memcpy(frame_new, log_addr, frame_size);
+    mos_memcpy(frame_new, frame_orig, frame_size);
 
     free_page(log_addr, PD); // removes page and decs ref count
     let set_page_result = set_page(frame_new, log_addr, PD,

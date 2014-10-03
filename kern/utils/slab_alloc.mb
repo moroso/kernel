@@ -11,9 +11,7 @@
  * are not currently preserving struct initialization
  *
  * In order for this to actually work, we will need globals
- * TODO remove slabs when they are freed, object caches, ACTUALLY MAKE
- * THREADSAFE
- *
+ * TODO remove slabs when they are freed, object caches, 
  * Author: Amanda M. Watson
  */
 
@@ -39,6 +37,7 @@ struct cache_head {
     size: u32,
     slab: *u32,
     link: list_node,
+    mut: kmut,
 }
 
 static head: list_head = LIST_HEAD_INIT!(head);
@@ -72,6 +71,7 @@ fn slab_add(size: u32, cache: *cache_head) {
     /* should divide evenly */
     assert!(i == (SLAB_SIZE/size));
     cache->slab = slab;
+
 }
 
 /* returns the index of the correct cache for the given size */
@@ -90,6 +90,7 @@ fn find_cache(size: u32) -> i32 {
  */
 fn cache_create(size: u32, cache: *cache_head) -> i32 {
     cache->size = size;
+    kmut_init(&cache->mut);
     slab_add(size, cache);
     if (cache->slab == null) {
         return -1;
@@ -100,6 +101,8 @@ fn cache_create(size: u32, cache: *cache_head) -> i32 {
 /* remove an element from the given cache.  if cache is empty, a new slab is
  * allocated  */
 fn cache_remove (cache: *cache_head) -> *u32 {
+    
+    kmut_lock(&cache->mut);
     if (cache->slab == null) {
         slab_add(cache->size, cache);
     }
@@ -107,15 +110,19 @@ fn cache_remove (cache: *cache_head) -> *u32 {
     let element: *u32 = cache->slab;
     if (element != null) {
         cache->slab = *element as *u32;
+
     }
+    kmut_unlock(&cache->mut);
     element
 }
 
 /* add element back into cache */
 fn cache_add (element: *u32, cache: *cache_head) {
     /* TODO check memory bounds */
+    kmut_lock(&cache->mut);
     *element = cache->slab as u32;
     cache->slab = element;
+    kmut_unlock(&cache->mut);
 }
 
 fn slub_init() {
