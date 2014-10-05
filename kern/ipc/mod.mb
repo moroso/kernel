@@ -2,7 +2,7 @@
  * Contains implementation of ipc request primitives, such as send and recv 
  *
  * Implementation is currently synchronous, and moves unshared pages
- * TODO timeouts, async, fast path, reply, shared memory, messages
+ * TODO timeouts, async, fast path, reply, shared memory
  *
  * Author: Amanda M. Watson
 */
@@ -28,39 +28,39 @@ struct message_node {
 }
 
 /*
- * given a valid source buffer and an active tid, sends a source addr_src with
- * length message_len to thread id.  currently synchronous: acting tcb will
+ * given a valid source buffer and an active tid, sends a source long_src with
+ * length len_long to thread id.  currently synchronous: acting tcb will
  * deschedule until tcb tid is ready to receive.  If sending tcb is called while
  * tcb id is waiting, it will perform the transfer itself. If not, it
  * deschedules with a message, and relies on the receiver to perform the
  * transfer.  
  *
- * Requires that addr_src be mapped in and be a user address 
- * Transfer removes mapping ar addr src and stores the frames at addr_dest
+ * Requires that long_src be mapped in and be a user address 
+ * Transfer removes mapping ar addr src and stores the frames at long_dest
  * Returns successful length of section copied, a negative error
  * value otherwise 
  *
  * id: currently the TID of the receiving tcb
- * addr_src: the address at which the starting soure frame is mapped
+ * long_src: the address at which the starting soure frame is mapped
  * message: not sure yet.  a message of some sort for the receiver
- * message_len: maximum length of transfer in bytes
+ * len_long: maximum length of transfer in bytes
  * timeout: time (in ms) before we return failure 
 */
-fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
+fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 {
     /* we're not currently reading in these args from userspace, so we set them
      * here */
-    message_len = 4096; 
+    len_long = 4096; 
     timeout = 0;
 
-    if (!is_user_addr(addr_src)) {
+    if (!is_user_addr(long_src)) {
         return -3;
     }  
 
     /* if source address isn't mapped in, return failure */
     let page: u32;
-    for (page = 0; page < message_len + PAGE_SIZE; page+=PAGE_SIZE) {
+    for (page = 0; page < len_long + PAGE_SIZE; page+=PAGE_SIZE) {
 
-        if (log_to_phys(addr_src + page, &(get_tcb()->proc->PD)) == null) {
+        if (log_to_phys(long_src + page, &(get_tcb()->proc->PD)) == null) {
             return -7;
         }
     }
@@ -75,9 +75,9 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
     // I think we're ok on the "what if receiver died?" thing, as we have
     // timeouts
     let new_message: message_node;
-    new_message.buffer_addr = addr_src as *u8;
+    new_message.buffer_addr = long_src as *u8;
     new_message.message = *message;
-    new_message.buffer_len = message_len;
+    new_message.buffer_len = len_long;
 
     let message_buf: *u32;
     let node_recv = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
@@ -107,9 +107,9 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
         tcb_end_lookup(tcb_recv);
         return -4;
     }
-    let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
+    let transfer_len = min!(len_long as u32, m_node->buffer_len as u32);
     for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
-        if (page_transfer(addr_src + page, m_node->buffer_addr + page, &(get_tcb()->proc->PD),
+        if (page_transfer(long_src + page, m_node->buffer_addr + page, &(get_tcb()->proc->PD),
                     &(proc_recv->PD), 0) < 0) {
             printf!("problem in page transfer\n");
             tcb_end_lookup(tcb_recv);
@@ -130,22 +130,22 @@ fn ipc_send(id: u32, addr_src: *u8, message: **u32, message_len: u32, timeout: u
 }
 
 /* 
- * receives a number of pages up to message_len bytes, mapped in starting with address
- * addr_dest.  If a sender is waiting to send, retrieves their info and performs
+ * receives a number of pages up to len_long bytes, mapped in starting with address
+ * long_dest.  If a sender is waiting to send, retrieves their info and performs
  * the transfer.  Otherwise, deschedules until a sender becomes available and
  * does the transfer itself.  Returns the number of bytes copied on success,
  * negative error code on failure
  *
- * Requires addr_dest be a userland address
+ * Requires long_dest be a userland address
  *
- * addr_dest: userspace address where new pages are to be mapped in
+ * long_dest: userspace address where new pages are to be mapped in
  * message: not sure yet
- * message_len: length of transfer, not of mesage
+ * len_long: length of transfer, not of mesage
  * timeout: time (in ms) before we give up waiting and return failure
  */
-fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i32 {
-    message_len = 4096 * 2;
-    if (!is_user_addr(addr_dest)) {
+fn ipc_recv(long_dest: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 {
+    len_long = 4096 * 2;
+    if (!is_user_addr(long_dest)) {
         return -3;
     }  
 
@@ -153,9 +153,9 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     assert!(tcb_recv != null);
 
     let new_message : message_node;
-    new_message.buffer_addr = addr_dest;
+    new_message.buffer_addr = long_dest;
     new_message.message = *message;
-    new_message.buffer_len = message_len;
+    new_message.buffer_len = len_long;
 
     let message_buf: *u32;
     let node_send = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
@@ -174,11 +174,11 @@ fn ipc_recv(addr_dest: *u8, message: **u32, message_len: u32, timeout: u32) -> i
     let m_node = node_send->message as *message_node;
     assert!(is_user_addr(m_node->buffer_addr));
 
-    let transfer_len = min!(message_len as u32, m_node->buffer_len as u32);
+    let transfer_len = min!(len_long as u32, m_node->buffer_len as u32);
 
     let page: u32;
     for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
-        if (page_transfer(m_node->buffer_addr + page, addr_dest + page,
+        if (page_transfer(m_node->buffer_addr + page, long_dest + page,
                     &(node_send->tcb->proc->PD), &(get_tcb()->proc->PD), 0) < 0) {
 
             printf!("problem in page transfer\n");
@@ -203,9 +203,4 @@ fn reply(id: u32) {
 
 }
 
-/* asynchronous */
-fn ipc_short_send(id: u32, message: **u32, message_len: *u32, sync: bool, timeout: u32) -> i32{
 
-
-    0
-}
