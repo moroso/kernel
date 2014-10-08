@@ -13,45 +13,26 @@ fn main() -> i32 {
             printf!("calling new_pages on address %p\n", page);
             syslib::new_pages(page, 4096, 1024);
             *(page as *u32) = ret;
-            let message: *u32 = syslib::get_tid() +1 as *u32;
+            let message: *u8 = "abc";
             printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
                     page, message);
-            let send_ret = syslib::ipc_send(ret, page, &message, 4096, 0);
-            printf!("thread %d received message %p from send\n", syslib::get_tid(),
+            let short_size = 4;
+            let send_ret = syslib::ipc_send(ret, page, &message, 4096,
+                    &short_size, 0);
+            printf!("thread %d received message %s from send\n", syslib::get_tid(),
                     message);
-            if ((message as u32) != ret) {
-                printf!("***FAILURE***\n");
-                syslib::abscond(-1);
-            }
-
+            
 
         } else {
             printf!("thread %d repled thread %d\n", ret, syslib::get_tid());
             let page = 0xDEADB000  + 4096 as *u8;
 
-            let message: *u32 = syslib::get_tid() as *u32;
+            let message: *u8 = "cde";
 
-            let recv_ret = syslib::ipc_recv(page, &message, 4096, 0);
-                        
-            if (recv_ret < 0) {
-                printf!("recv failed with error code %d\n", recv_ret);
-                printf!("***FAILURE***\n");
-                syslib::abscond(-1);  
-            }
-
-            printf!("thread %d received message %p\n", syslib::get_tid(),
-                    message);
-            if (message as u32 != 1) {
-                printf!("failed message transfer!\n");
-                printf!("***FAILURE***\n");
-                syslib::abscond(-1);                
-            }
-            if (*(page as *u32) != syslib::get_tid()) {
-                printf!("error: page does not hold previous value (%d)\n",
-                        *(page as *u32));
-                syslib::abscond(-2);
-            }
-
+            let len_short = 4;
+            let recv_ret = syslib::ipc_recv(page, &message as **u8, 4096, &len_short, 0);
+            printf!("recv received message %s\n", message);
+            
             syslib::abscond(1);
         }
 
