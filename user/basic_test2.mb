@@ -1,3 +1,7 @@
+// This is pointless, but I needed some .bss and .data.
+static __test1: u32;
+static __test2: u32 = 1;
+
 fn main() -> i32 {
     let i = 1000000000;
     while true {
