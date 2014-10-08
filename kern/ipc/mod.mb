@@ -19,6 +19,7 @@ use consts::*;
 use utils::stdlib::*;
 use utils::slab_alloc::*;
 use utils::string::*;
+use utils::user_mem::*;
 
 
 extern fn get_cr3() -> u32;
@@ -64,7 +65,10 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
     if (kernel_message == null && *len_short != 0) {
         return -8;
     }
-    mos_memcpy(kernel_message, message as *u8, *len_short);
+
+    if (copy_from_user(kernel_message, message as *u8, *len_short) < 0) {
+        return -9;
+    }
 
     /* if source address isn't mapped in, return failure */
     let page: u32;
@@ -99,8 +103,11 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
     // if it's null, this means we went to sleep before recv, and the transfer
     // was done and we got a reply 
     if (node_recv == null) {
-        mos_memcpy(message as *u8, message_buf as *u8, min(*len_short,
-                    message_len));
+        if (copy_to_user(message as *u8, message_buf as *u8, min(*len_short,
+                        message_len)) < 0) {
+            slub_free(message_buf, message_len);
+            return -10;
+        } 
         slub_free(message_buf, message_len);
 
 
@@ -143,7 +150,12 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
 
     // we are assuming some arg validation
 
-    mos_memcpy(message as *u8, recv_message, min(*len_short, recv_len));
+    if (copy_to_user(message as *u8, recv_message, min(*len_short, recv_len)) <
+            0) {
+
+        slub_free(recv_message as *u32, recv_len);
+        return -11;
+    }
     slub_free(recv_message as *u32, recv_len);
 
     tcb_end_lookup(tcb_recv);
@@ -177,7 +189,9 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
     if (kernel_message == null && *len_short != 0) {
         return -8;
     }
-    mos_strncpy(kernel_message, message as *u8, *len_short);
+    if (copy_from_user(kernel_message, message as *u8, *len_short) < 0) {
+        return -9;
+    }
 
 
     let tcb_recv = get_tcb();
@@ -195,16 +209,17 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
             sizeof(message_node), &message_buf, &message_len, timeout, RECV);
 
     if (node_send == null) {
-        printf!("%s %d\n", message_buf as *u8, *len_short);
-        mos_memcpy(message as *u8, message_buf as *u8, min(message_len,
-                    *len_short));
-
-
         // TODO make sure this can't be a success case; only for timeouts
         if (message_buf == null) {
             return -2
         }
+        if (copy_to_user(message as *u8, message_buf as *u8, min(message_len,
+                        *len_short)) < 0) {
+            slub_free(message_buf, message_len);
+            return -12;
 
+        }
+        
         slub_free(message_buf, message_len);
 
         return 0;
@@ -234,7 +249,11 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
     rend_signal(kernel_message as *u32, *len_short, node_send, RECV);
 
     // this gets encapsulated in user mem validation
-    mos_memcpy(message as *u8, send_message, min(*len_short, send_len));
+    if (copy_to_user(message as *u8, send_message, min(*len_short, send_len)) <
+            0) {
+        slub_free(send_message as *u32, send_len);
+        return -11;
+    }
 
     slub_free(send_message as *u32, send_len);
     transfer_len as i32

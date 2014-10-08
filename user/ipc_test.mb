@@ -13,24 +13,33 @@ fn main() -> i32 {
             printf!("calling new_pages on address %p\n", page);
             syslib::new_pages(page, 4096, 1024);
             *(page as *u32) = ret;
-            let message: *u8 = "parent thread";
-            printf!("sending %s\n", message);
+            let message: u8[14];
+            let i: u32;
+            for (i = 0; i < 14; i+=1) {
+                message[i] = 's';
+            }
+            printf!("sending %s\n", &message[0]);
             let short_size = 14;
-            let send_ret = syslib::ipc_send(ret, page, message, 4096,
+            let send_ret = syslib::ipc_send(ret, page, &message[0], 4096,
                     &short_size, 0);
             printf!("thread %d received message %s from send (%d)\n", syslib::get_tid(),
-                    message, send_ret);
-            
+                    &message[0], send_ret);
+
 
         } else {
             printf!("thread %d repled thread %d\n", ret, syslib::get_tid());
             let page = 0xDEADB000  + 4096 as *u8;
 
-            let message: *u8 = "child thread ";
+            let message: u8[14];
+            let i: u32;
+            for (i = 0; i < 14; i+=1) {
+                message[i] = 'r';
+            }
+
             let len_short = 14;
-            let recv_ret = syslib::ipc_recv(page, message, 4096, &len_short, 0);
-            printf!("recv received message %s (%d)\n", message, recv_ret);
-            
+            let recv_ret = syslib::ipc_recv(page, &message[0], 4096, &len_short, 0);
+            printf!("recv received message %s (%d)\n", &message[0], recv_ret);
+
             syslib::abscond(1);
         }
 
