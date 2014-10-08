@@ -20,6 +20,12 @@ ENTRY=$(${PRE}readelf -h $FILE | grep Entry | cut -dx -f2)
 BINARY_START=$(${PRE}objdump -t $FILE | grep " g " | sort | head -n1 | cut -d" " -f1)
 BINARY_END=$(${PRE}objdump -t $FILE | grep " _end$" | cut -d" " -f1)
 
+# Find the address of the first writable section
+FIRST_WRITABLE=$(objdump -w -h $FILE | grep '\*\*' | grep -v READONLY | tr -s " " | cut -d" " -f5 | sort | head -n1)
+if [ -z "$FIRST_WRITABLE" ]; then
+	FIRST_WRITABLE=0
+fi
+
 IMAGE_SIZE=$((0x${BINARY_END}-0x${BINARY_START}))
 
 OBJFILE=$(mktemp /tmp/$(basename $FILE).XXXXXXXXXX)
@@ -35,5 +41,6 @@ printf "MROE"
 out ${BIN_SIZE}
 out ${IMAGE_SIZE}
 out 0x${BINARY_START}
+out 0x${FIRST_WRITABLE}
 out 0x${ENTRY}
 cat $OBJFILE

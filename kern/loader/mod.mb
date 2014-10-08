@@ -26,6 +26,7 @@ struct bsexe_header {
     binary_size: u32,
     mapping_size: u32,
     load_addr: u32,
+    first_writable_addr: u32,
     entry_point: u32
 }
 
