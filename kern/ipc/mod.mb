@@ -17,6 +17,8 @@ use structures::VM::{is_user_addr, page_transfer, log_to_phys};
 use locks::rendezvous::*;
 use consts::*;
 use utils::stdlib;
+use utils::slab_alloc::*;
+use utils::string::*;
 
 
 extern fn get_cr3() -> u32;
@@ -46,15 +48,21 @@ struct message_node {
  * len_long: maximum length of transfer in bytes
  * timeout: time (in ms) before we return failure 
 */
-fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 {
+fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
     /* we're not currently reading in these args from userspace, so we set them
      * here */
     len_long = 4096; 
-    timeout = 0;
+    timeout = 0; 
 
     if (!is_user_addr(long_src)) {
         return -3;
     }  
+
+    let kernel_message: *u8 = slub_alloc(*len_short) as *u8;
+    if (kernel_message == null && *len_short != 0) {
+        return -8;
+    }
+    mos_strncpy(kernel_message, *message as *u8, *len_short);
 
     /* if source address isn't mapped in, return failure */
     let page: u32;
@@ -76,7 +84,7 @@ fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32)
     // timeouts
     let new_message: message_node;
     new_message.buffer_addr = long_src as *u8;
-    new_message.message = *message;
+    new_message.message = kernel_message as *u32;
     new_message.buffer_len = len_long;
 
     let message_buf: *u32;
@@ -86,7 +94,8 @@ fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32)
     // if it's null, this means we went to sleep before recv, and the transfer
     // was done and we got a reply 
     if (node_recv == null) {
-        *message = message_buf; 
+        mos_strncpy(*message as *u8, message_buf as *u8, *len_short);
+
         tcb_end_lookup(tcb_recv);
         // TODO check message to see if we timed out and should return failure
 
@@ -94,7 +103,7 @@ fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32)
     } 
 
     let m_node = node_recv->message as *message_node;
-    let recv_message = m_node->message;
+    let recv_message = m_node->message as *u8;
     assert!(is_user_addr(m_node->buffer_addr));
 
     // do a lookup to make sure the address space is still intact
@@ -119,10 +128,9 @@ fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32)
     }
 
     // TODO compose message as response
-    
-    rend_signal(*message, node_recv, SEND);
-    *message = recv_message;
 
+    rend_signal(kernel_message as *u32, node_recv, SEND);
+    mos_strncpy(*message as *u8, recv_message, *len_short);
 
     tcb_end_lookup(tcb_recv);
 
@@ -143,18 +151,27 @@ fn ipc_send(id: u32, long_src: *u8, message: **u32, len_long: u32, timeout: u32)
  * len_long: length of transfer, not of mesage
  * timeout: time (in ms) before we give up waiting and return failure
  */
-fn ipc_recv(long_dest: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 {
+fn ipc_recv(long_dest: *u8, message: **u32, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
     len_long = 4096 * 2;
+
     if (!is_user_addr(long_dest)) {
         return -3;
     }  
+
+    // we are assuming some arg validation
+    let kernel_message: *u8 = slub_alloc(*len_short) as *u8;
+    if (kernel_message == null && *len_short != 0) {
+        return -8;
+    }
+    mos_strncpy(kernel_message, *message as *u8, *len_short);
+
 
     let tcb_recv = get_tcb();
     assert!(tcb_recv != null);
 
     let new_message : message_node;
     new_message.buffer_addr = long_dest;
-    new_message.message = *message;
+    new_message.message = kernel_message as *u32;
     new_message.buffer_len = len_long;
 
     let message_buf: *u32;
@@ -162,7 +179,8 @@ fn ipc_recv(long_dest: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 
             &message_buf, timeout, RECV);
 
     if (node_send == null) {
-        *message = message_buf;
+        mos_strncpy(*message as *u8, message_buf as *u8, *len_short);
+
         // TODO make sure this can't be a success case; only for timeouts
         if (message_buf == null) {
             return -2
@@ -172,6 +190,8 @@ fn ipc_recv(long_dest: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 
     }
 
     let m_node = node_send->message as *message_node;
+    let send_message = m_node->message as *u8;
+
     assert!(is_user_addr(m_node->buffer_addr));
 
     let transfer_len = min!(len_long as u32, m_node->buffer_len as u32);
@@ -189,10 +209,10 @@ fn ipc_recv(long_dest: *u8, message: **u32, len_long: u32, timeout: u32) -> i32 
 
     // TODO compose message as response
 
-    rend_signal(*message, node_send, RECV);
-    *message = m_node->message;
+    rend_signal(kernel_message as *u32, node_send, RECV);
+    //*message = m_node->message;
     assert!((*message) as u32 != get_tcb()->tid);
-
+    mos_strncpy(*message as *u8, send_message, *len_short);
     transfer_len as i32
 }
 

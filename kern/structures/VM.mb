@@ -124,9 +124,10 @@ fn enable_paging() {
     set_cr4(cr4 | (1 << 4));
 
     // set the paging bit in cr0 to enable paging
-    // set write protect bit so we fault on read-only pages in the kernel
+    // NOTE we were faulting on read-only pages, but aren't any more.  Is this
+    // bad?
     let cr0: u32 = get_cr0();
-    cr0|= ((1 << 31) | (1 << 16));
+    cr0|= ((1 << 31));
     set_cr0(cr0);
 }
 
@@ -520,7 +521,6 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
     assert!(frame_orig_addr != null);
     let frame_orig: *u8 = *frame_orig_addr;
-    printf!("COW addr %p has frame %p\n", log_addr, frame_orig);
 
     // if we are the only one holding the page, let's make it writable again
     if (get_frame_ref(frame_orig) == 1) {
