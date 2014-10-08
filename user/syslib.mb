@@ -44,7 +44,7 @@ fn perform(filename: *u8) -> i32 {
 }
 
 // TODO ipc send and recv need to be able to pass more args
-fn ipc_send(id: u32, addr_send: *u8, message: **u8, len: u32, len_short: *u32, timeout: u32) -> i32 {
+fn ipc_send(id: u32, addr_send: *u8, message: *u8, len: u32, len_short: *u32, timeout: u32) -> i32 {
 				syscall_5(shared::syscall_consts::INT_IPC_SEND, id, addr_send as u32,
 												message as u32, len, len_short as u32) as i32
 }
@@ -54,7 +54,7 @@ fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
 												size) as i32
 }
 
-fn ipc_recv(addr_recv: *u8, message: **u8, len: u32, len_short: *u32, timeout: u32) -> i32 {
+fn ipc_recv(addr_recv: *u8, message: *u8, len: u32, len_short: *u32, timeout: u32) -> i32 {
 				syscall_4(shared::syscall_consts::INT_IPC_RECV, addr_recv as u32,
 												message as u32, len, len_short as u32) as i32
 }
