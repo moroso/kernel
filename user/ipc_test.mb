@@ -13,25 +13,23 @@ fn main() -> i32 {
             printf!("calling new_pages on address %p\n", page);
             syslib::new_pages(page, 4096, 1024);
             *(page as *u32) = ret;
-            let message: *u8 = "abc";
-            printf!("thread %d sent page %p with message %p\n", syslib::get_tid(),
-                    page, message);
-            let short_size = 4;
+            let message: *u8 = "parent thread";
+            printf!("sending %s\n", message);
+            let short_size = 13;
             let send_ret = syslib::ipc_send(ret, page, &message, 4096,
                     &short_size, 0);
-            printf!("thread %d received message %s from send\n", syslib::get_tid(),
-                    message);
+            printf!("thread %d received message %s from send (%d)\n", syslib::get_tid(),
+                    message, send_ret);
             
 
         } else {
             printf!("thread %d repled thread %d\n", ret, syslib::get_tid());
             let page = 0xDEADB000  + 4096 as *u8;
 
-            let message: *u8 = "cde";
-
-            let len_short = 4;
+            let message: *u8 = "child thread ";
+            let len_short = 13;
             let recv_ret = syslib::ipc_recv(page, &message as **u8, 4096, &len_short, 0);
-            printf!("recv received message %s\n", message);
+            printf!("recv received message %s (%d)\n", message, recv_ret);
             
             syslib::abscond(1);
         }

@@ -43,7 +43,7 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
         return -2;
     }
     // allocate an additional page for the user stack
-    let user_esp = header.load_addr + header.mapping_size + PAGE_SIZE;
+    let user_esp = header.load_addr + header.mapping_size +  2 * PAGE_SIZE;
 
     /* allocate the full mapping size */
     if (new_user_range(header.load_addr as *u8, user_esp as *u8,
