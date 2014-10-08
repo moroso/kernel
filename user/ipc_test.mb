@@ -15,8 +15,8 @@ fn main() -> i32 {
             *(page as *u32) = ret;
             let message: *u8 = "parent thread";
             printf!("sending %s\n", message);
-            let short_size = 13;
-            let send_ret = syslib::ipc_send(ret, page, &message, 4096,
+            let short_size = 14;
+            let send_ret = syslib::ipc_send(ret, page, message, 4096,
                     &short_size, 0);
             printf!("thread %d received message %s from send (%d)\n", syslib::get_tid(),
                     message, send_ret);
@@ -27,8 +27,8 @@ fn main() -> i32 {
             let page = 0xDEADB000  + 4096 as *u8;
 
             let message: *u8 = "child thread ";
-            let len_short = 13;
-            let recv_ret = syslib::ipc_recv(page, &message as **u8, 4096, &len_short, 0);
+            let len_short = 14;
+            let recv_ret = syslib::ipc_recv(page, message, 4096, &len_short, 0);
             printf!("recv received message %s (%d)\n", message, recv_ret);
             
             syslib::abscond(1);

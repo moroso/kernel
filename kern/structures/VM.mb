@@ -523,7 +523,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
 
     assert!(frame_orig_addr != null);
-    let frame_orig: *u8 = *frame_orig_addr as *u32 as *u8;
+    let frame_orig: *u8 = *frame_orig_addr;
 
     // if we are the only one holding the page, let's make it writable again
     if (get_frame_ref(frame_orig) == 1) {
