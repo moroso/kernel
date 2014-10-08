@@ -8,7 +8,6 @@ fn mos_strncpy(buffer: *u8, string: *u8, len: u32) {
             break;
         }
     }
-
 }
 
 

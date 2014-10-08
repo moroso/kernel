@@ -3,6 +3,7 @@
  *
 */
 use utils::stdlib::*;
+use utils::string::*;
 use structures::VM::*;
 
 
@@ -29,3 +30,29 @@ fn copy_to_user(to: *u8, from: *u8, n: u32) -> i32 {
     mos_memcpy(to, from, n);
     0
 }
+
+
+fn copy_string_to_user(to: *u8, from: *u8, n: u32) -> i32 {
+    // validation here 
+    if (!is_user_addr(to)) {
+        return -1;
+    }
+    if (!is_kernel_addr(from)) {
+        return -2;
+    }
+    mos_strncpy(to, from, n);
+    0
+}
+
+fn copy_string_from_user(to: *u8, from: *u8, n: u32) -> i32 {
+    // validation here 
+    if (!is_user_addr(from)) {
+        return -1;
+    }
+    if (!is_kernel_addr(to)) {
+        return -2;
+    }
+    mos_strncpy(to, from, n);
+    0
+}
+
