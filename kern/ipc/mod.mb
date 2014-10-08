@@ -51,12 +51,8 @@ struct message_node {
  * timeout: time (in ms) before we return failure 
 */
 fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
-    /* we're not currently reading in these args from userspace, so we set them
-     * here */
-    len_long = 4096; 
-    timeout = 0; 
 
-    if (!is_user_addr(long_src)) {
+    if (!is_user_addr(long_src) && len_long != 0) {
         return -3;
     }  
 
@@ -178,9 +174,8 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
  * timeout: time (in ms) before we give up waiting and return failure
  */
 fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
-    len_long = 4096 * 2;
 
-    if (!is_user_addr(long_dest)) {
+    if (!is_user_addr(long_dest) && len_long != 0) {
         return -3;
     }  
 
@@ -192,7 +187,6 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
     if (copy_from_user(kernel_message, message as *u8, *len_short) < 0) {
         return -9;
     }
-
 
     let tcb_recv = get_tcb();
     assert!(tcb_recv != null);
@@ -229,7 +223,7 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
     let send_message = m_node->message;
     let send_len = m_node->message_len;
 
-    assert!(is_user_addr(m_node->long_addr));
+    assert!(is_user_addr(m_node->long_addr) || m_node->long_len == 0);
 
     let transfer_len = min!(len_long as u32, m_node->long_len as u32);
 

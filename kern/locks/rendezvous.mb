@@ -5,6 +5,8 @@ use structures::schedule::*;
 use consts::*;
 
 const SEND: u32 = 0;
+const SEND_SYNC: u32 = 0;
+const SEND_ASYNC: u32 = 0;
 const RECV: u32 = 1;
 
 struct rend_node {
@@ -35,7 +37,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
     let other_head: *list_head;
     let own_head: *list_head;
 
-    if (option == SEND) {
+    if (option == SEND_SYNC || option == SEND_ASYNC) {
         other_head = &rend->recv_head;
         own_head = &rend->send_head;
     } else {
@@ -56,14 +58,18 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
     
     let my_node: rend_node;
     my_node.timeout = timeout;
-    my_node.tcb = get_tcb();
+    if (option == SEND_SYNC) {
+        my_node.tcb = get_tcb();
+    }
     my_node.message = message;
     my_node.message_len = message_len;
 
     // TODO timeout queue
     list_insert_tail(&my_node.rend_link, own_head);
 
-    scheduler_update(STATE_COND as i32);
+    if (option == SEND_SYNC) {
+        scheduler_update(STATE_COND as i32);
+    }
     *message_recv = my_node.message; 
     *recv_len = my_node.message_len;
     cond_preempt_enable(enable);
@@ -74,6 +80,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
 
 /* give new message to rend_node and wake it up */
 fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, option: u32) {
+    assert!(rend_node->tcb != null);
     rend_node->message = message;
     rend_node->message_len = message_len;
     let enable = cond_preempt_disable();

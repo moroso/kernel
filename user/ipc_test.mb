@@ -20,7 +20,7 @@ fn main() -> i32 {
             }
             printf!("sending %s\n", &message[0]);
             let short_size = 14;
-            let send_ret = syslib::ipc_send(ret, page, &message[0], 4096,
+            let send_ret = syslib::ipc_send(ret, null, &message[0], 0,
                     &short_size, 0);
             printf!("thread %d received message %s from send (%d)\n", syslib::get_tid(),
                     &message[0], send_ret);
