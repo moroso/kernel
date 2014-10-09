@@ -3,10 +3,12 @@ use structures::tcb::*;
 use utils::list::*;
 use structures::schedule::*;
 use consts::*;
+use utils::slab_alloc::*;
+use utils::stdlib::*;
 
 const SEND: u32 = 0;
 const SEND_SYNC: u32 = 0;
-const SEND_ASYNC: u32 = 0;
+const SEND_ASYNC: u32 = 2;
 const RECV: u32 = 1;
 
 struct rend_node {
@@ -16,6 +18,7 @@ struct rend_node {
     timeout: u32,
     timeout_link: list_node,
     rend_link: list_node,
+    option: u32,
 }
 
 struct rend {
@@ -56,22 +59,44 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
         return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
     } 
     
-    let my_node: rend_node;
-    my_node.timeout = timeout;
+    let my_node: *rend_node;
+
     if (option == SEND_SYNC) {
-        my_node.tcb = get_tcb();
+        let stack_node: rend_node;
+        my_node = &stack_node;
+    } else {
+        my_node = slub_alloc(sizeof(rend_node)) as *rend_node;
+        if (my_node == null) {
+            return null; // TODO represent err 
+        }
+        let new_message = slub_alloc(message_len) as *u32;
+        // TODO this policy is bad.  possible rend needs a better interface 
+        if (new_message == null) {
+            slub_free(my_node as *u32, sizeof(rend_node));
+            return null // TODO err
+        }
+        mos_memcpy(new_message as *u8, message as *u8, message_len);
+        message = new_message;
     }
-    my_node.message = message;
-    my_node.message_len = message_len;
+
+    my_node->timeout = timeout;
+
+    if (option == SEND_SYNC) {
+        my_node->tcb = get_tcb();
+    }
+
+    my_node->message = message;
+    my_node->message_len = message_len;
+    my_node->option = option;
 
     // TODO timeout queue
-    list_insert_tail(&my_node.rend_link, own_head);
+    list_insert_tail(&my_node->rend_link, own_head);
 
     if (option == SEND_SYNC) {
         scheduler_update(STATE_COND as i32);
     }
-    *message_recv = my_node.message; 
-    *recv_len = my_node.message_len;
+    *message_recv = my_node->message; 
+    *recv_len = my_node->message_len;
     cond_preempt_enable(enable);
 
     null
@@ -79,8 +104,14 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
 
 
 /* give new message to rend_node and wake it up */
-fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, option: u32) {
-    assert!(rend_node->tcb != null);
+fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node) {
+    if (rend_node->tcb == null) {
+        if (rend_node->message != null) {
+            slub_free(rend_node->message, rend_node->message_len); // TODO not this 
+        }
+        slub_free(rend_node as *u32, sizeof(rend_node));
+        return ();
+    }
     rend_node->message = message;
     rend_node->message_len = message_len;
     let enable = cond_preempt_disable();
