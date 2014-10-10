@@ -1,4 +1,4 @@
-/* user_mem.mb 
+/* user_mem.mb
  * contains dummy functions for copying memory to and from userspace
  *
 */
@@ -6,53 +6,31 @@ use utils::stdlib::*;
 use utils::string::*;
 use structures::VM::*;
 
+extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
 
 fn copy_from_user(to: *u8, from: *u8, n: u32) -> i32 {
-    // validation here 
-    if (!is_user_addr(from)) {
-        return -1;
-    }
-    if (!is_kernel_addr(to)) {
-        return -2;
-    }
-    mos_memcpy(to, from, n);
-    0
+    if (!is_user_addr(from) || !is_user_addr(from+n)) { return -1; }
+    assert!(is_kernel_addr(to));
+    userspace_copy(to, from, n)
 }
 
 fn copy_to_user(to: *u8, from: *u8, n: u32) -> i32 {
-    // validation here 
-    if (!is_user_addr(to)) {
-        return -1;
-    }
-    if (!is_kernel_addr(from)) {
-        return -2;
-    }
-    mos_memcpy(to, from, n);
-    0
-}
-
-
-fn copy_string_to_user(to: *u8, from: *u8, n: u32) -> i32 {
-    // validation here 
-    if (!is_user_addr(to)) {
-        return -1;
-    }
-    if (!is_kernel_addr(from)) {
-        return -2;
-    }
-    mos_strncpy(to, from, n);
-    0
+    if (!is_user_addr(to) || !is_user_addr(to + n)) { return -1; }
+    assert!(is_kernel_addr(from));
+    userspace_copy(to, from, n)
 }
 
 fn copy_string_from_user(to: *u8, from: *u8, n: u32) -> i32 {
-    // validation here 
-    if (!is_user_addr(from)) {
-        return -1;
+    let c: u8;
+    let i: u32;
+    for (i = 0; i < n; i += 1) {
+        if (copy_to_user(to+i, from+i, 1) < 0) {
+            return -1;
+        }
+        if (to[i] == 0) {
+            return i as i32;
+        }
     }
-    if (!is_kernel_addr(to)) {
-        return -2;
-    }
-    mos_strncpy(to, from, n);
-    0
+    // String not shorter than the length
+    -1
 }
-
