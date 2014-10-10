@@ -59,3 +59,8 @@ fn ipc_recv(addr_recv: *u8, message: *u8, len: u32, len_short: *u32, timeout: u3
 												message as u32, len, len_short as u32) as i32
 }
 
+fn reply(message: *u8, message_len: u32) -> i32 {
+    syscall_2(shared::syscall_consts::INT_IPC_REPLY, message as u32,
+            message_len) as i32
+}
+

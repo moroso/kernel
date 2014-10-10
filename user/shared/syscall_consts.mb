@@ -8,3 +8,4 @@ const INT_PERFORM: u32 = 8;
 const INT_IPC_SEND: u32 = 9;
 const INT_IPC_RECV: u32 = 10;
 const INT_NEW_PAGES: u32 = 11;
+const INT_IPC_REPLY: u32 = 12;
