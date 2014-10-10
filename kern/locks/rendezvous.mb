@@ -6,7 +6,6 @@ use consts::*;
 use utils::slab_alloc::*;
 use utils::stdlib::*;
 
-const SEND: u32 = 0;
 const SEND_SYNC: u32 = 0;
 const SEND_ASYNC: u32 = 2;
 const RECV: u32 = 1;
@@ -68,6 +67,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
         own_head = &rend->recv_head;
     }
 
+    /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
         let other_node: *rend_node = list_head_entry!(other_head,
                 rend_node, rend_link);
