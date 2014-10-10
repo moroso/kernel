@@ -1,3 +1,4 @@
+use consts;
 use structures::tcb::gpregs;
 use structures::VM::*;
 use structures::schedule::*;
@@ -65,24 +66,36 @@ fn entry_init() {
 
 extern fn pic_acknowledge_any_master();
 
+struct exception_record {
+    try: u32,
+    catch: u32
+}
+extern static user_copy_handler: exception_record;
 
 fn page_fault_handler(regs: *uregs) {
-  let PD: *PD_t = &(get_tcb()->proc->PD);
-  let log_addr: *u8 = get_cr2() as *u8;
-  let frame_addr: **u8 = log_to_phys(log_addr, PD);
+    // If this happened at the try address userspace copy, then return
+    // to the catch address.
+    if regs->cs == consts::USER_CS && regs->eip == user_copy_handler.try {
+        regs->eip = user_copy_handler.catch;
+        return ();
+    }
 
-  // if page is COW page, copy info onto new frame and replace
-  if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
-      cow_copy(log_addr, PD);
-  } else {
-      let tid: u32 = -1;
-      if (get_tcb() != null) {
-          tid = get_tcb()->tid;
-      }
-      printf!("Thread %d Page Fault on address 0x%x, instruction 0x%x\n", tid,
-              log_addr, regs->eip);
-      assert!(false);
-  }
+    let PD: *PD_t = &(get_tcb()->proc->PD);
+    let log_addr: *u8 = get_cr2() as *u8;
+    let frame_addr: **u8 = log_to_phys(log_addr, PD);
+
+    // if page is COW page, copy info onto new frame and replace
+    if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
+        cow_copy(log_addr, PD);
+    } else {
+        let tid: u32 = -1;
+        if (get_tcb() != null) {
+            tid = get_tcb()->tid;
+        }
+        printf!("Thread %d Page Fault on address 0x%x, instruction 0x%x\n", tid,
+                log_addr, regs->eip);
+        assert!(false);
+    }
 }
 
 fn timer_handler(regs: *uregs) {

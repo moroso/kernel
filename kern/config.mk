@@ -2,7 +2,7 @@
 # super hacky build system for testing the kernel on x86.
 
 KERN_GAME_OBJS = kernel.o fs_img.o hacks.o \
-	context/context.o entry/entry_stubs_x86.o entry/entry_x86.o utils/invalidate_tlb.o
+	context/context.o entry/entry_stubs_x86.o entry/entry_x86.o utils/invalidate_tlb.o utils/validate_x86.o
 
 
 TABSTOP = 4
