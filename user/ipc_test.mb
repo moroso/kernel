@@ -38,6 +38,9 @@ fn main() -> i32 {
 
             let len_short = 14;
             let recv_ret = syslib::ipc_recv(page, &message[0], 4096, &len_short, 0);
+
+            let ret = syslib::reply(null, 0);
+            printf!("reply ret is %d\n", ret);
             printf!("recv received message %s (%d)\n", &message[0], recv_ret);
 
             syslib::abscond(1);

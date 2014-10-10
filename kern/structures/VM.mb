@@ -534,6 +534,9 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     // otherwise, we make a new page and copy it over
     let frame_size = get_frame_size(log_addr, PD);
     let frame_new: *u8 = get_frame(frame_size);
+    assert!(frame_new != null);  // this assert trips if we run out of frames,
+    // but should not once we deal with overcommitting
+
     mos_memcpy(frame_new, get_aligned_addr(frame_orig as *u32) as *u8, 4 * frame_size);
     free_page(log_addr, PD); // removes page and decs ref count
     let set_page_result = set_page(frame_new, log_addr, PD,

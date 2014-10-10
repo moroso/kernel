@@ -1,5 +1,5 @@
 /* user_mem.mb
- * contains dummy functions for copying memory to and from userspace
+ * contains functions for copying memory to and from userspace
  *
 */
 use utils::stdlib::*;
