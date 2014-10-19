@@ -25,6 +25,7 @@ struct rend_node {
     timeout_link: list_node,
     rend_link: list_node,
     option: u32,
+    err: u32,
 }
 
 struct rend {
@@ -117,6 +118,7 @@ recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
     my_node->message = message;
     my_node->message_len = message_len;
     my_node->option = option;
+    my_node->err = 0;
 
     // TODO timeout queue
     list_insert_tail(&my_node->rend_link, own_head);
@@ -126,15 +128,15 @@ recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
     }
     *message_recv = my_node->message; 
     *recv_len = my_node->message_len;
+    *err = my_node->err;
     cond_preempt_enable(enable);
 
-    *err = 0;
     null
 }
 
 
 /* give new message to rend_node and wake it up */
-fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node) {
+fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: u32) {
     if (rend_node->tcb == null) {
         if (rend_node->message != null) {
             slub_free(rend_node->message, rend_node->message_len); // TODO not this 
@@ -142,12 +144,28 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node) {
         slub_free(rend_node as *u32, sizeof(rend_node));
         return ();
     }
+
     rend_node->message = message;
     rend_node->message_len = message_len;
+    rend_node->err = err;
+
     let enable = cond_preempt_disable();
     rend_node->tcb->state = STATE_RUNNABLE;
     schedule(rend_node->tcb, QUEUE_FRONT);
 
     // take ourselves off the run queue to be awoken with reply?
     cond_preempt_enable(enable);
+}
+
+fn rend_destroy(rend: *rend, err: u32) {
+    rend->rend_active = false;
+
+    /* we should be able to do this with preemption enabled because no more
+     * senders are going to try to send and we are the only one that receives */
+    while(!list_is_empty(&rend->recv_head) ) {
+        let wakeup_node = list_head_entry!(&rend->recv_head,
+                rend_node, rend_link);
+        list_del(&wakeup_node->rend_link);
+        rend_signal(null, 0, wakeup_node, err);  
+    }
 }
