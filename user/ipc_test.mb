@@ -22,8 +22,6 @@ fn main() -> i32 {
             let short_size = 14;
             let send_ret = syslib::ipc_send(ret, null, &message[0], 0,
                     &short_size, 0);
-            printf!("thread %d received message %s from send (%d)\n", syslib::get_tid(),
-                    &message[0], send_ret);
 
 
         } else {
@@ -32,9 +30,6 @@ fn main() -> i32 {
 
             let message: u8[14];
             let i: u32;
-            for (i = 0; i < 14; i+=1) {
-                message[i] = 'r';
-            }
 
             let len_short = 14;
             let recv_ret = syslib::ipc_recv(page, &message[0], 4096, &len_short, 0);

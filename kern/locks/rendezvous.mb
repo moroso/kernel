@@ -32,6 +32,7 @@ struct rend {
     send_head: list_head,
     recv_head: list_head,
     rend_active: bool,
+    last_send: *tcb,
 }
 
 fn rend_init(rend: *rend) {
@@ -42,7 +43,9 @@ fn rend_init(rend: *rend) {
 
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
- * *message gets set to the message of the opposing node; else, message is null */
+ * *message gets set to the message of the opposing node; else, message is null 
+ * TODO currently this does not jive well with replies.  probably need to add a
+ * feature similar to if we were using cond vars */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
     
@@ -163,9 +166,7 @@ fn rend_destroy(rend: *rend, err: u32) {
 
     /* we should be able to do this with preemption enabled because no more
      * senders are going to try to send and we are the only one that receives */
-    if (get_tcb()->tid == 2) {
-        printf!("thread %p\n", rend);
-    }
+   
     while(!list_is_empty(&rend->send_head) ) {
         let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
