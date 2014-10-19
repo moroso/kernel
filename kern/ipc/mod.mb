@@ -63,6 +63,7 @@ struct message_node {
  * len_short: length of message
  * len_long: maximum length of transfer in bytes
  * timeout: time (in ms) before we return failure 
+ * TODO tell everyone how much was copied
 */
 fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
     /* temporarily set here, should be set in userspace */
@@ -195,7 +196,7 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
         }
     }
 
-    rend_signal(kernel_message as *u32, len_short_kernel, node_recv);
+    rend_signal(kernel_message as *u32, len_short_kernel, node_recv, 0);
 
     // we are assuming some arg validation
 
@@ -341,7 +342,7 @@ fn reply(message: *u32, message_len: u32) -> i32 {
             return -9;
         }
     }
-    rend_signal(kernel_message as *u32, message_len, tcb->last_send);
+    rend_signal(kernel_message as *u32, message_len, tcb->last_send, 0);
     0
 }
 

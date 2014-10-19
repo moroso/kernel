@@ -15,6 +15,7 @@ use structures::tcb_dir::*;
 use structures::proc_dir::*;
 use structures::schedule::*;
 use structures::VM::*;
+use locks::rendezvous::*;
 
 /*
  * I wrote a kernel far too recently to want to try and use an interesting
@@ -71,7 +72,7 @@ fn abscond(status: u32)  {
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
     
-    // TODO wake up things on rend
+    rend_destroy(&get_tcb()->ipc_rend, ERR_DEAD);
     scheduler_update(STATE_DEAD as i32);
     printf!("%d, abscond returned\n", get_tcb()->tid);
     assert!(false); // no return
