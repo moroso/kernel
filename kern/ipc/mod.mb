@@ -122,10 +122,15 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
 
     let message_buf: *u32;
     let message_len: u32;
-
+    let err: u32 = 0;
     let node_recv = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
             sizeof(message_node), &message_buf, &message_len, timeout,
-            sync_option);
+            sync_option, &err);
+
+    if (err < 0) {
+        assert!(node_recv != null);
+        return -18;
+    }
 
     // if it's null, this means we went to sleep before recv, and the transfer
     // was done and we got a reply 
@@ -260,8 +265,15 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
 
     let message_buf: *u32;
     let message_len: u32;
+    let err: u32 = 0;
     let node_send = rend_wait(&tcb_recv->ipc_rend, &new_message as *u32,
-            sizeof(message_node), &message_buf, &message_len, timeout, RECV);
+            sizeof(message_node), &message_buf, &message_len, timeout, RECV,
+            &err);
+
+    if (err < 0) {
+        assert!(node_send != null);
+        return -18;
+    }
 
     if (node_send == null) {
         // TODO make sure this can't be a success case; only for timeouts
