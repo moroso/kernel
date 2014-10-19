@@ -45,7 +45,7 @@ fn rend_init(rend: *rend) {
  * *message gets set to the message of the opposing node; else, message is null */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
- 
+    
     let other_head: *list_head;
     let own_head: *list_head; 
 
@@ -131,6 +131,7 @@ recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
     *err = my_node->err;
     cond_preempt_enable(enable);
 
+    // assert!(!list_is_empty(own_head)); TODO fix
     null
 }
 
@@ -162,10 +163,14 @@ fn rend_destroy(rend: *rend, err: u32) {
 
     /* we should be able to do this with preemption enabled because no more
      * senders are going to try to send and we are the only one that receives */
-    while(!list_is_empty(&rend->recv_head) ) {
-        let wakeup_node = list_head_entry!(&rend->recv_head,
+    if (get_tcb()->tid == 2) {
+        printf!("thread %p\n", rend);
+    }
+    while(!list_is_empty(&rend->send_head) ) {
+        let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
-        list_del(&wakeup_node->rend_link);
-        rend_signal(null, 0, wakeup_node, err);  
+        printf!("%p\n", wakeup_node->tcb->tid);
+        list_del(&(wakeup_node->rend_link));
+        //rend_signal(null, 0, wakeup_node, err);  
     }
 }

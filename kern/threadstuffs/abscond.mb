@@ -32,6 +32,7 @@ fn abscond(status: u32)  {
 
     assert!(tcb != null);
     tcb_dir_remove(tcb);     
+    rend_destroy(&(get_tcb()->ipc_rend), ERR_DEAD);
 
     // if we still have a parent
 
@@ -71,8 +72,7 @@ fn abscond(status: u32)  {
     preempt_disable();
     dead_tcb = tcb;
     kmut_unlock(&abscond_lock);
-    
-    rend_destroy(&get_tcb()->ipc_rend, ERR_DEAD);
+
     scheduler_update(STATE_DEAD as i32);
     printf!("%d, abscond returned\n", get_tcb()->tid);
     assert!(false); // no return

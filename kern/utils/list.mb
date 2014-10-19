@@ -3,6 +3,7 @@
 // the whole scheme. The other macros are just convenient.
 
 use utils::macro_util::*;
+use structures::schedule::*;
 
 struct list_node {
     next: *list_node,
