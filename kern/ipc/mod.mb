@@ -20,6 +20,7 @@ use utils::stdlib::*;
 use utils::slab_alloc::*;
 use utils::string::*;
 use utils::user_mem::*;
+use utils::list::*;
 
 
 extern fn get_cr3() -> u32;
@@ -67,7 +68,7 @@ struct message_node {
 */
 fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
     /* temporarily set here, should be set in userspace */
-    let sync_option = SEND_SYNC;
+    let sync_option = SEND_ASYNC;
 
     if (*len_short >= PAGE_SIZE) {
         return -13;
@@ -237,6 +238,8 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
  */
 fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
 
+  
+
     /* if we haven't replied to our last message, reuturn with error */
     if (get_tcb()->last_send != null) {
         return -12;
@@ -312,7 +315,10 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
         }
     }
 
-    get_tcb()->last_send = node_send;
+    // TODO put in rend
+    if (node_send->option != SEND_ASYNC) {
+        get_tcb()->last_send = node_send;
+    }
 
     // this gets encapsulated in user mem validation
     if (copy_to_user(message as *u8, send_message, min(*len_short, send_len)) <
@@ -330,6 +336,12 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
 fn reply(message: *u32, message_len: u32) -> i32 {
     let tcb = get_tcb();
     if (tcb->last_send == null) {
+        if (list_is_empty(&(get_tcb()->ipc_rend.recv_head))) {
+            printf!("%d EMPTY\n", get_tcb()->tid);
+        } else {
+            printf!("%d NONEMPTY (%p) \n", get_tcb()->tid, &(get_tcb()->ipc_rend.recv_head));
+
+        }
         return -1;
     }
     let kernel_message: *u8 = null;
@@ -342,6 +354,7 @@ fn reply(message: *u32, message_len: u32) -> i32 {
             return -9;
         }
     }
+
     rend_signal(kernel_message as *u32, message_len, tcb->last_send, 0);
     0
 }
