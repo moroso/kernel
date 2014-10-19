@@ -6,9 +6,14 @@ use consts::*;
 use utils::slab_alloc::*;
 use utils::stdlib::*;
 
+/* sync options */
 const SEND_SYNC: u32 = 0;
 const SEND_ASYNC: u32 = 2;
 const RECV: u32 = 1;
+
+/* error options */
+const ERR_MEM: u32 = -1;
+const ERR_TIMEOUT: u32 = -2;
 
 struct rend_node {
     message: *u32,
@@ -33,7 +38,8 @@ fn rend_init(rend: *rend) {
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
  * *message gets set to the message of the opposing node; else, message is null */
-fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, recv_len: *u32, timeout: u32, option: u32) -> *rend_node {
+fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
+recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
 
     let enable = cond_preempt_disable();
     let other_head: *list_head;
@@ -46,13 +52,15 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
     } else {
         my_node = slub_alloc(sizeof(rend_node)) as *rend_node;
         if (my_node == null) {
-            return null; // TODO represent err 
+            *err = ERR_MEM;
+            return null;  
         }
         let new_message = slub_alloc(message_len) as *u32;
         // TODO this policy is bad.  possible rend needs a better interface 
         if (new_message == null) {
             slub_free(my_node as *u32, sizeof(rend_node));
-            return null // TODO err
+            *err = ERR_MEM;
+            return null 
         }
         mos_memcpy(new_message as *u8, message as *u8, message_len);
         message = new_message;
@@ -79,9 +87,9 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
             slub_free(my_node as *u32, sizeof(rend_node));
             slub_free(message, message_len);
         }
+        *err = 0;
         return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
     } 
-
 
     my_node->timeout = timeout;
 
@@ -103,6 +111,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32, 
     *recv_len = my_node->message_len;
     cond_preempt_enable(enable);
 
+    *err = 0;
     null
 }
 
