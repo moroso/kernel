@@ -169,8 +169,7 @@ fn rend_destroy(rend: *rend, err: u32) {
     while(!list_is_empty(&rend->send_head) ) {
         let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
-        printf!("%p\n", wakeup_node->tcb->tid);
         list_del(&(wakeup_node->rend_link));
-        //rend_signal(null, 0, wakeup_node, err);  
+        rend_signal(null, 0, wakeup_node, err);  
     }
 }
