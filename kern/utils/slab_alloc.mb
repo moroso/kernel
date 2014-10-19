@@ -19,6 +19,7 @@ use consts::*;
 use utils::list::*;
 use utils::buddy_alloc::{frame_alloc,frame_alloc_pow2};
 use locks::mutex::*;
+use structures::schedule::*;
 
 
 const SLAB_SIZE: u32 = PAGE_SIZE; /* this really isn't the right size*/
