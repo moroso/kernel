@@ -9,11 +9,13 @@ use utils::stdlib::*;
 /* sync options */
 const SEND_SYNC: u32 = 0;
 const SEND_ASYNC: u32 = 2;
+const SEND_SYNC_NOREPLY: u32 = 3;
 const RECV: u32 = 1;
 
 /* error options */
 const ERR_MEM: u32 = -1;
 const ERR_TIMEOUT: u32 = -2;
+const ERR_DEAD: u32 = -3;
 
 struct rend_node {
     message: *u32,
@@ -28,11 +30,13 @@ struct rend_node {
 struct rend {
     send_head: list_head,
     recv_head: list_head,
+    rend_active: bool,
 }
 
 fn rend_init(rend: *rend) {
     list_init_head(&rend->recv_head);
     list_init_head(&rend->send_head);
+    rend->rend_active = true;
 }
 
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
@@ -40,13 +44,12 @@ fn rend_init(rend: *rend) {
  * *message gets set to the message of the opposing node; else, message is null */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
-
-    let enable = cond_preempt_disable();
+ 
     let other_head: *list_head;
     let own_head: *list_head; 
 
     let my_node: *rend_node; 
-    if (option == SEND_SYNC) {
+    if (option != SEND_ASYNC) {
         let stack_node: rend_node;
         my_node = &stack_node;
     } else {
@@ -60,19 +63,32 @@ recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
         if (new_message == null) {
             slub_free(my_node as *u32, sizeof(rend_node));
             *err = ERR_MEM;
+
             return null 
         }
         mos_memcpy(new_message as *u8, message as *u8, message_len);
         message = new_message;
     }
 
-    if (option == SEND_SYNC || option == SEND_ASYNC) {
+    if (option == SEND_SYNC || option == SEND_ASYNC || option ==
+            SEND_SYNC_NOREPLY) {
         other_head = &rend->recv_head;
         own_head = &rend->send_head;
     } else {
         assert!(option == RECV);
         other_head = &rend->send_head;
         own_head = &rend->recv_head;
+    }
+
+    let enable = cond_preempt_disable();
+
+    if (!rend->rend_active) {
+        *err = ERR_DEAD; 
+        if (option == SEND_ASYNC) {
+            slub_free(my_node as *u32, sizeof(rend_node));
+            slub_free(message as *u32, message_len);
+        }
+        return null;
     }
 
     /* see if there is another node on the other side to grab */
@@ -88,6 +104,7 @@ recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
             slub_free(message, message_len);
         }
         *err = 0;
+        cond_preempt_enable(enable);
         return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
     } 
 
