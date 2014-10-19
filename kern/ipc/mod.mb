@@ -13,7 +13,7 @@ use locks::mutex::*;
 use locks::cond::*;
 use consts::STATE_DEAD;
 use structures::schedule::get_tcb;
-use structures::VM::{is_user_addr, page_transfer, log_to_phys};
+use structures::VM::{is_user_addr, page_transfer, log_to_phys, is_addr_aligned};
 use locks::rendezvous::*;
 use consts::*;
 use utils::stdlib::*;
@@ -54,8 +54,7 @@ struct message_node {
  * Requires that long_src be mapped in and be a user address. Requires that
  * len_short be less than PAGE_SIZE
  * Transfer removes mapping ar addr src and stores the frames at long_dest
- * Returns successful length of section copied, 0 if receiver performed transfer
- * sycnhronously, or 1 if message was asynchronous.  A negative error
+ * Returns 0 on synchronous success, 1 if message was asynchronous.  A negative error
  * value is returned on error.
  *
  * id: currently the TID of the receiving tcb
@@ -66,34 +65,45 @@ struct message_node {
  * timeout: time (in ms) before we return failure 
 */
 fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
+    /* temporarily set here, should be set in userspace */
     let sync_option = SEND_SYNC;
 
     if (*len_short >= PAGE_SIZE) {
         return -13;
     }
 
-    if (!is_user_addr(long_src) && len_long != 0) {
+    if (len_long < 0 || *len_short < 0) {
+        return -14;
+    }
+
+    /* ensure length is multiple of page */
+    if (len_long%PAGE_SIZE != 0) {
+        return -15;
+    }
+
+    let len_short_kernel: u32;
+    if (copy_from_user(&len_short_kernel as *u8, len_short as *u8, sizeof(u32))
+            < 0) {
+        return -16;
+    }
+
+    if ((!is_user_addr(long_src) || !is_addr_aligned(long_src)) && len_long != 0) {
         return -3;
     }  
 
     // we are assuming some arg validation
-    let kernel_message: *u8 = slub_alloc(*len_short) as *u8;
-    if (kernel_message == null && *len_short != 0) {
+    let kernel_message: *u8 = slub_alloc(len_short_kernel) as *u8;
+    if (kernel_message == null && len_short_kernel != 0) {
         return -8;
     }
 
-    if (copy_from_user(kernel_message, message as *u8, *len_short) < 0) {
-        return -9;
-    }
-
-    /* if source address isn't mapped in, return failure */
-    let page: u32;
-    for (page = 0; page < len_long + PAGE_SIZE; page+=PAGE_SIZE) {
-
-        if (log_to_phys(long_src + page, &(get_tcb()->proc->PD)) == null) {
-            return -7;
+    if (len_short_kernel > 0) {
+        if (copy_from_user(kernel_message, message as *u8, len_short_kernel) < 0) {
+            return -9;
         }
     }
+
+    // TODO have better way of returning error from receiver 
 
     /* find the receiving tcb -- it cannot go away as long as we're looking at
      * it */
@@ -107,7 +117,7 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
     let new_message: message_node;
     new_message.long_addr = long_src as *u8;
     new_message.message = kernel_message;
-    new_message.message_len = *len_short;
+    new_message.message_len = len_short_kernel;
     new_message.long_len = len_long;
 
     let message_buf: *u32;
@@ -126,19 +136,27 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
         }
 
         if (message_len > 0) {
-            if (copy_to_user(message as *u8, message_buf as *u8, min(*len_short,
+            if (copy_to_user(message as *u8, message_buf as *u8,
+                        min(len_short_kernel,
                             message_len)) < 0) {
                 slub_free(message_buf, message_len);
+                tcb_end_lookup(tcb_recv);
                 return -10;
             } 
             slub_free(message_buf, message_len);
         } else {
-            mos_memset(message, 0, *len_short);
-        }
+            mos_memset(message, 0, len_short_kernel);
+        } 
 
         tcb_end_lookup(tcb_recv);
+
         // TODO check message to see if we timed out and should return failure
 
+        len_short_kernel = min(len_short_kernel, message_len);
+        if (copy_to_user(len_short as *u8, &len_short_kernel as *u8,
+                    sizeof(u32)) < 0) {
+            return -16;
+        }
         return 0;
     } 
 
@@ -159,6 +177,9 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
         return -4;
     }
     let transfer_len = min!(len_long as u32, m_node->long_len as u32);
+
+    // TODO grab VM lock; check if mem is valid 
+    let page: u32;
     for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
         if (page_transfer(long_src + page, m_node->long_addr + page, &(get_tcb()->proc->PD),
                     &(proc_recv->PD), 0) < 0) {
@@ -169,23 +190,29 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
         }
     }
 
-    // TODO compose message as response
-
-    rend_signal(kernel_message as *u32, *len_short, node_recv);
+    rend_signal(kernel_message as *u32, len_short_kernel, node_recv);
 
     // we are assuming some arg validation
 
-    if (copy_to_user(message as *u8, recv_message, min(*len_short, recv_len)) <
+    if (copy_to_user(message as *u8, recv_message, min(len_short_kernel, recv_len)) <
             0) {
 
         slub_free(recv_message as *u32, recv_len);
+        tcb_end_lookup(tcb_recv);
+
         return -11;
     }
     slub_free(recv_message as *u32, recv_len);
 
     tcb_end_lookup(tcb_recv);
 
-    transfer_len as i32
+    len_short_kernel = min(len_short_kernel, message_len);
+    if (copy_to_user(len_short as *u8, &len_short_kernel as *u8, sizeof(u32)) <
+            0) {
+        return -16;
+    }
+
+    0
 }
 
 /* 
