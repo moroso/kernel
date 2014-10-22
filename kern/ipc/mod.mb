@@ -68,21 +68,19 @@ struct message_node {
 */
 fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32, timeout: u32) -> i32 {
     /* temporarily set here, should be set in userspace */
-    let sync_option = SEND_SYNC;
+    let sync_option = SEND_SYNC_REPLY;
 
     if (*len_short >= PAGE_SIZE) {
         return -13;
     }
-
     if (len_long < 0 || *len_short < 0) {
         return -14;
     }
-
     /* ensure length is multiple of page */
     if (len_long%PAGE_SIZE != 0) {
         return -15;
     }
-
+    
     let len_short_kernel: u32;
     if (copy_from_user(&len_short_kernel as *u8, len_short as *u8, sizeof(u32))
             < 0) {
@@ -98,10 +96,8 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
         return -8;
     }
 
-    if (len_short_kernel > 0) {
-        if (copy_from_user(kernel_message, message as *u8, len_short_kernel) < 0) {
-            return -9;
-        }
+    if (copy_from_user(kernel_message, message as *u8, len_short_kernel) < 0) {
+        return -9;
     }
 
     /* find the receiving tcb -- it cannot go away as long as we're looking at
@@ -155,10 +151,18 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
         tcb_end_lookup(tcb_recv);
 
         // TODO check message to see if we timed out and should return failure
+
+        len_short_kernel = min(len_short_kernel, message_len);
+        if (copy_to_user(len_short as *u8, &len_short_kernel as *u8,
+                    sizeof(u32)) < 0) {
+            return -16;
+        }
         return 0;
     } 
 
     let m_node = node_recv->message as *message_node;
+    let recv_message = m_node->message;
+    let recv_len = m_node->message_len;
 
     assert!(is_user_addr(m_node->long_addr));
 
@@ -199,6 +203,12 @@ fn ipc_send(id: u32, long_src: *u8, message: *u8, len_long: u32, len_short: *u32
     slub_free(recv_message as *u32, recv_len);
 
     tcb_end_lookup(tcb_recv);
+
+    len_short_kernel = min(len_short_kernel, message_len);
+    if (copy_to_user(len_short as *u8, &len_short_kernel as *u8, sizeof(u32)) <
+            0) {
+        return -16;
+    }
 
     0
 }
@@ -270,17 +280,18 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
 
     if (node_send == null) {
         // TODO make sure this can't be a success case; only for timeouts
-        if (message_buf == null) {
+        if (message_buf == null || message_len <= 0) {
             return -2
         }
+
         if (copy_to_user(message as *u8, message_buf as *u8, min(message_len,
                         kernel_len_short)) < 0) {
-            slub_free(message_buf, message_len);
+            //slub_free(message_buf, message_len);
             return -12;
 
         }
 
-        slub_free(message_buf, message_len);
+        //slub_free(message_buf, message_len);
 
         kernel_len_short = min(message_len, kernel_len_short);
         if (copy_to_user(len_short as *u8, &kernel_len_short as *u8,
