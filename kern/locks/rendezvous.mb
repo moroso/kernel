@@ -136,7 +136,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     if (option != SEND_ASYNC) {
         scheduler_update(STATE_COND as i32);
         if (my_node->err == ERR_REPLAY) {
-            // this is sorta bad.  it is made more ok by the guarantee that
+            // TODO this is sorta bad.  it is made more ok by the guarantee that
             // we recurse only once, and there are no dynamic mem
             // allocations to worry about
             assert!(option == RECV);
@@ -150,7 +150,10 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     *err = my_node->err;
     cond_preempt_enable(enable);
 
-    // assert!(!list_is_empty(own_head)); TODO fix
+    if (option == RECV) {
+        assert!(!list_is_empty(own_head)); 
+    }
+
     null
 }
 
