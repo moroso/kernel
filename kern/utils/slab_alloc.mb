@@ -102,7 +102,7 @@ fn cache_create(size: u32, cache: *cache_head) -> i32 {
 /* remove an element from the given cache.  if cache is empty, a new slab is
  * allocated  */
 fn cache_remove (cache: *cache_head) -> *u32 {
-    
+
     kmut_lock(&cache->mut);
     if (cache->slab == null) {
         slab_add(cache->size, cache);
@@ -149,6 +149,9 @@ fn slub_alloc(size: u32) -> *u32 {
 }
 
 fn slub_free(element: *u32, size: u32) {
+    if (size == 0) {
+        return ();
+    }
     let cache_num: i32 = find_cache(size);
     if (cache_num == -1) {
         return ();
