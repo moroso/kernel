@@ -286,12 +286,12 @@ fn ipc_recv(long_dest: *u8, message: *u8, len_long: u32, len_short: *u32, timeou
 
         if (copy_to_user(message as *u8, message_buf as *u8, min(message_len,
                         kernel_len_short)) < 0) {
-            //slub_free(message_buf, message_len);
+            slub_free(message_buf, message_len);
             return -12;
 
         }
 
-        //slub_free(message_buf, message_len);
+        slub_free(message_buf, message_len);
 
         kernel_len_short = min(message_len, kernel_len_short);
         if (copy_to_user(len_short as *u8, &kernel_len_short as *u8,

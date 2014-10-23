@@ -46,11 +46,10 @@ fn rend_init(rend: *rend) {
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
  * *message gets set to the message of the opposing node; else, message is null 
- * TODO currently this does not jive well with replies.  probably need to add a
- * feature similar to if we were using cond vars */
+*/
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
-recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
-    
+        recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
+
     let other_head: *list_head;
     let own_head: *list_head; 
 
@@ -93,66 +92,66 @@ recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
 
     let enable = cond_preempt_disable();
 
-        my_node->timeout = timeout; // TODO update timeout
+    my_node->timeout = timeout; // TODO update timeout
 
 
-        if (!rend->rend_active) {
-            *err = ERR_DEAD; 
+    if (!rend->rend_active) {
+        *err = ERR_DEAD; 
+        if (option == SEND_ASYNC) {
+            slub_free(my_node as *u32, sizeof(rend_node));
+            slub_free(message as *u32, message_len);
+        }
+        return null;
+    }
+
+    /* see if there is another node on the other side to grab */
+    if (!list_is_empty(other_head)) {
+        let other_node: *rend_node = list_head_entry!(other_head,
+                rend_node, rend_link);
+        assert!(other_node != null);
+        list_del(&other_node->rend_link);
+        if (option != SEND_SYNC_REPLY) {
+            cond_preempt_enable(enable);
+            *message_recv = other_node->message;
             if (option == SEND_ASYNC) {
                 slub_free(my_node as *u32, sizeof(rend_node));
-                slub_free(message as *u32, message_len);
+                slub_free(message, message_len);
             }
-            return null;
+            *err = 0;
+            cond_preempt_enable(enable);
+
+            return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
+        } else {
+            rend_signal(null, 0, other_node, ERR_REPLAY);
         }
+    } 
 
-        /* see if there is another node on the other side to grab */
-        if (!list_is_empty(other_head)) {
-            let other_node: *rend_node = list_head_entry!(other_head,
-                    rend_node, rend_link);
-            assert!(other_node != null);
-            list_del(&other_node->rend_link);
-            if (option != SEND_SYNC_REPLY) {
-                cond_preempt_enable(enable);
-                *message_recv = other_node->message;
-                if (option == SEND_ASYNC) {
-                    slub_free(my_node as *u32, sizeof(rend_node));
-                    slub_free(message, message_len);
-                }
-                *err = 0;
-                cond_preempt_enable(enable);
+    if (option != SEND_ASYNC) {
+        my_node->tcb = get_tcb();
+    }
 
-                return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
-            } else {
-                rend_signal(null, 0, other_node, ERR_REPLAY);
-            }
-        } 
+    // TODO timeout queue
+    list_insert_tail(&my_node->rend_link, own_head);
 
-        if (option != SEND_ASYNC) {
-            my_node->tcb = get_tcb();
+    if (option != SEND_ASYNC) {
+        scheduler_update(STATE_COND as i32);
+        if (my_node->err == ERR_REPLAY) {
+            // this is sorta bad.  it is made more ok by the guarantee that
+            // we recurse only once, and there are no dynamic mem
+            // allocations to worry about
+            assert!(option == RECV);
+            cond_preempt_enable(enable);
+            return rend_wait(rend, message, message_len, message_recv,
+                    recv_len, timeout, option, err);
         }
+    }
+    *message_recv = my_node->message; 
+    *recv_len = my_node->message_len;
+    *err = my_node->err;
+    cond_preempt_enable(enable);
 
-        // TODO timeout queue
-        list_insert_tail(&my_node->rend_link, own_head);
-
-        if (option != SEND_ASYNC) {
-            scheduler_update(STATE_COND as i32);
-            if (my_node->err == ERR_REPLAY) {
-                // this is sorta bad.  it is made more ok by the guarantee that
-                // we recurse only once, and there are no dynamic mem
-                // allocations to worry about
-                assert!(option == RECV);
-                cond_preempt_enable(enable);
-                return rend_wait(rend, message, message_len, message_recv,
-                        recv_len, timeout, option, err);
-            }
-        }
-        *message_recv = my_node->message; 
-        *recv_len = my_node->message_len;
-        *err = my_node->err;
-        cond_preempt_enable(enable);
-
-        // assert!(!list_is_empty(own_head)); TODO fix
-        null
+    // assert!(!list_is_empty(own_head)); TODO fix
+    null
 }
 
 
