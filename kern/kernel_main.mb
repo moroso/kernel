@@ -46,7 +46,7 @@ fn send(recv_tid :*u8) {
 
 fn recv(dummy: *u8) {
   preempt_disable();
-  scheduler_update(STATE_FP_RECV);
+  fp_recv();
   preempt_enable();
   printf!("recv\n");
   abscond(-1);
