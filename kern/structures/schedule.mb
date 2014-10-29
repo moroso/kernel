@@ -225,8 +225,8 @@ fn scheduler_update(state: i32) {
 
 
     if (state == STATE_FP_RECV) {
-        let buffer = 0;
-        fastpath_recv(old_running, new_running, &buffer, 4);
+        let buffer: u32[5];
+        fastpath_recv(old_running, new_running, &buffer[0], 20);
     } else {
         context_switch(old_running, new_running);
     }
@@ -254,8 +254,13 @@ fn fp_send(tcb: *tcb) {
         load_PD(&(new_running->proc->PD));
     }
     
-    let send = 2;
-    fastpath_send(old_running, new_running, &send, 4);
+    let send: u32[5];
+    send[0] = 1;
+    send[1] = 2;
+    send[2] = 3;
+    send[3] = 4;
+    send[4] = 5;
+    fastpath_send(old_running, new_running, &send[0], 20);
 
     scheduler_unlock(enable);
     return ();
