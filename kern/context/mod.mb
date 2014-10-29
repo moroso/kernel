@@ -12,6 +12,9 @@ use structures::schedule::{are_ints_enabled, is_preempt_enabled, run_queue, get_
 
 extern fn actually_switch_contexts_with_asm(new_esp: *context,
                                             old_esp: **context);
+extern fn fastpath_send_switch(new_esp: *context, old_esp: **context, eax: u32);
+extern fn fastpath_recv_switch(new_esp: *context, old_esp: **context, eax: *u32)
+-> i32;
 extern fn set_esp0(n: u32);
 
 /* switches betweeb tcb_cur and tcb_new.  If tcb_cur is non-null, saves its
@@ -36,4 +39,20 @@ fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
 
     assert!(!is_preempt_enabled() || !are_ints_enabled());
 
+}
+
+/*  saves addr_send in own registers, */
+fn fastpath_send(tcb_cur: *tcb, tcb_new: *tcb, addr_send: *u32, size: u32) {
+    set_esp0(tcb_new->kstack_top as u32);
+    printf!("sending %d\n", addr_send[0]);
+    fastpath_send_switch(tcb_new->context, &tcb_cur->context, addr_send[0]);
+}
+
+
+fn fastpath_recv(tcb_cur: *tcb, tcb_new: *tcb, addr_buffer: *u32, size: u32) {
+
+    set_esp0(tcb_new->kstack_top as u32);
+    fastpath_recv_switch(tcb_new->context, &tcb_cur->context,
+                addr_buffer);
+  printf!("returned %d\n", *addr_buffer);
 }

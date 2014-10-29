@@ -145,6 +145,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
                     recv_len, timeout, option, err);
         }
     }
+
     *message_recv = my_node->message; 
     *recv_len = my_node->message_len;
     *err = my_node->err;
