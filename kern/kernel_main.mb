@@ -20,6 +20,7 @@ use entry::*;
 use structures::tcb_dir::tcb_dir_add;
 use drivers::timer::*;
 use sys::*;
+use structures::tcb_dir::*;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -36,7 +37,39 @@ extern fn disable_interrupts();
 extern fn set_eflags(val: u32);
 
 
+fn send(recv_tid :*u8) {
+  let recv_tcb: *tcb = tcb_lookup(*(recv_tid as *u32)); 
+  fp_send(recv_tcb);
+  abscond(-1);
+}
+
+fn recv(dummy: *u8) {
+  preempt_disable();
+  scheduler_update(STATE_FP_RECV);
+  preempt_enable();
+  printf!("here\n");
+  abscond(-1);
+}
+
 fn user_thread(dummy: *u8) {
+    
+    let recv_tcb = thr_create(recv, null, 0);
+    tcb_dir_add(recv_tcb);
+    assert!(recv_tcb != null);
+    let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
+    proc_init(proc2, recv_tcb);
+
+    let send_tcb = thr_create(send, &recv_tcb->tid as *u8, 4);
+    tcb_dir_add(send_tcb);
+    assert!(send_tcb != null);
+    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
+    proc_init(proc1, send_tcb);
+
+    preempt_disable();
+
+    schedule(recv_tcb, QUEUE_FRONT);
+    schedule(send_tcb, QUEUE_BACK);
+    preempt_enable();
     let arg_array = ["foo", "bar", null];
     assert!(perform("ipc_test", &arg_array[0]) >= 0);
     assert!(false);

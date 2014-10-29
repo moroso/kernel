@@ -25,7 +25,7 @@ use consts::*;
 use utils::list::*;
 use structures::tcb::*;
 use structures::VM::*;
-use context::context_switch;
+use context::*;
 
 extern fn disable_interrupts();
 extern fn enable_interrupts();
@@ -223,7 +223,41 @@ fn scheduler_update(state: i32) {
         load_PD(&(new_running->proc->PD));
     }
 
-    context_switch(old_running, new_running);
+
+    if (state == STATE_FP_RECV) {
+        let buffer = 0;
+        fastpath_recv(old_running, new_running, &buffer, 4);
+    } else {
+        context_switch(old_running, new_running);
+    }
 
     scheduler_unlock(enable);
 }
+
+fn fp_send(tcb: *tcb) {
+    let enable = scheduler_lock();
+    if (tcb->state as i32 != STATE_FP_RECV) {
+        printf!("wrong state\n");
+        return ();
+    }
+    let new_running: *tcb = tcb; 
+    let old_running: *tcb = get_tcb();
+
+    list_insert_tail(&old_running->link, &(run_queue.run_Q));
+    run_queue.running = null;
+
+    assert!(new_running != null);
+    run_queue.running = new_running;
+
+    /* if the address space has changed, load a new one */
+    if ((get_cr3() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
+        load_PD(&(new_running->proc->PD));
+    }
+    
+    let send = 2;
+    fastpath_send(old_running, new_running, &send, 4);
+
+    scheduler_unlock(enable);
+    return ();
+}
+
