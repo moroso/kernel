@@ -26,6 +26,7 @@ fastpath_send_switch:
   movl 0x14(%ebp), %edi
   movl 0x18(%ebp), %ecx
   movl 0x1c(%ebp), %edx
+  movl 0x20(%ebp), %ebx
   popf
   popl %ebp
   movl 0x10(%ebp), %esi
@@ -36,6 +37,11 @@ fastpath_send_switch:
   movl %ecx, (%esi)
   movl 0x1c(%ebp), %esi
   movl %edx, (%esi)
+  movl 0x20(%ebp), %esi
+  movl %ebx, (%esi)
+  popl %ebx
+  popl %edi
+  popl %esi
   leave
   ret
 
@@ -44,6 +50,8 @@ fastpath_send_switch:
   fastpath_recv_switch:
   pushl %ebp
   movl %esp, %ebp
+  pushl %esi
+  pushl %edi
   pushl %ebx
   pushl %ebp
   pushf
