@@ -65,14 +65,20 @@ fastpath_send_switch:
   fastpath_recv_switch:
   pushl %ebp
   movl %esp, %ebp
+
+  # push callee save registers
   pushl %esi
   pushl %edi
   pushl %ebx
   pushl %ebp
   pushf
+  
+# save context 
   movl 0xc(%ebp), %eax
   movl %esp, (%eax)
   movl 0x8(%ebp), %esp
+
+  # restore new context from normal thread 
   popf
   popa
   leave

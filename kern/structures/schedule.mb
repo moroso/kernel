@@ -206,7 +206,7 @@ fn scheduler_update(state: i32) {
     }
 
     if (old_running != null) {
-
+        assert!(old_running->state != STATE_FP_RECV as u32);
         if (old_running->state == STATE_RUNNABLE) {
             list_insert_tail(&old_running->link, &(run_queue.run_Q));
             run_queue.running = null;
@@ -223,13 +223,7 @@ fn scheduler_update(state: i32) {
         load_PD(&(new_running->proc->PD));
     }
 
-
-    if (state == STATE_FP_RECV) {
-        let buffer: u32[5];
-        fastpath_recv(old_running, new_running, buffer);
-    } else {
-        context_switch(old_running, new_running);
-    }
+    context_switch(old_running, new_running);
 
     scheduler_unlock(enable);
 }
@@ -243,6 +237,7 @@ fn fp_recv(buffer: u32[NUM_REGS]) {
     // there should always be an idle process available
     assert!(new_running != null);
     assert!(old_running != null);
+    assert!(old_running->state == STATE_RUNNABLE as u32);
 
     list_del(&(new_running->link));
     run_queue.running = new_running;
@@ -254,7 +249,7 @@ fn fp_recv(buffer: u32[NUM_REGS]) {
 
     old_running->state = STATE_FP_RECV as u32;
     fastpath_recv(old_running, new_running, buffer);
-
+    assert!(get_tcb()->state == STATE_RUNNABLE);
     scheduler_unlock(enable);
 }
 
@@ -281,6 +276,7 @@ fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
         load_PD(&(new_running->proc->PD));
     }
 
+    new_running->state = STATE_RUNNABLE;
     fastpath_send(old_running, new_running, buffer);
 
     scheduler_unlock(enable);
