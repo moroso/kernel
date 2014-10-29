@@ -112,28 +112,24 @@ fn is_scheduled(tcb: *tcb) -> bool {
  */
 fn schedule(tcb: *tcb, pos: u32) {
     let enable = scheduler_lock();
-    assert!(pos == QUEUE_FRONT || pos == QUEUE_BACK);
-
     if (tcb->state == STATE_NEW) {
         set_state(tcb, STATE_RUNNABLE);
     }
     assert!(tcb->state == STATE_RUNNABLE);
+    add_to_run_queue(tcb, pos);
+    scheduler_unlock(enable);
+}
+
+fn add_to_run_queue(tcb: *tcb, pos: u32) {
+    let enable = scheduler_lock();
+    assert!(pos == QUEUE_FRONT || pos == QUEUE_BACK);
+    assert!(tcb->state == STATE_RUNNABLE);
     if (pos == QUEUE_FRONT) {
         list_insert_head(&tcb->link, &run_queue.run_Q);
-        scheduler_unlock(enable);
-
-        return ();
-    }
-    if (pos == QUEUE_BACK) {
+    } else {
         list_insert_tail(&tcb->link, &run_queue.run_Q);
-        scheduler_unlock(enable);
-
-        return ();
     }
-    // pos should specify either the front or back position
-    assert!(false);
     scheduler_unlock(enable);
-
 }
 
 /* Remove a tcb from the run queue */
@@ -175,6 +171,23 @@ fn scheduler_lock() -> bool {
     ints_enabled
 }
 
+fn run_tcb(new_running: *tcb) {
+    assert!(new_running != null);
+    assert!(new_running->state == STATE_RUNNABLE);
+    list_del(&(new_running->link));
+    run_queue.running = new_running;
+
+    /*  if the address space has changed, load a new one */
+    if ((get_cr3() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
+        load_PD(&(new_running->proc->PD));
+    }
+}
+
+fn round_robin_remove() -> *tcb {
+    list_head_entry!(&run_queue.run_Q, tcb, link)
+}
+
+
 /* Replaces the running thread with the next thread in the run queue, and then
  * switches to this latest thread.  optionally takes in a state to assign the
  * currently running thread (if a running tcb's state is changed to MUT or COND,
@@ -185,19 +198,19 @@ fn scheduler_update(state: i32) {
 
     /* the head of the run queue, if non-null is to be run next.  a
      * non-round-robin scheduler would likely change this */
-    let new_running: *tcb = list_head_entry!(&run_queue.run_Q, tcb, link);
     let old_running: *tcb = get_tcb();
+    let new_running: *tcb = round_robin_remove();
 
     /* if there are no other threads in the run queue, continue with current
        thread and do not update */
     if (new_running == null) {
-
         // there must be one thread running at all times
         assert!(old_running != null && (state as u32 == STATE_RUNNABLE
-                || state == -1));
+                    || state == -1));
         scheduler_unlock(enable);
         return ();
-    }
+    } 
+    assert!(new_running != null);
 
     /* if a state was provided, assign it to the running thread */
     if (state != -1) {
@@ -208,21 +221,12 @@ fn scheduler_update(state: i32) {
     if (old_running != null) {
         assert!(old_running->state != STATE_FP_RECV as u32);
         if (old_running->state == STATE_RUNNABLE) {
-            list_insert_tail(&old_running->link, &(run_queue.run_Q));
-            run_queue.running = null;
+            add_to_run_queue(old_running, QUEUE_BACK);
         }
 
     }
 
-    assert!(new_running != null);
-    list_del(&(new_running->link));
-    run_queue.running = new_running;
-
-    /* if the address space has changed, load a new one */
-    if ((get_cr3() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
-        load_PD(&(new_running->proc->PD));
-    }
-
+    run_tcb(new_running);
     context_switch(old_running, new_running);
 
     scheduler_unlock(enable);
@@ -231,23 +235,16 @@ fn scheduler_update(state: i32) {
 fn fp_recv(buffer: u32[NUM_REGS]) {
     let enable = scheduler_lock();
 
-    let new_running: *tcb = list_head_entry!(&run_queue.run_Q, tcb, link);
+    let new_running: *tcb = round_robin_remove();
     let old_running: *tcb = get_tcb();
 
     // there should always be an idle process available
     assert!(new_running != null);
     assert!(old_running != null);
     assert!(old_running->state == STATE_RUNNABLE as u32);
-
-    list_del(&(new_running->link));
-    run_queue.running = new_running;
-
-    /* if the address space has changed, load a new one */
-    if ((get_cr3() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
-        load_PD(&(new_running->proc->PD));
-    }
-
+ 
     old_running->state = STATE_FP_RECV as u32;
+    run_tcb(new_running);
     fastpath_recv(old_running, new_running, buffer);
     assert!(get_tcb()->state == STATE_RUNNABLE);
     scheduler_unlock(enable);
@@ -256,19 +253,16 @@ fn fp_recv(buffer: u32[NUM_REGS]) {
 
 fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
     let enable = scheduler_lock();
+    assert!(tcb != null);
 
     if (tcb->state as i32 != STATE_FP_RECV) {
-        printf!("wrong state\n");
         return -1;
     }
 
     let new_running: *tcb = tcb; 
     let old_running: *tcb = get_tcb();
 
-    list_insert_tail(&old_running->link, &(run_queue.run_Q));
-    run_queue.running = null;
-
-    assert!(new_running != null);
+    add_to_run_queue(old_running, QUEUE_BACK);
     run_queue.running = new_running;
 
     /* if the address space has changed, load a new one */
