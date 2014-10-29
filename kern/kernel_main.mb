@@ -40,6 +40,7 @@ extern fn set_eflags(val: u32);
 fn send(recv_tid :*u8) {
   let recv_tcb: *tcb = tcb_lookup(*(recv_tid as *u32)); 
   fp_send(recv_tcb);
+  printf!("send\n");
   abscond(-1);
 }
 
@@ -47,7 +48,7 @@ fn recv(dummy: *u8) {
   preempt_disable();
   scheduler_update(STATE_FP_RECV);
   preempt_enable();
-  printf!("here\n");
+  printf!("recv\n");
   abscond(-1);
 }
 
