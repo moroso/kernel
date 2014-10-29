@@ -22,22 +22,27 @@ fastpath_send_switch:
   movl 0xc(%ebp), %eax
   movl %esp, (%eax)
   movl 0x8(%ebp), %esp
-  movl 0x10(%ebp), %eax
-  movl 0x14(%ebp), %edi
-  movl 0x18(%ebp), %ecx
-  movl 0x1c(%ebp), %edx
-  movl 0x20(%ebp), %ebx
+  movl 0x10(%ebp), %esi
+  movl (%esi), %eax
+  addl $4, %esi
+  movl (%esi), %edi
+  addl $4, %esi
+  movl (%esi), %edx
+  addl $4, %esi
+  movl (%esi), %ecx
+  addl $4, %esi
+  movl (%esi), %ebx
   popf
   popl %ebp
   movl 0x10(%ebp), %esi
   movl %eax, (%esi)
-  movl 0x14(%ebp), %esi
+  addl $4, %esi
   movl %edi, (%esi)
-  movl 0x18(%ebp), %esi
+  addl $4, %esi
   movl %ecx, (%esi)
-  movl 0x1c(%ebp), %esi
+  addl $4, %esi
   movl %edx, (%esi)
-  movl 0x20(%ebp), %esi
+  addl $4, %esi
   movl %ebx, (%esi)
   popl %ebx
   popl %edi
