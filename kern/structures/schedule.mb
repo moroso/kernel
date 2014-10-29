@@ -260,12 +260,14 @@ fn fp_recv() {
 }
 
 
-fn fp_send(tcb: *tcb) {
+fn fp_send(tcb: *tcb) -> i32{
     let enable = scheduler_lock();
+
     if (tcb->state as i32 != STATE_FP_RECV) {
         printf!("wrong state\n");
-        return ();
+        return -1;
     }
+
     let new_running: *tcb = tcb; 
     let old_running: *tcb = get_tcb();
 
@@ -289,6 +291,6 @@ fn fp_send(tcb: *tcb) {
     fastpath_send(old_running, new_running, send);
 
     scheduler_unlock(enable);
-    return ();
+    0
 }
 
