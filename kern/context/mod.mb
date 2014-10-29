@@ -11,10 +11,12 @@ use structures::tcb::{tcb, context};
 use structures::schedule::{are_ints_enabled, is_preempt_enabled, run_queue, get_tcb};
 
 extern fn actually_switch_contexts_with_asm(new_esp: *context,
-                                            old_esp: **context);
-extern fn fastpath_send_switch(new_esp: *context, old_esp: **context, eax: u32);
-extern fn fastpath_recv_switch(new_esp: *context, old_esp: **context, eax: *u32)
--> i32;
+        old_esp: **context);
+extern fn fastpath_send_switch(new_esp: *context, old_esp: **context, eax: u32,
+        edi: u32, ecx: u32, edx: u32);
+extern fn fastpath_recv_switch(new_esp: *context, old_esp: **context, eax: *u32,
+        edi: *u32, ecx: *u32, edx: *u32);
+
 extern fn set_esp0(n: u32);
 
 /* switches betweeb tcb_cur and tcb_new.  If tcb_cur is non-null, saves its
@@ -22,7 +24,7 @@ extern fn set_esp0(n: u32);
 fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
     assert!(!is_preempt_enabled() || !are_ints_enabled());
     assert!(run_queue.running == tcb_new);
-    
+
     /* if tcb_cur is null, create a dummy value on the stack for the "old" context to
      * be pushed to*/
     let context_old: **context;
@@ -44,8 +46,10 @@ fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
 /*  saves addr_send in own registers, */
 fn fastpath_send(tcb_cur: *tcb, tcb_new: *tcb, addr_send: *u32, size: u32) {
     set_esp0(tcb_new->kstack_top as u32);
-    printf!("sending %d\n", addr_send[0]);
-    fastpath_send_switch(tcb_new->context, &tcb_cur->context, addr_send[0]);
+    printf!("sending %d %d %d %d\n", addr_send[0], addr_send[1], addr_send[2],
+addr_send[3]);
+    fastpath_send_switch(tcb_new->context, &tcb_cur->context, addr_send[0],
+            addr_send[1], addr_send[2], addr_send[3]);
 }
 
 
@@ -53,6 +57,7 @@ fn fastpath_recv(tcb_cur: *tcb, tcb_new: *tcb, addr_buffer: *u32, size: u32) {
 
     set_esp0(tcb_new->kstack_top as u32);
     fastpath_recv_switch(tcb_new->context, &tcb_cur->context,
-                addr_buffer);
-  printf!("returned %d\n", *addr_buffer);
+            &addr_buffer[0], &addr_buffer[1], &addr_buffer[2], &addr_buffer[3]);
+    printf!("returned %d %d %d %d\n", addr_buffer[0], addr_buffer[1],
+            addr_buffer[2], addr_buffer[3]);
 }
