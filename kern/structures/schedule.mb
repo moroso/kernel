@@ -234,7 +234,7 @@ fn scheduler_update(state: i32) {
     scheduler_unlock(enable);
 }
 
-fn fp_recv() {
+fn fp_recv(buffer: u32[NUM_REGS]) {
     let enable = scheduler_lock();
 
     let new_running: *tcb = list_head_entry!(&run_queue.run_Q, tcb, link);
@@ -253,14 +253,13 @@ fn fp_recv() {
     }
 
     old_running->state = STATE_FP_RECV as u32;
-    let buffer: u32[5];
     fastpath_recv(old_running, new_running, buffer);
 
     scheduler_unlock(enable);
 }
 
 
-fn fp_send(tcb: *tcb) -> i32{
+fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
     let enable = scheduler_lock();
 
     if (tcb->state as i32 != STATE_FP_RECV) {
@@ -282,13 +281,7 @@ fn fp_send(tcb: *tcb) -> i32{
         load_PD(&(new_running->proc->PD));
     }
 
-    let send: u32[5];
-    send[0] = 1;
-    send[1] = 2;
-    send[2] = 3;
-    send[3] = 4;
-    send[4] = 5;
-    fastpath_send(old_running, new_running, send);
+    fastpath_send(old_running, new_running, buffer);
 
     scheduler_unlock(enable);
     0

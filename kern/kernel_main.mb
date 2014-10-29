@@ -38,22 +38,30 @@ extern fn set_eflags(val: u32);
 
 
 fn send(recv_tid :*u8) {
-  let recv_tcb: *tcb = tcb_lookup(*(recv_tid as *u32)); 
-  fp_send(recv_tcb);
-  printf!("send\n");
-  abscond(-1);
+    let send: u32[5];
+    send[0] = 1;
+    send[1] = 2;
+    send[2] = 3;
+    send[3] = 4;
+    send[4] = 5;
+
+    let recv_tcb: *tcb = tcb_lookup(*(recv_tid as *u32)); 
+    fp_send(recv_tcb, send);
+    printf!("send\n");
+    abscond(-1);
 }
 
 fn recv(dummy: *u8) {
-  preempt_disable();
-  fp_recv();
-  preempt_enable();
-  printf!("recv\n");
-  abscond(-1);
+    preempt_disable();
+    let buffer: u32[5];
+    fp_recv(buffer);
+    preempt_enable();
+    printf!("recv\n");
+    abscond(-1);
 }
 
 fn user_thread(dummy: *u8) {
-    
+
     let recv_tcb = thr_create(recv, null, 0);
     tcb_dir_add(recv_tcb);
     assert!(recv_tcb != null);
