@@ -37,48 +37,9 @@ extern fn disable_interrupts();
 extern fn set_eflags(val: u32);
 
 
-fn send(recv_tid :*u8) {
-    let send: u32[5];
-    send[0] = 1;
-    send[1] = 2;
-    send[2] = 3;
-    send[3] = 4;
-    send[4] = 5;
-
-    let recv_tcb: *tcb = tcb_lookup(*(recv_tid as *u32)); 
-    fp_send(recv_tcb, send);
-    printf!("send\n");
-    abscond(-1);
-}
-
-fn recv(dummy: *u8) {
-    preempt_disable();
-    let buffer: u32[5];
-    fp_recv(buffer);
-    preempt_enable();
-    printf!("recv\n");
-    abscond(-1);
-}
 
 fn user_thread(dummy: *u8) {
 
-    let recv_tcb = thr_create(recv, null, 0);
-    tcb_dir_add(recv_tcb);
-    assert!(recv_tcb != null);
-    let proc2: *proc = slub_alloc(sizeof(proc)) as *proc;
-    proc_init(proc2, recv_tcb);
-
-    let send_tcb = thr_create(send, &recv_tcb->tid as *u8, 4);
-    tcb_dir_add(send_tcb);
-    assert!(send_tcb != null);
-    let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
-    proc_init(proc1, send_tcb);
-
-    preempt_disable();
-
-    schedule(recv_tcb, QUEUE_FRONT);
-    schedule(send_tcb, QUEUE_BACK);
-    preempt_enable();
     let arg_array = ["foo", "bar", null];
     assert!(perform("ipc_test", &arg_array[0]) >= 0);
     assert!(false);

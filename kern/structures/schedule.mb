@@ -213,7 +213,6 @@ fn scheduler_update(state: i32) {
         scheduler_unlock(enable);
         return ();
     } 
-    assert!(new_running != null);
 
     /* if a state was provided, assign it to the running thread */
     if (state != -1) {
@@ -268,6 +267,7 @@ fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
     add_to_run_queue(old_running, QUEUE_BACK); 
     new_running->state = STATE_RUNNABLE;
     run_tcb(new_running);
+
     fastpath_send(old_running, new_running, buffer);
 
     scheduler_unlock(enable);
