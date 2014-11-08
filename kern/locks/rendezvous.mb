@@ -14,10 +14,10 @@ const SEND_SYNC_NOREPLY: u32 = 3;
 const RECV: u32 = 1;
 
 /* error options */
-const ERR_MEM: u32 = -1;
-const ERR_TIMEOUT: u32 = -2;
-const ERR_DEAD: u32 = -3;
-const ERR_REPLAY: u32 = -4;
+const ERR_MEM: i32 = -1;
+const ERR_TIMEOUT: i32 = -2;
+const ERR_DEAD: i32 = -3;
+const ERR_REPLAY: i32 = -4;
 
 struct rend_node {
     message: *u32,
@@ -48,7 +48,7 @@ fn rend_init(rend: *rend) {
  * *message gets set to the message of the opposing node; else, message is null 
 */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, option: u32, err: *u32) -> *rend_node {
+        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
 
     let other_head: *list_head;
     let own_head: *list_head; 
@@ -135,7 +135,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
     if (option != SEND_ASYNC) {
         scheduler_update(STATE_COND as i32);
-        if (my_node->err == ERR_REPLAY) {
+        if (my_node->err == ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
             // we recurse only once, and there are no dynamic mem
             // allocations to worry about
@@ -148,7 +148,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
     *message_recv = my_node->message; 
     *recv_len = my_node->message_len;
-    *err = my_node->err;
+    *err = my_node->err as i32;
     cond_preempt_enable(enable);
 
     if (option == RECV) {
@@ -160,7 +160,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
 
 /* give new message to rend_node and wake it up */
-fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: u32) {
+fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32) {
     if (rend_node->tcb == null) {
         if (rend_node->message != null) {
             slub_free(rend_node->message, rend_node->message_len); // TODO not this 
@@ -171,7 +171,7 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: u32)
 
     rend_node->message = message;
     rend_node->message_len = message_len;
-    rend_node->err = err;
+    rend_node->err = err as u32;
 
     let enable = cond_preempt_disable();
     rend_node->tcb->state = STATE_RUNNABLE;
@@ -181,7 +181,7 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: u32)
     cond_preempt_enable(enable);
 }
 
-fn rend_destroy(rend: *rend, err: u32) {
+fn rend_destroy(rend: *rend, err: i32) {
     rend->rend_active = false;
 
     /* we should be able to do this with preemption enabled because no more
@@ -191,6 +191,6 @@ fn rend_destroy(rend: *rend, err: u32) {
         let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
         list_del(&(wakeup_node->rend_link));
-        rend_signal(null, 0, wakeup_node, err);  
+        rend_signal(null, 0, wakeup_node, err as i32);  
     }
 }

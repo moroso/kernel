@@ -8,7 +8,20 @@ extern fn syscall_4(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32) -> u32
 extern fn syscall_5(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32, arg5:
 u32) -> u32;
 
+struct buffer_t {
+    addr: *u8,
+    len: u32,
+}
 
+struct ipc_args {
+    dest_id: u32,
+    long_src: buffer_t,
+    long_dest: buffer_t, 
+    short_src: buffer_t,
+    short_dest: buffer_t,
+    timeout: u32,
+    options: u32,
+}
 
 // A system call
 fn test_sys(arg: u32) -> u32 {
@@ -43,10 +56,8 @@ fn perform(filename: *u8) -> i32 {
     syscall_1(shared::syscall_consts::INT_PERFORM, filename as u32) as i32
 }
 
-// TODO ipc send and recv need to be able to pass more args
-fn ipc_send(id: u32, addr_send: *u8, message: *u8, len: u32, len_short: *u32, timeout: u32) -> i32 {
-				syscall_5(shared::syscall_consts::INT_IPC_SEND, id, addr_send as u32,
-												message as u32, len, len_short as u32) as i32
+fn ipc_send(args: *ipc_args) -> i32 {
+				syscall_1(shared::syscall_consts::INT_IPC_SEND, args as u32) as i32
 }
 
 fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
@@ -54,9 +65,8 @@ fn new_pages(addr_start: *u8, len: u32, size: u32) -> i32 {
 												size) as i32
 }
 
-fn ipc_recv(addr_recv: *u8, message: *u8, len: u32, len_short: *u32, timeout: u32) -> i32 {
-				syscall_4(shared::syscall_consts::INT_IPC_RECV, addr_recv as u32,
-												message as u32, len, len_short as u32) as i32
+fn ipc_recv(args: *ipc_args) -> i32 {
+				syscall_1(shared::syscall_consts::INT_IPC_RECV, args as u32) as i32
 }
 
 fn reply(message: *u8, message_len: u32) -> i32 {
