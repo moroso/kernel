@@ -40,7 +40,8 @@ struct buffer_t {
 
 const IPC_SHARE: u32 = 1; // shared memory
 const OPTION_ASYNC: u32 = 2; // asynchronous send
-const OPTION_NO_REPLY: u32 = 4;
+const OPTION_NO_REPLY: u32 = 4; // sync, but no reply
+const OPTION_SHARE: u32 = 8; // shared memory
 
 struct ipc_args {
     dest_id: u32,
@@ -101,7 +102,10 @@ fn ipc_send(args: *ipc_args) -> i32 {
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
         return ERR_INTERNAL;
     }
-    
+   
+    /* dynamically allocate buffer for short message TODO we really don't need
+     * this for synchronous stuff, but for now, it could be moved elsewhere to
+     * justify the fast path */ 
     let short_message: *u32 = null;
     if (args_kern.short_src.len > 0) {
         short_message = slub_alloc(args_kern.short_src.len);
@@ -184,7 +188,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     if (rend_node == null) {
         // new length written into message (sender updates this length)
         args_kern.long_dest.len = message_send.long_dest.len;
-        args_kern.short_dest.len = recv_len;
+        args_kern.short_dest.len = min(recv_len, args_kern.short_dest.len);
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
@@ -195,6 +199,31 @@ fn ipc_send(args: *ipc_args) -> i32 {
         // otherwise, we do the transfer ourselves and wake up the other guy
         let message_dest: *message_node = rend_node->message as *message_node;
         if (message_dest->long_dest.len > 0) {
+
+            let pid_recv = dest_tcb->pid;
+            let proc_recv = proc_lookup(pid_recv);
+            if (proc_recv == null || proc_recv->PD.PT_entries == null) {
+                // TODO free short message stuff of errs
+                tcb_end_lookup(dest_tcb);
+                return ERR_DEAD;
+
+            }
+
+            let transfer_len = min!(args_kern.long_src.len, message_dest->long_dest.len);
+            // TODO grab VM lock; check if mem is valid 
+            let page: u32;
+            for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+                if (page_transfer(args_kern.long_src.addr + page,
+                            message_dest->long_dest.addr + page,
+                            &(get_tcb()->proc->PD),
+                            &(proc_recv->PD), 0) < 0) {
+                    printf!("problem in page transfer\n");
+                    // TODO cleanup; update args, free message stuff
+                    tcb_end_lookup(dest_tcb);
+                    return -5;
+                }
+            }
+            proc_end_lookup(proc_recv);
 
         } 
         rend_signal(short_message, args_kern.short_src.len, rend_node, 0);
@@ -281,12 +310,36 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     } else {
 
         let message_src: *message_node = rend_node->message as *message_node;
+
+        if (message_src->long_dest.len > 0) {
+
+            let transfer_len = min!(message_src->long_src.len, args_kern.long_dest.len);
+            // TODO grab VM lock; check if mem is valid 
+            let page: u32;
+            for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+                if (page_transfer(message_src->long_src.addr + page,
+                            args_kern.long_dest.addr + page,
+                            &(rend_node->tcb->proc->PD), 
+                            &(get_tcb()->proc->PD),
+                            0) < 0) {
+                    printf!("problem in page transfer\n");
+                    // TODO cleanup; update args, free message stuff
+                    return -5;
+                }
+            }
+
+        }
         if (copy_to_user((args_kern.short_dest.addr),
                     message_src->short_src.addr as *u8,
                     min(message_src->short_src.len, args_kern.short_dest.len)) <
                 0) {
             return ERR_INTERNAL;
         }
+        if (message_src->short_src.len > 0) {
+            slub_free(message_src->short_src.addr as *u32,
+                    message_src->short_src.len);
+        }
+
 
         // if a reply isn't expected, wake up source immediately
         if (message_src->options&OPTION_NO_REPLY != 0 || message_src->options&OPTION_ASYNC != 0) {
