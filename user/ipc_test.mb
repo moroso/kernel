@@ -5,42 +5,34 @@
 
 mod syslib;
 
+
 fn main() -> i32 {
+
     while(true) {
         let ret = syslib::repl();
+        let args: syslib::ipc_args;
+        args.dest_id = 0;
+        let message: u32 = 4;
+        args.short_src.addr = &message as *u8;
+        args.long_src.len = 0;
+        args.short_src.len = 4;
+        let dest: u32 = 0;
+        args.short_dest.addr = &dest as *u8;
+        args.short_dest.len = 4;
+
         if (ret != 0) {
-            let page = 0xDEADB000 as *u8;
-            printf!("calling new_pages on address %p\n", page);
-            syslib::new_pages(page, 4096, 1024);
-            *(page as *u32) = ret;
-            let message: u8[14];
-            let i: u32;
-            for (i = 0; i < 14; i+=1) {
-                message[i] = 's';
-            }
-            printf!("sending %s\n", &message[0]);
-            let short_size = 14;
-            let send_ret = syslib::ipc_send(ret, null, &message[0], 0,
-                    &short_size, 0);
-
-
-        } else {
-            printf!("thread %d repled thread %d\n", ret, syslib::get_tid());
-            let page = 0xDEADB000  + 4096 as *u8;
-
-            let message: u8[14];
-            let i: u32;
-
-            let len_short = 14;
-            let recv_ret = syslib::ipc_recv(page, &message[0], 4096, &len_short, 0);
-
-            let ret = syslib::reply(null, 0);
-            printf!("reply ret is %d\n", ret);
-            printf!("recv received message %s (%d)\n", &message[0], recv_ret);
+            args.dest_id = ret;
+            syslib::ipc_send(&args); 
+            printf!("thread %d returned from send\n", syslib::get_tid());
+        }
+        else {
+            syslib::ipc_recv(&args);
+            printf!("thread %d returned from recv (%d)\n", syslib::get_tid(),
+                    dest);
 
             syslib::abscond(1);
-        }
 
+        }
     }
     0
 }
