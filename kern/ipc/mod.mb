@@ -366,6 +366,28 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
     if (get_tcb()->last_send == null) {
         return ERR_REPLY;
     }
+    let rend_node = get_tcb()->last_send;
+    let message_src: *message_node = rend_node->message as *message_node;
+
+
+    if (message_src->long_dest.len > 0) {
+
+        let transfer_len = min!(message_src->long_src.len, long_len);
+        // TODO grab VM lock; check if mem is valid 
+        let page: u32;
+        for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+            if (page_transfer(message_long + page,
+                        message_src->long_dest.addr + page,
+                        &(get_tcb()->proc->PD),
+                        &(rend_node->tcb->proc->PD), 0) < 0) {
+                printf!("problem in page transfer\n");
+                // TODO cleanup; update args, free message stuff
+                return -5;
+            }
+        }
+        message_src->long_dest.len = transfer_len;
+    }
+
     let message_kernel = null;
     if (short_len > 0) {
         message_kernel = slub_alloc(short_len);
@@ -376,6 +398,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
         }
     }
 
+    get_tcb()->last_send = null;
     rend_signal(message_kernel, short_len, get_tcb()->last_send, 0);
 
     0
