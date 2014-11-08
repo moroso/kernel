@@ -29,6 +29,7 @@ struct message_node {
     long_src: buffer_t,
     long_dest: buffer_t, 
     short_src: buffer_t,
+    options: u32,
     err: u32,
 }
 
@@ -54,6 +55,7 @@ struct ipc_args {
 const ERR_INTERNAL: i32 = -1;
 const ERR_DEST: i32 = -2;
 const ERR_ARGS: i32 = -3;
+const ERR_REPLY: i32 = -4;
 
 fn get_ipc_dest(id: u32) -> *tcb {
     tcb_lookup(id)
@@ -159,6 +161,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
     message_send.short_src.addr = short_message as *u8;
     message_send.short_src.len = args_kern.short_src.len;
+    message_send.options = args_kern.options;
 
     let message_recv: *u8;
     let recv_len: u32;
@@ -222,6 +225,10 @@ fn ipc_send(args: *ipc_args) -> i32 {
  */
 fn ipc_recv(args: *ipc_args) -> i32 {
     let args_kern: ipc_args;
+    if (get_tcb()->last_send != null) {
+        return ERR_REPLY;
+    }
+
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
         return ERR_INTERNAL;
     }
@@ -237,7 +244,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         return ERR_ARGS;  
     }
 
-       // ensures long lengths are multiples of page sizee 
+    // ensures long lengths are multiples of page sizee 
     if (args_kern.long_dest.len%PAGE_SIZE != 0)
     {
         return ERR_ARGS;
@@ -256,7 +263,6 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             &recv_len, 
             args_kern.timeout, RECV, &err);  
 
-    // if tcb died before we could transfer, return with error
     if (err < 0) {
         return err; // TODO combine error stuff
     }
@@ -282,9 +288,14 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             return ERR_INTERNAL;
         }
 
-        rend_signal(null, 0, rend_node, 0);
+        // if a reply isn't expected, wake up source immediately
+        if (message_src->options&OPTION_NO_REPLY != 0 || message_src->options&OPTION_ASYNC != 0) {
+            rend_signal(null, 0, rend_node, 0);
+        } else {
+            assert!(rend_node->tcb != null);
+            get_tcb()->last_send = rend_node;
+        }
 
-        return 0;
     }
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
@@ -297,7 +308,23 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
 
 /* replies to the last sender */
-fn reply(message: *u32, message_len: u32) -> i32 {
+fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) -> i32 {
+    // TODO how does other guy update on timeout?
+    if (get_tcb()->last_send == null) {
+        return ERR_REPLY;
+    }
+    let message_kernel = null;
+    if (short_len > 0) {
+        message_kernel = slub_alloc(short_len);
+        if (message_kernel == null || copy_from_user(message_kernel as *u8,
+                    message_short as *u8,
+                    short_len) < 0) {
+            return ERR_INTERNAL;
+        }
+    }
+
+    rend_signal(message_kernel, short_len, get_tcb()->last_send, 0);
+
     0
 }
 
