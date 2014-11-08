@@ -152,7 +152,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     cond_preempt_enable(enable);
 
     if (option == RECV) {
-        assert!(!list_is_empty(own_head)); 
+        printf!("halp\n");
+       // assert!(!list_is_empty(own_head)); 
     }
 
     null
