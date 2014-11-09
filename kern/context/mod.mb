@@ -47,6 +47,7 @@ fn context_switch(tcb_cur: *tcb, tcb_new: *tcb) {
 
 /*  saves addr_send in own registers, */
 fn fastpath_send(tcb_cur: *tcb, tcb_new: *tcb, addr_send: u32[NUM_REGS]) {
+    printf!("%d\n", addr_send[0]);
     set_esp0(tcb_new->kstack_top as u32);
     fastpath_send_switch(tcb_new->context, &tcb_cur->context, addr_send);
 }
@@ -56,4 +57,5 @@ fn fastpath_recv(tcb_cur: *tcb, tcb_new: *tcb, addr_buffer: u32[NUM_REGS]) {
     set_esp0(tcb_new->kstack_top as u32);
     fastpath_recv_switch(tcb_new->context, &tcb_cur->context,
             addr_buffer);
+    printf!("%d\n", addr_buffer[0]);
 }

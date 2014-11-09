@@ -127,6 +127,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
             let short_message_temp: u32[SHORT_BUFFER_MAX];
             short_message = &short_message_temp[0];
         } else {
+            // TODO make this go on the stack if we can do fastpath
             short_message = slub_alloc(args_kern.short_src.len);
             if (short_message == null || copy_from_user(short_message as *u8,
                         args_kern.short_src.addr,
@@ -181,7 +182,8 @@ fn ipc_send(args: *ipc_args) -> i32 {
     message_send.short_src.len = args_kern.short_src.len;
     message_send.options = args_kern.options;
 
-    let message_recv: *u8;
+    let static_buffer : u32[5];
+    let message_recv: *u8 = &static_buffer[0] as *u8;
     let recv_len: u32;
     let err: i32;
 
@@ -293,8 +295,10 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     let message_send: message_node;
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
+  
+    let static_buffer : u32[5];
+    let message_recv: *u8 = &static_buffer[0] as *u8;
 
-    let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
 
