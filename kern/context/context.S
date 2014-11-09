@@ -15,16 +15,14 @@ actually_switch_contexts_with_asm:
 
 .global fastpath_send_switch 
 fastpath_send_switch:
-  pushl %ebp
+   pushl %ebp
   movl %esp, %ebp
-
-  # save context for a normal restore on context_switch
-  pusha
+  pusha 
   pushf
   movl 0xc(%ebp), %eax
   movl %esp, (%eax)
 
-  # move values from src buffer into registers
+# move values from src buffer into registers
   movl 0x10(%ebp), %esi
   movl (%esi), %eax
   addl $4, %esi
@@ -36,12 +34,12 @@ fastpath_send_switch:
   addl $4, %esi
   movl (%esi), %ebx
 
-  # pop relevant context
   movl 0x8(%ebp), %esp
   popf
+
   popl %ebp
 
-  # place register vals in dest buffer
+# place register vals in dest buffer
   movl 0x10(%ebp), %esi
   movl %eax, (%esi)
   addl $4, %esi
@@ -53,10 +51,9 @@ fastpath_send_switch:
   addl $4, %esi
   movl %ebx, (%esi)
 
-  # restore callee save registers
-  popl %ebx
   popl %edi
   popl %esi
+  popl %ebx
   leave
   ret
 
@@ -65,20 +62,14 @@ fastpath_send_switch:
   fastpath_recv_switch:
   pushl %ebp
   movl %esp, %ebp
-
-  # push callee save registers
+  pushl %ebx
   pushl %esi
   pushl %edi
-  pushl %ebx
   pushl %ebp
   pushf
-  
-# save context 
   movl 0xc(%ebp), %eax
   movl %esp, (%eax)
   movl 0x8(%ebp), %esp
-
-  # restore new context from normal thread 
   popf
   popa
   leave
