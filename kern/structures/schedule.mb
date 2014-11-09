@@ -258,7 +258,7 @@ fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
     assert!(tcb != null);
 
     if (tcb->state as i32 != STATE_FP_RECV) {
-        return -1;
+        printf!("%d\n", tcb->state);
     }
 
     let new_running: *tcb = tcb; 

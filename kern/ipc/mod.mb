@@ -53,7 +53,10 @@ struct ipc_args {
     options: u32,
 }
 
+// size of buffer we're willing to put on the stack for short messages
 const SHORT_BUFFER_MAX: u32 = 200;
+// maximum size of fastpath message
+const FASTPATH_MAX: u32 = 100;
 
 const ERR_INTERNAL: i32 = -1;
 const ERR_DEST: i32 = -2;
@@ -330,7 +333,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                             args_kern.long_dest.addr + page,
                             &(rend_node->tcb->proc->PD), 
                             &(get_tcb()->proc->PD),
-                           message_src-> options&OPTION_SHARE) < 0) {
+                            message_src-> options&OPTION_SHARE) < 0) {
                     transfer_len = max(0, page - PAGE_SIZE);
                     break;
                 }
