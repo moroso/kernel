@@ -224,7 +224,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
                 }
             }
             proc_end_lookup(proc_recv);
-
+            message_dest->long_dest.len = transfer_len;
         } 
         rend_signal(short_message, args_kern.short_src.len, rend_node, 0);
     }
@@ -327,7 +327,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     return -5;
                 }
             }
-
+            args_kern.long_dest.len = transfer_len;
         }
         if (copy_to_user((args_kern.short_dest.addr),
                     message_src->short_src.addr as *u8,
