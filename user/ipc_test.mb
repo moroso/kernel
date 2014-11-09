@@ -37,6 +37,7 @@ fn main() -> i32 {
             printf!("thread %d returned from recv (%d)\n", syslib::get_tid(),
                     dest);
             printf!("long %d\n", *(0xdeadb000 as *u32));
+            printf!("short: %d\n", *(args.short_dest.addr as *u32));
             syslib::abscond(1);
 
         }
