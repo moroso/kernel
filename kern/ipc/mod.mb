@@ -94,7 +94,6 @@ fn get_ipc_dest(id: u32) -> *tcb {
  * len_short: length of message
  * len_long: maximum length of transfer in bytes
  * timeout: time (in ms) before we return failure 
- * TODO tell everyone how much was copied
 */
 fn ipc_send(args: *ipc_args) -> i32 {
      
@@ -180,7 +179,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     // if tcb died before we could transfer, return with error
     if (err < 0) {
         tcb_end_lookup(dest_tcb);
-        return err; // TODO combine error stuff
+        return ERR_DEST;
     }
 
     // if we have no rend_node and no error, this means the full transfer
@@ -217,10 +216,8 @@ fn ipc_send(args: *ipc_args) -> i32 {
                             message_dest->long_dest.addr + page,
                             &(get_tcb()->proc->PD),
                             &(proc_recv->PD), 0) < 0) {
-                    printf!("problem in page transfer\n");
-                    // TODO cleanup; update args, free message stuff
-                    tcb_end_lookup(dest_tcb);
-                    return -5;
+                    transfer_len = max(0, page - PAGE_SIZE);
+                    break;
                 }
             }
             proc_end_lookup(proc_recv);
@@ -293,7 +290,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             args_kern.timeout, RECV, &err);  
 
     if (err < 0) {
-        return err; // TODO combine error stuff
+        return ERR_DEST; 
     }
 
     // if we have no rend_node and no error, this means the full transfer
@@ -322,9 +319,8 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                             &(rend_node->tcb->proc->PD), 
                             &(get_tcb()->proc->PD),
                             0) < 0) {
-                    printf!("problem in page transfer\n");
-                    // TODO cleanup; update args, free message stuff
-                    return -5;
+                    transfer_len = max(0, page - PAGE_SIZE);
+                    break;
                 }
             }
             args_kern.long_dest.len = transfer_len;
@@ -380,9 +376,8 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
                         message_src->long_dest.addr + page,
                         &(get_tcb()->proc->PD),
                         &(rend_node->tcb->proc->PD), 0) < 0) {
-                printf!("problem in page transfer\n");
-                // TODO cleanup; update args, free message stuff
-                return -5;
+                transfer_len = max(0, page - PAGE_SIZE);
+                break;
             }
         }
         message_src->long_dest.len = transfer_len;
