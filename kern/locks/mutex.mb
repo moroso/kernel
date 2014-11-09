@@ -9,6 +9,7 @@ use utils::list::*;
 use structures::schedule::*;
 use consts::*;
 use structures::tcb::*;
+use utils::stdlib::*;
 
 struct kmut {
     lock_available: u32,
@@ -49,4 +50,19 @@ fn kmut_unlock(km: *kmut) {
 
     km->lock_available = 1;
     cond_preempt_enable(enable);
+}
+
+// lock two mutexes in the same order so as to prevent deadlock
+fn kmut_2lock(mut1: *kmut, mut2: *kmut) {
+    let first_lock: *kmut = min(mut1 as u32, mut2 as u32) as *kmut;
+    let second_lock: *kmut = max(mut1 as u32, mut2 as u32) as *kmut;
+    kmut_lock(first_lock);
+    kmut_lock(second_lock);
+}
+
+fn kmut_2unlock(mut1: *kmut, mut2: *kmut) {
+    let first_lock: *kmut = min(mut1 as u32, mut2 as u32) as *kmut;
+    let second_lock: *kmut = max(mut1 as u32, mut2 as u32) as *kmut;
+    kmut_unlock(first_lock);
+    kmut_unlock(second_lock);
 }

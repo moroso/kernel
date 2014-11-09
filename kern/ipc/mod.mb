@@ -226,7 +226,8 @@ fn ipc_send(args: *ipc_args) -> i32 {
             }
 
             let transfer_len = min!(args_kern.long_src.len, message_dest->long_dest.len);
-            // TODO grab VM lock; check if mem is valid 
+            kmut_2lock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
+
             let page: u32;
             for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
                 if (page_transfer(args_kern.long_src.addr + page,
@@ -237,6 +238,8 @@ fn ipc_send(args: *ipc_args) -> i32 {
                     break;
                 }
             }
+            kmut_2unlock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
+
             proc_end_lookup(proc_recv);
             message_dest->long_dest.len = transfer_len;
         } 
@@ -295,7 +298,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     let message_send: message_node;
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
-  
+
     let static_buffer : u32[5];
     let message_recv: *u8 = &static_buffer[0] as *u8;
 
@@ -330,7 +333,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (message_src->long_dest.len > 0) {
 
             let transfer_len = min!(message_src->long_src.len, args_kern.long_dest.len);
-            // TODO grab VM lock; check if mem is valid 
+            kmut_2lock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
             let page: u32;
             for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
                 if (page_transfer(message_src->long_src.addr + page,
@@ -343,6 +346,8 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                 }
             }
             args_kern.long_dest.len = transfer_len;
+            kmut_2unlock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
+
         }
         if (copy_to_user((args_kern.short_dest.addr),
                     message_src->short_src.addr as *u8,
@@ -390,7 +395,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
     if (message_src->long_dest.len > 0) {
 
         let transfer_len = min!(message_src->long_src.len, long_len);
-        // TODO grab VM lock; check if mem is valid 
+        kmut_2lock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
         let page: u32;
         for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
             if (page_transfer(message_long + page,
@@ -401,6 +406,8 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
                 break;
             }
         }
+        kmut_2unlock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
+
         message_src->long_dest.len = transfer_len;
     }
 
