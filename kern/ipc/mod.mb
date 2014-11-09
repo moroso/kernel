@@ -421,8 +421,9 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
         }
     }
 
-    get_tcb()->last_send = null;
     rend_signal(message_kernel, short_len, get_tcb()->last_send, 0);
+    get_tcb()->last_send = null;
+
 
     0
 }

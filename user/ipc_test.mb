@@ -7,40 +7,49 @@ mod syslib;
 
 
 fn main() -> i32 {
+  while(true) {
+      while(true) {
+          let ret = syslib::repl();
+          let args: syslib::ipc_args;
+          args.dest_id = 0;
+          let message: u32 = 4;
+          args.short_src.addr = &message as *u8;
+          args.long_src.addr = 0xdeadb000 as *u8;
+          args.long_dest.addr = 0xdeadb000 as *u8;
+          args.long_src.len = 4096;
+          args.long_dest.len = 4096;
 
-    while(true) {
-        let ret = syslib::repl();
-        let args: syslib::ipc_args;
-        args.dest_id = 0;
-        let message: u32 = 4;
-        args.short_src.addr = &message as *u8;
-        args.long_src.addr = 0xdeadb000 as *u8;
-        args.long_dest.addr = 0xdeadb000 as *u8;
-        args.long_src.len = 4096;
-        args.long_dest.len = 4096;
+          args.short_src.len = 4;
+          let dest: u32 = 0;
+          args.short_dest.addr = &dest as *u8;
+          args.short_dest.len = 4;
+          if (ret%2 == 0) {
+              args.options = 4;
+          } else if (ret%2 == 1) {
+              args.options = 0;
+          }
 
-        args.short_src.len = 4;
-        let dest: u32 = 0;
-        args.short_dest.addr = &dest as *u8;
-        args.short_dest.len = 4;
-        args.options = 4;
+          if (ret != 0) {
+              syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
+              args.dest_id = ret;
+              *(0xdeadb000 as *u32) = 2;
+              syslib::ipc_send(&args); 
+              printf!("thread %d returned from send\n", syslib::get_tid());
 
-        if (ret != 0) {
-            syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
-            args.dest_id = ret;
-            *(0xdeadb000 as *u32) = 2;
-            syslib::ipc_send(&args); 
-            printf!("thread %d returned from send\n", syslib::get_tid());
-        }
-        else {
-            syslib::ipc_recv(&args);
-            printf!("thread %d returned from recv (%d)\n", syslib::get_tid(),
-                    dest);
-            printf!("long %d\n", *(0xdeadb000 as *u32));
-            printf!("short: %d\n", *(args.short_dest.addr as *u32));
-            syslib::abscond(1);
+              syslib::repl();
+          }
+          else {
+              syslib::ipc_recv(&args);
+              printf!("thread %d returned from recv (%d)\n", syslib::get_tid(),
+                      dest);
+              syslib::reply(null, 0, null, 0);
+              printf!("long %d\n", *(0xdeadb000 as *u32));
+              printf!("short: %d\n", *(args.short_dest.addr as *u32));
 
-        }
-    }
-    0
+              syslib::abscond(1);
+
+          }
+      }
+  }
+  0
 }

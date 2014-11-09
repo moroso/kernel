@@ -52,7 +52,8 @@ fn kmut_unlock(km: *kmut) {
     cond_preempt_enable(enable);
 }
 
-// lock two mutexes in the same order so as to prevent deadlock
+// so that deadlock is avoided, sort the addresses of the two locks to ensure
+// they're always taken in the same order
 fn kmut_2lock(mut1: *kmut, mut2: *kmut) {
     let first_lock: *kmut = min(mut1 as u32, mut2 as u32) as *kmut;
     let second_lock: *kmut = max(mut1 as u32, mut2 as u32) as *kmut;
