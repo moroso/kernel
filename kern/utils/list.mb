@@ -124,6 +124,16 @@ fn list_insert_tail(node: *list_node, head: *list_head) {
 
 
 fn list_del(n: *list_node) {
+    if (n as u32 < 4096) {
+        printf!("ERROR %p\n", n);
+    }
+    if (n->next as u32 < 4096) {
+        printf!("ERRORi %p\n", n->next);
+    }
+    if (n->prev as u32 < 4096) {
+        printf!("ERROR %p\n", n->prev);
+    }
+
     n->next->prev = n->prev;
     n->prev->next = n->next;
     // To help catch bugs.

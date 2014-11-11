@@ -357,7 +357,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         }
         if (message_src->short_src.len > 0 &&
                 message_src->options&(OPTION_NO_REPLY | OPTION_ASYNC) == 0 &&
-                message_src->short_src.len < SHORT_BUFFER_MAX) {
+                message_src->short_src.len > SHORT_BUFFER_MAX) {
             slub_free(message_src->short_src.addr as *u32,
                     message_src->short_src.len);
         }
