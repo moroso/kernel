@@ -15,6 +15,7 @@
  * Author: Amanda M. Watson
  */
 
+
 use consts::*;
 use utils::list::*;
 use utils::buddy_alloc::{frame_alloc,frame_alloc_pow2};
@@ -22,15 +23,15 @@ use locks::mutex::*;
 use structures::schedule::*;
 
 
+const debug: bool = true;
 const SLAB_SIZE: u32 = PAGE_SIZE; /* this really isn't the right size*/
 const UINT_SIZE: u32 = 4;
 const POWER_MIN: u32 = 2;
 const POWER_MAX: u32 = 9;
 
+
 struct slab_descriptor {
-    slab: *u32,
     slab_low: *u32,
-    element_count: u32,
     slab_link: list_node,
 }
 
@@ -39,6 +40,7 @@ struct cache_head {
     slab: *u32,
     link: list_node,
     mut: kmut,
+    slab_list: list_head,
 }
 
 static head: list_head = LIST_HEAD_INIT!(head);
@@ -49,10 +51,16 @@ fn slab_add(size: u32, cache: *cache_head) {
     if (slab == null) {
         return ();
     }
+    let desc: *slab_descriptor = slab as *slab_descriptor;
+    slab+=sizeof(slab_descriptor);
+    desc->slab_low = slab;
+    list_init_node(&(desc->slab_link)); 
+    list_insert_head(&desc->slab_link, &cache->slab_list);
+
     /* divide into elements */
     let node_prev: *u32 = slab;
     let i: u32;
-    for (i = size; i < SLAB_SIZE; i+=size) {
+    for (i = size; i < (SLAB_SIZE - sizeof(slab_descriptor)); i+=size) {
         let node: *u32 = ((node_prev as u32) + size) as *u32;
         *node_prev = node as u32;
         node_prev = node;
@@ -70,7 +78,7 @@ fn slab_add(size: u32, cache: *cache_head) {
     };
 
     /* should divide evenly */
-    assert!(i == (SLAB_SIZE/size));
+    //assert!(i == ((SLAB_SIZE - sizeof(slab_descriptor))/size));
     cache->slab = slab;
 
 }
@@ -91,6 +99,7 @@ fn find_cache(size: u32) -> i32 {
  */
 fn cache_create(size: u32, cache: *cache_head) -> i32 {
     cache->size = size;
+    list_init_head(&cache->slab_list);
     kmut_init(&cache->mut);
     slab_add(size, cache);
     if (cache->slab == null) {
@@ -123,6 +132,21 @@ fn cache_add (element: *u32, cache: *cache_head) {
     kmut_lock(&cache->mut);
     *element = cache->slab as u32;
     cache->slab = element;
+    let slab_node: *slab_descriptor = null;
+    let found: bool = false;
+    if (debug) {
+        list_foreach_entry!(slab_node, &(cache->slab_list), slab_descriptor,
+                slab_link, {
+                if (element > slab_node->slab_low && element < slab_node->slab_low +
+                    SLAB_SIZE - sizeof(slab_descriptor)) {
+                found = true;
+                break;
+                }}); 
+        if (!found) {
+            printf!("error freeing %p\n", element);
+            assert!(false);
+        }
+    }
     kmut_unlock(&cache->mut);
 }
 
@@ -141,6 +165,7 @@ fn slub_init() {
 /* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
  * use frame_alloc */
 fn slub_alloc(size: u32) -> *u32 {
+
     let cache_num: i32 = find_cache(size);
     if (cache_num == -1) {
         return null;
@@ -149,6 +174,9 @@ fn slub_alloc(size: u32) -> *u32 {
 }
 
 fn slub_free(element: *u32, size: u32) {
+    // ensure we aren't freeing something on our thread's stack
+    assert!(!((element as u32) > ((get_tcb()->kstack_top as u32) + 2 * PAGE_SIZE as u32) && (element as u32) <
+                (get_tcb()->kstack_top as u32)));
     if (size == 0) {
         return ();
     }
