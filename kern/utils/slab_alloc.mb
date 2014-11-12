@@ -136,9 +136,10 @@ fn is_in_cache(element: *u32, cache: *cache_head) -> bool {
             slab_link, {
             printf!("compare slab %p-%p to element %p\n", slab_node->slab_low,
                 ((slab_node->slab_low + SLAB_SIZE) as u32 -
-sizeof(slab_descriptor)) as *u8, element);
-            if (element > slab_node->slab_low && element < slab_node->slab_low +
-                SLAB_SIZE - sizeof(slab_descriptor)) {
+                 sizeof(slab_descriptor)) as *u8, element);
+            if (element >= slab_node->slab_low && element <=
+                ((((slab_node->slab_low  as *u8) +
+                   SLAB_SIZE) as u32) - sizeof(slab_descriptor)) as *u32) {
             found = true;
             break;
             }i+=1;}); 
