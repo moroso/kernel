@@ -31,16 +31,16 @@ const POWER_MAX: u32 = 9;
 
 
 struct slab_descriptor {
-    slab_low: *u32,
-    slab_link: list_node,
+slab_low: *u32,
+              slab_link: list_node,
 }
 
 struct cache_head {
-    size: u32,
-    slab: *u32,
-    link: list_node,
-    mut: kmut,
-    slab_list: list_head,
+size: u32,
+          slab: *u32,
+          link: list_node,
+          mut: kmut,
+          slab_list: list_head,
 }
 
 static head: list_head = LIST_HEAD_INIT!(head);
@@ -52,7 +52,9 @@ fn slab_add(size: u32, cache: *cache_head) {
         return ();
     }
     let desc: *slab_descriptor = slab as *slab_descriptor;
-    slab+=sizeof(slab_descriptor);
+    let slab_temp = slab as *u8;
+    slab_temp+=sizeof(slab_descriptor);
+    slab = slab_temp as *u32;
     desc->slab_low = slab;
     list_init_node(&(desc->slab_link)); 
     list_insert_head(&desc->slab_link, &cache->slab_list);
@@ -126,27 +128,51 @@ fn cache_remove (cache: *cache_head) -> *u32 {
     element
 }
 
+fn is_in_cache(element: *u32, cache: *cache_head) -> bool {
+    let slab_node: *slab_descriptor = null;
+    let found: bool = false;
+    let i = 0;
+    list_foreach_entry!(slab_node, &(cache->slab_list), slab_descriptor,
+            slab_link, {
+            printf!("compare slab %p-%p to element %p\n", slab_node->slab_low,
+                ((slab_node->slab_low + SLAB_SIZE) as u32 -
+sizeof(slab_descriptor)) as *u8, element);
+            if (element > slab_node->slab_low && element < slab_node->slab_low +
+                SLAB_SIZE - sizeof(slab_descriptor)) {
+            found = true;
+            break;
+            }i+=1;}); 
+    found
+
+}
+
 /* add element back into cache */
 fn cache_add (element: *u32, cache: *cache_head) {
     /* TODO check memory bounds */
     kmut_lock(&cache->mut);
-    *element = cache->slab as u32;
-    cache->slab = element;
-    let slab_node: *slab_descriptor = null;
-    let found: bool = false;
     if (debug) {
-        list_foreach_entry!(slab_node, &(cache->slab_list), slab_descriptor,
-                slab_link, {
-                if (element > slab_node->slab_low && element < slab_node->slab_low +
-                    SLAB_SIZE - sizeof(slab_descriptor)) {
-                found = true;
-                break;
-                }}); 
+        let found = is_in_cache(element, cache);
         if (!found) {
-            printf!("error freeing %p\n", element);
+
+            let power: u32; 
+            for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
+                if is_in_cache(element, &caches[power - POWER_MIN]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                printf!("element incorrectly sized\n");
+            } else {
+
+                printf!("not found\n");
+            }
             assert!(false);
         }
     }
+
+    *element = cache->slab as u32;
+    cache->slab = element;
     kmut_unlock(&cache->mut);
 }
 
@@ -181,7 +207,7 @@ fn slub_free(element: *u32, size: u32) {
         return ();
     }
     let cache_num: i32 = find_cache(size);
-    if (cache_num == -1) {
+    if (cache_num < 0) {
         return ();
     }
     cache_add(element, &(caches[cache_num as u32]))
