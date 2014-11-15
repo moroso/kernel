@@ -3,6 +3,7 @@ use locks::rw::*;
 use locks::cond::*;
 use locks::lol_atomics::*;
 use structures::tcb::*;
+use structures::schedule::*;
 use utils::buddy_alloc::*;
 
 struct ref_dir_t {
@@ -38,7 +39,18 @@ fn decrease_ref(tcb: *tcb) {
     let ref_old = atomic_add(&(tcb->dir_ref), -1);
     assert!(ref_old > 0);
     if (ref_old == 1) {
-        frame_free(tcb as *u8);
+        assert!(tcb->link.next == null && tcb->link.prev == null);
+        preempt_disable();
+        let tcb_node: *tcb = null;
+        let i: u32 = 0;
+        list_foreach_entry!(tcb_node, &run_queue.run_Q, tcb, link, { 
+                assert!(tcb_node != tcb);
+                i+=1;
+
+                })
+        assert!(tcb != get_tcb());
+        preempt_enable();
+        //frame_free(tcb as *u8);
     }
 }
 
@@ -46,16 +58,18 @@ fn tcb_lookup(tid: u32) -> *tcb {
     let tcb_node: *tcb;
     krw_read_lock(&(tcb_dir.dir_lock));
     list_foreach_entry!(tcb_node, &(tcb_dir.dir_head), tcb, dir_link, {
-        if (tcb_node->tid == tid) {
+            if (tcb_node->tid == tid) {
             increase_ref(tcb_node);
             krw_read_unlock(&(tcb_dir.dir_lock));
             return tcb_node;
-        }
-    });
+            }
+            });
 
     krw_read_unlock(&(tcb_dir.dir_lock));
     null
 }
+
+
 
 fn tcb_end_lookup(tcb_read: *tcb) {
     decrease_ref(tcb_read);
