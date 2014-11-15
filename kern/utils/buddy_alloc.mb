@@ -96,6 +96,7 @@ fn _split_block(arena: *buddy_arena, block: u32,
         let node: *list_node = _get_node(arena, buddy_block);
         list_insert_head(node, &zone->free_list);
         // Mark it as free
+        assert!(!bm_get_bit(&zone->bitmap, buddy_block));
         bm_set_bit(&zone->bitmap, buddy_block);
 
         cur_order = cur_order - 1;
@@ -123,6 +124,7 @@ fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
             _split_block(arena, block, cur_order, order);
 
             // Mark it allocated in the bitmap
+            assert!(bm_get_bit(&zone->bitmap, block));
             bm_clear_bit(&zone->bitmap, block);
             kmut_unlock(&arena->mut);
             return block as i32;
@@ -159,6 +161,7 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
     let zone: *buddy_category = &arena->zones[order];
     let node: *list_node = _get_node(arena, block);
     list_insert_head(node, &zone->free_list);
+    assert!(!bm_get_bit(&zone->bitmap, block));
     bm_set_bit(&zone->bitmap, block);
     kmut_unlock(&arena->mut);
 
