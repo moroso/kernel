@@ -138,6 +138,8 @@ fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
 
 fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
     kmut_lock(&arena->mut);
+    assert!(!bm_get_bit(&zone->bitmap, block));
+
     while (order < MAX_ORDER) {
         let zone: *buddy_category = &arena->zones[order];
         let buddy: u32 = _get_buddy(block, order);
@@ -164,7 +166,6 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
     assert!(!bm_get_bit(&zone->bitmap, block));
     bm_set_bit(&zone->bitmap, block);
     kmut_unlock(&arena->mut);
-
 }
 
 ///////////////////////////////////////////////////////////////////
