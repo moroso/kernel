@@ -26,6 +26,7 @@ use utils::list::*;
 use structures::tcb::*;
 use structures::VM::*;
 use context::*;
+use structures::tcb_dir::*;
 
 extern fn disable_interrupts();
 extern fn enable_interrupts();
@@ -37,6 +38,8 @@ extern fn get_eflags() -> u32;
  */
 const QUEUE_FRONT: u32 = 0;
 const QUEUE_BACK: u32 = 1;
+
+const debug: bool = false;
 
 /* a data structure that manages run queue state */
 struct rq_master {
@@ -121,9 +124,43 @@ fn schedule(tcb: *tcb, pos: u32) {
 }
 
 fn add_to_run_queue(tcb: *tcb, pos: u32) {
+    assert!(tcb->tid < tid_counter); 
     let enable = scheduler_lock();
     assert!(pos == QUEUE_FRONT || pos == QUEUE_BACK);
     assert!(tcb->state == STATE_RUNNABLE);
+    if (debug) {
+        let tcb_node: *tcb = null;
+        let i: u32 = 0;
+        let tcb_node2: *tcb = null;
+        let print: bool = false;
+        list_foreach_entry!(tcb_node, &run_queue.run_Q, tcb, link, { 
+                assert!(tcb_node != tcb);
+                if((tcb_node->link.next as *u8 < (4096 as *u8) ||
+                        tcb_node->link.prev as *u8 < (4096 as *u8))) {
+                printf!("CUR %d %p %d (%d)\n", i, tcb_node, tcb_node->tid,
+                    get_tcb()->tid);
+
+                print = true;
+                break;
+
+                }
+                i+=1;
+                })
+        if print {
+            i = 0;
+            list_foreach_entry!(tcb_node2, &run_queue.run_Q, tcb, link, { 
+                    assert!(tcb_node2 != tcb);
+                    printf!("NODE %d %p\n", i, tcb_node2);
+
+                    printf!("%d %d\n", tcb_node2->tid, tcb_node2->state);
+                    //printf!("%p\n", tcb_lookup(tcb_node2->tid));
+
+                    i+=1;
+                    })
+
+        }
+
+    }
     if (pos == QUEUE_FRONT) {
         list_insert_head(&tcb->link, &run_queue.run_Q);
     } else {
@@ -183,8 +220,49 @@ fn run_tcb(new_running: *tcb) {
 }
 
 fn round_robin_remove() -> *tcb {
+
+    if (debug) {
+        let i: u32 = 0;
+        let tcb_node: *tcb = null;
+        let tcb_node2: *tcb = null;
+
+        let print: bool = false;
+        list_foreach_entry!(tcb_node, &run_queue.run_Q, tcb, link, { 
+                if((tcb_node->link.next as *u8 < (4096 as *u8) ||
+                        tcb_node->link.prev as *u8 < (4096 as *u8))) {
+                printf!("CUR %d %p %d (%d)\n", i, tcb_node, tcb_node->tid,
+                    get_tcb()->tid);
+
+                print = true;
+                break;
+
+                }
+                i+=1;
+                })
+        if print {
+            i = 0;
+            list_foreach_entry!(tcb_node2, &run_queue.run_Q, tcb, link, { 
+                    printf!("NODE %d %p\n", i, tcb_node2);
+
+                    printf!("%d %d\n", tcb_node2->tid, tcb_node2->state);
+
+
+                    printf!("%d\n", tcb_node2->state);
+                    //printf!("%p\n", tcb_lookup(tcb_node2->tid));
+
+                    i+=1;
+                    })
+
+        }
+
+    }
     let new_running = list_head_entry!(&run_queue.run_Q, tcb, link);
     if (new_running != null) {
+        if (new_running->link.next as *u8 < (4096 as *u8) ||
+                new_running->link.prev as *u8 < (4096 as *u8)) {
+            printf!("LOOKING UP TID\n");
+            printf!("TID %d\n", new_running->tid);
+        }
         list_del(&(new_running->link));
     }
     new_running

@@ -25,6 +25,7 @@ fn bm_clear_bit(bm: *bitmap, n: u32) {
 // The allocator!
 const BITS: u32 = 32;
 const MAX_ORDER: u32 = 12;
+const debug: bool = false;
 
 struct buddy_category {
     bitmap: bitmap,
@@ -222,8 +223,20 @@ fn frame_free_pow2(frame: *u8, order: u32) {
     buddy_free(frame_arena, frame_num, order);
 }
 
-fn frame_alloc() -> *u8 { frame_alloc_pow2(0) }
-fn frame_free(frame: *u8) { frame_free_pow2(frame, 0); }
+fn frame_alloc() -> *u8 { 
+    let ret = frame_alloc_pow2(0); 
+    if (debug) {
+        printf!("allocating %p\n", ret); 
+    }
+    ret 
+}
+
+fn frame_free(frame: *u8) { 
+    if (debug) {
+        printf!("freeing %p\n", frame); 
+    }
+    frame_free_pow2(frame, 0); 
+}
 
 
 /////////////////////////// Testing

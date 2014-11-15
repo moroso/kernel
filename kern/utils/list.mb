@@ -106,6 +106,17 @@ fn __list_insert_between(n: *list_node, n1: *list_node, n2: *list_node) {
     n->next = n2;
     n1->next = n;
     n2->prev = n;
+    assert!(n1 as *u8 > (4096 as *u8));
+    assert!(n2 as *u8 > (4096 as *u8));
+
+    assert!(n->next as *u8 > (4096 as *u8));
+    assert!(n->prev as *u8 > (4096 as *u8)); 
+    assert!(n1->next as *u8 > (4096 as *u8));
+    assert!(n1->prev as *u8 > (4096 as *u8)); 
+    assert!(n2->next as *u8 > (4096 as *u8));
+    assert!(n2->prev as *u8 > (4096 as *u8)); 
+
+
 }
 
 fn list_insert_after(n_new: *list_node, n_old: *list_node) {
@@ -124,16 +135,9 @@ fn list_insert_tail(node: *list_node, head: *list_head) {
 
 
 fn list_del(n: *list_node) {
-    if (n as u32 < 4096) {
-        printf!("ERROR %p\n", n);
-    }
-    if (n->next as u32 < 4096) {
-        printf!("ERRORi %p\n", n->next);
-    }
-    if (n->prev as u32 < 4096) {
-        printf!("ERROR %p\n", n->prev);
-    }
-
+    assert!(n as *u8 > (4096 as *u8));
+    assert!(n->next as *u8 > (4096 as *u8));
+    assert!(n->prev as *u8 > (4096 as *u8)); 
     n->next->prev = n->prev;
     n->prev->next = n->next;
     // To help catch bugs.

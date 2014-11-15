@@ -134,14 +134,15 @@ fn set_state(tcb: *tcb, state: u32) {
 fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
 
     let tcb: *tcb = frame_alloc() as *tcb;
-    tcb_init(tcb);
 
     if (tcb == null) {
         return null;
     }
 
-    assert!(tcb->kstack_top != null);
+    tcb_init(tcb);
 
+    assert!(tcb->kstack_top != null);
+    
     /* make some room for the new context, the return function and its args */
     tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
     tcb->context->eflags = get_eflags();
