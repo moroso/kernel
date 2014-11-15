@@ -203,16 +203,15 @@ fn slub_alloc(size: u32) -> *u32 {
 }
 
 fn slub_free(element: *u32, size: u32) {
+    return ();
     mos_memset(element, 0xc, size);
-    // ensure we aren't freeing something on our thread's stack
-    if (is_addr_aligned(element as *u8)) {
-        printf!("freeing %p\n", element);
-    }
-    assert!(!((element as u32) > ((get_tcb()->kstack_top as u32) + 2 * PAGE_SIZE as u32) && (element as u32) <
-                (get_tcb()->kstack_top as u32)));
     if (size == 0) {
         return ();
     }
+    // ensure we aren't freeing something on our thread's stack
+    assert!(!((element as u32) > ((get_tcb()->kstack_top as u32) + 2 * PAGE_SIZE as u32) && (element as u32) <
+                (get_tcb()->kstack_top as u32)));
+
     let cache_num: i32 = find_cache(size);
     if (cache_num < 0) {
         return ();
