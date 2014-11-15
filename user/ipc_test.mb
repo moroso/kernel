@@ -33,19 +33,19 @@ fn main() -> i32 {
               syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
               args.dest_id = ret;
               *(0xdeadb000 as *u32) = 2;
-              let send_ret = syslib::ipc_send(&args); 
+             /* let send_ret = syslib::ipc_send(&args); 
               printf!("thread %d returned from send (%d)\n", syslib::get_tid(),
-                      send_ret);
+                      send_ret);*/
 
               syslib::repl();
           }
           else {
-              let recv_ret = syslib::ipc_recv(&args);
+              /*let recv_ret = syslib::ipc_recv(&args);
               printf!("thread %d returned from recv (%d)\n", syslib::get_tid(),
                       recv_ret);
               syslib::reply(null, 0, null, 0);
               printf!("long %d\n", *(0xdeadb000 as *u32));
-              printf!("short: %d\n", *(args.short_dest.addr as *u32));
+              printf!("short: %d\n", *(args.short_dest.addr as *u32));*/
 
               syslib::abscond(1);
 
