@@ -13,6 +13,10 @@ struct list_head {
     node: list_node,
 }
 
+// chekcs if address is too low to be a valid pointer
+macro ptr_too_low!(ptr) {
+  (($ptr as *u8) <= (4096 as *u8))
+}
 
 macro list_entry!(ptr, ty, member) {
     container_of!($ptr, $ty, $member)
@@ -106,17 +110,15 @@ fn __list_insert_between(n: *list_node, n1: *list_node, n2: *list_node) {
     n->next = n2;
     n1->next = n;
     n2->prev = n;
-    assert!(n1 as *u8 > (4096 as *u8));
-    assert!(n2 as *u8 > (4096 as *u8));
 
-    assert!(n->next as *u8 > (4096 as *u8));
-    assert!(n->prev as *u8 > (4096 as *u8)); 
-    assert!(n1->next as *u8 > (4096 as *u8));
-    assert!(n1->prev as *u8 > (4096 as *u8)); 
-    assert!(n2->next as *u8 > (4096 as *u8));
-    assert!(n2->prev as *u8 > (4096 as *u8)); 
-
-
+    assert!(!(ptr_too_low!(n1)));
+    assert!(!(ptr_too_low!(n2)));
+    assert!(!(ptr_too_low!(n->next)));
+    assert!(!(ptr_too_low!(n->prev)));
+    assert!(!(ptr_too_low!(n1->next)));
+    assert!(!(ptr_too_low!(n1->prev)));
+    assert!(!(ptr_too_low!(n2->next)));
+    assert!(!(ptr_too_low!(n2->prev)));
 }
 
 fn list_insert_after(n_new: *list_node, n_old: *list_node) {
@@ -135,9 +137,9 @@ fn list_insert_tail(node: *list_node, head: *list_head) {
 
 
 fn list_del(n: *list_node) {
-    assert!(n as *u8 > (4096 as *u8));
-    assert!(n->next as *u8 > (4096 as *u8));
-    assert!(n->prev as *u8 > (4096 as *u8)); 
+    assert!(!(ptr_too_low!(n)));
+    assert!(!(ptr_too_low!(n->next)));
+    assert!(!(ptr_too_low!(n->prev)));
     n->next->prev = n->prev;
     n->prev->next = n->next;
     // To help catch bugs.

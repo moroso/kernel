@@ -166,7 +166,7 @@ fn log_to_phys(log_addr: *u8, PD: *PD_t) -> **u8 {
     (&(get_aligned_addr((PD->PT_entries[pd_entry]))[pt_entry] )) as **u8
 }
 
-fn get_frame_size(log_addr: *u8, PD: *PD_t) -> u32 {
+fn get_log_addr_size(log_addr: *u8, PD: *PD_t) -> u32 {
 
     assert!(PD != null);
 
@@ -204,7 +204,7 @@ fn get_frame_ref(frame: *u8) -> u32 {
     (frame_table[frame_num])
 }
 
-fn dec_frame_ref(frame: *u8, PD: *PD_t) -> u32 {
+fn dec_frame_ref(frame: *u8, PD: *PD_t, size: u32) -> u32 {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
     assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
 
@@ -212,8 +212,6 @@ fn dec_frame_ref(frame: *u8, PD: *PD_t) -> u32 {
     assert!(*ref_count > 0);
     let old_ref = atomic_add(ref_count, -1);
     if (old_ref == 1) {
-
-        let size: u32 = get_frame_size(frame, PD);
         free_frame(frame, size);
     }
     old_ref
@@ -277,10 +275,11 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
-    dec_frame_ref(frame, PD);
+    let size = get_log_addr_size(log_addr, PD);
+    dec_frame_ref(frame, PD, size);
     *page_entry = null;
     invalidate_tlb(frame);
-  
+
 }
 
 /*
@@ -341,6 +340,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
                 *(log_to_phys(log_addr, PD) as *u32), frame);
         assert!(false);
     }
+
     0
 }
 
@@ -532,7 +532,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
         return ();
     }
     // otherwise, we make a new page and copy it over
-    let frame_size = get_frame_size(log_addr, PD);
+    let frame_size = get_log_addr_size(log_addr, PD);
     let frame_new: *u8 = get_frame(frame_size);
     assert!(frame_new != null);  // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
@@ -546,6 +546,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
     kmut_unlock(&PD->mut);
+
 }
 
 // this needs locking around the PD's
@@ -561,7 +562,7 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, p
         assert!(frame_src_addr != null && *frame_src_addr != null);
         let frame_src = *frame_src_addr;
 
-        let frame_size = get_frame_size(addr_src, PD_src);
+        let frame_size = get_log_addr_size(addr_src, PD_src);
         let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
         if (frame_dest_addr != null) {
             free_page(addr_dest, PD_dest);
@@ -578,7 +579,7 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, p
             assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
                         frame_size) >= 0);
         } 
-        dec_frame_ref(frame_src, PD_dest);
+        dec_frame_ref(frame_src, PD_dest, frame_size);
 
         0
     }

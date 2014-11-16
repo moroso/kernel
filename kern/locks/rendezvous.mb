@@ -20,8 +20,6 @@ const ERR_TIMEOUT: i32 = -2;
 const ERR_DEAD: i32 = -3;
 const ERR_REPLAY: i32 = -4;
 
-static rend_list: list_head = LIST_HEAD_INIT!(rend_list);
-
 struct rend_node {
     message: *u32,
     message_len: u32,
@@ -108,8 +106,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         return null;
     }
     
-    // TODO sort
-    list_insert_tail(&my_node->timeout_link, &rend_list);
     
     /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
@@ -117,7 +113,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
                 rend_node, rend_link);
         assert!(other_node != null);
         list_del(&other_node->rend_link);
-        list_del(&other_node->timeout_link);
 
         if (option != SEND_SYNC_REPLY) {
             cond_preempt_enable(enable);
@@ -138,7 +133,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     if (option != SEND_ASYNC) {
         my_node->tcb = get_tcb();
     }
-
     list_insert_tail(&my_node->rend_link, own_head); 
 
 
@@ -150,8 +144,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             // we recurse only once, and there are no dynamic mem
             // allocations to worry about
             assert!(option == RECV);
-
             cond_preempt_enable(enable);
+            // TODO adjust ticks
             return rend_wait(rend, message, message_len, message_recv,
                     recv_len, timeout, option, err);
         }
@@ -215,7 +209,6 @@ fn rend_destroy(rend: *rend, err: i32) {
         let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
         list_del(&(wakeup_node->rend_link));
-        list_del(&(wakeup_node->timeout_link));
 
         rend_signal(null, 0, wakeup_node, err as i32);  
     }

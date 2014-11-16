@@ -130,8 +130,10 @@ fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
 
             // SPEW
             count += 1;
-            printf!("block %d, count %d, max %d, real_max %d\n",
-                    block, count, arena->total_frames, real_max);
+            if (debug) {
+                printf!("block %d, count %d, max %d, real_max %d\n",
+                        block, count, arena->total_frames, real_max);
+            }
             // SPEW
 
             // Mark it allocated in the bitmap
@@ -212,7 +214,7 @@ fn frame_init() {
     // Put blocks into the arena
     let i: u32;
     for (i = first_free_block; i < frames_rounded_down;
-         i += frames_per_block) {
+            i += frames_per_block) {
         buddy_free(frame_arena, i, MAX_ORDER);
         real_max += frames_per_block;
     };
@@ -230,7 +232,7 @@ fn frame_alloc_pow2(order: u32) -> *u8 {
 
 fn frame_free_pow2(frame: *u8, order: u32) {
     let frame_num = (frame as u32) / PAGE_SIZE;
-    //buddy_free(frame_arena, frame_num, order);
+    buddy_free(frame_arena, frame_num, order);
 }
 
 fn frame_alloc() -> *u8 {
