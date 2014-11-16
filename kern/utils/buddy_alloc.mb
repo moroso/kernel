@@ -25,7 +25,7 @@ fn bm_clear_bit(bm: *bitmap, n: u32) {
 // The allocator!
 const BITS: u32 = 32;
 const MAX_ORDER: u32 = 12;
-const debug: bool = true;
+const debug: bool = false;
 
 struct buddy_category {
     bitmap: bitmap,
@@ -103,9 +103,11 @@ fn _split_block(arena: *buddy_arena, block: u32,
         bm_set_bit(&zone->bitmap, buddy_block);
 
         cur_order = cur_order - 1;
-
     }
 }
+
+static count: u32 = 0;
+static real_max: u32 = 0;
 
 // Returns -1 on failure
 fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
@@ -126,9 +128,16 @@ fn buddy_alloc(arena: *buddy_arena, order: u32) -> i32 {
             let block: u32 = _get_index(arena, node);
             _split_block(arena, block, cur_order, order);
 
+            // SPEW
+            count += 1;
+            printf!("block %d, count %d, max %d, real_max %d\n",
+                    block, count, arena->total_frames, real_max);
+            // SPEW
+
             // Mark it allocated in the bitmap
             assert!(bm_get_bit(&zone->bitmap, block));
             bm_clear_bit(&zone->bitmap, block);
+
             kmut_unlock(&arena->mut);
             return block as i32;
         }
@@ -164,10 +173,11 @@ fn buddy_free(arena: *buddy_arena, block: u32, order: u32) {
     let zone: *buddy_category = &arena->zones[order];
     let node: *list_node = _get_node(arena, block);
     list_insert_head(node, &zone->free_list);
+    //list_insert_tail(node, &zone->free_list);
     assert!(!bm_get_bit(&zone->bitmap, block));
     bm_set_bit(&zone->bitmap, block);
-    kmut_unlock(&arena->mut);
 
+    kmut_unlock(&arena->mut);
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -202,8 +212,9 @@ fn frame_init() {
     // Put blocks into the arena
     let i: u32;
     for (i = first_free_block; i < frames_rounded_down;
-            i += frames_per_block) {
+         i += frames_per_block) {
         buddy_free(frame_arena, i, MAX_ORDER);
+        real_max += frames_per_block;
     };
 
 }
@@ -219,22 +230,22 @@ fn frame_alloc_pow2(order: u32) -> *u8 {
 
 fn frame_free_pow2(frame: *u8, order: u32) {
     let frame_num = (frame as u32) / PAGE_SIZE;
-    buddy_free(frame_arena, frame_num, order);
+    //buddy_free(frame_arena, frame_num, order);
 }
 
-fn frame_alloc() -> *u8 { 
-    let ret = frame_alloc_pow2(0); 
+fn frame_alloc() -> *u8 {
+    let ret = frame_alloc_pow2(0);
     if (debug) {
-        printf!("allocating %p\n", ret); 
+        printf!("allocating %p\n", ret);
     }
-    ret 
+    ret
 }
 
-fn frame_free(frame: *u8) { 
+fn frame_free(frame: *u8) {
     if (debug) {
-        printf!("freeing %p\n", frame); 
+        printf!("freeing %p\n", frame);
     }
-    frame_free_pow2(frame, 0); 
+    frame_free_pow2(frame, 0);
 }
 
 
