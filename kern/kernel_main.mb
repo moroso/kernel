@@ -21,6 +21,7 @@ use structures::tcb_dir::tcb_dir_add;
 use drivers::timer::*;
 use sys::*;
 use structures::tcb_dir::*;
+use utils::list::*;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
