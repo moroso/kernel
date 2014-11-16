@@ -62,7 +62,10 @@ fn buddy_init(num_frames: u32) -> *buddy_arena {
 
         zone->bitmap.bits = early_alloc(4 * (num_words+1));
 
-        num_words /= 2;
+        // FIXME: We want to shrink the bitmaps as the block sizes get
+        // bigger, but doing this requires *actually* shifting over
+        // when we index into a bitmap, which we are neglecting to do!
+        //num_words /= 2;
     };
 
     arena
