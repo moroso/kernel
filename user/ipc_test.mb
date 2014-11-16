@@ -45,7 +45,7 @@ fn main() -> i32 {
                       recv_ret);
               syslib::reply(null, 0, null, 0);
               printf!("long %d\n", *(0xdeadb000 as *u32));
-              printf!("short: %d\n", *(args.short_dest.addr as *u32));*/
+              printf!("short: %d\n", *(args.short_dest.addr as *u32));
 
               syslib::abscond(1);
 
