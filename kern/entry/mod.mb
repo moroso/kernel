@@ -108,6 +108,10 @@ fn timer_handler(regs: *uregs) {
     }
 }
 
+fn get_ticks() -> u32 {
+    ticks
+}
+
 fn kbd_handler(regs: *uregs) {
     pic_acknowledge_any_master();
 

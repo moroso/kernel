@@ -5,6 +5,7 @@ use structures::schedule::*;
 use consts::*;
 use utils::slab_alloc::*;
 use utils::stdlib::*;
+use entry::get_ticks;
 
 /* sync options */
 const SEND_SYNC_REPLY: u32 = 0;
@@ -94,8 +95,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
     let enable = cond_preempt_disable();
 
-    my_node->timeout = timeout; // TODO update timeout
-
+    my_node->timeout = get_ticks() + timeout; 
 
     if (!rend->rend_active) {
         *err = ERR_DEAD; 
@@ -105,13 +105,15 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         }
         return null;
     }
-
+    
+    
     /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
         let other_node: *rend_node = list_head_entry!(other_head,
                 rend_node, rend_link);
         assert!(other_node != null);
         list_del(&other_node->rend_link);
+
         if (option != SEND_SYNC_REPLY) {
             cond_preempt_enable(enable);
             *message_recv = other_node->message;
@@ -131,9 +133,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     if (option != SEND_ASYNC) {
         my_node->tcb = get_tcb();
     }
+    list_insert_tail(&my_node->rend_link, own_head); 
 
-    // TODO timeout queue
-    list_insert_tail(&my_node->rend_link, own_head);
 
     let buffer: u32[5];
     if (option != SEND_ASYNC) {
@@ -144,6 +145,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             // allocations to worry about
             assert!(option == RECV);
             cond_preempt_enable(enable);
+            // TODO adjust ticks
             return rend_wait(rend, message, message_len, message_recv,
                     recv_len, timeout, option, err);
         }
@@ -169,7 +171,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
 /* give new message to rend_node and wake it up */
 fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32) {
-  
+
     if (rend_node->tcb == null) {
 
         if (rend_node->message != null) {
@@ -207,6 +209,7 @@ fn rend_destroy(rend: *rend, err: i32) {
         let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
         list_del(&(wakeup_node->rend_link));
+
         rend_signal(null, 0, wakeup_node, err as i32);  
     }
 }

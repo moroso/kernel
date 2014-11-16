@@ -39,7 +39,7 @@ extern fn get_eflags() -> u32;
 const QUEUE_FRONT: u32 = 0;
 const QUEUE_BACK: u32 = 1;
 
-const debug: bool = false;
+const debug: bool = true;
 
 /* a data structure that manages run queue state */
 struct rq_master {
@@ -228,8 +228,8 @@ fn round_robin_remove() -> *tcb {
 
         let print: bool = false;
         list_foreach_entry!(tcb_node, &run_queue.run_Q, tcb, link, { 
-                if((tcb_node->link.next as *u8 < (4096 as *u8) ||
-                        tcb_node->link.prev as *u8 < (4096 as *u8))) {
+                if((ptr_too_low!(tcb_node->link.next) ||
+                        ptr_too_low!(tcb_node->link.prev))) {
                 printf!("CUR %d %p %d (%d)\n", i, tcb_node, tcb_node->tid,
                     get_tcb()->tid);
 
@@ -258,8 +258,8 @@ fn round_robin_remove() -> *tcb {
     }
     let new_running = list_head_entry!(&run_queue.run_Q, tcb, link);
     if (new_running != null) {
-        if (new_running->link.next as *u8 < (4096 as *u8) ||
-                new_running->link.prev as *u8 < (4096 as *u8)) {
+        if (ptr_too_low!(new_running->link.next) ||
+                ptr_too_low!(new_running->link.prev as *u8)) {
             printf!("LOOKING UP TID\n");
             printf!("TID %d\n", new_running->tid);
         }
