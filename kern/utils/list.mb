@@ -135,6 +135,15 @@ fn list_insert_tail(node: *list_node, head: *list_head) {
     list_insert_before(node, &head->node)
 }
 
+fn in_list(node: *list_node) -> bool {
+    if (node->next == null) {
+        assert!(node->prev == null);
+        return false;
+    }
+    assert!(node->prev != null);
+    true
+}
+
 
 fn list_del(n: *list_node) {
     assert!(!(ptr_too_low!(n)));
@@ -155,3 +164,4 @@ fn __list_is_singleton(n: *list_node) -> bool {
 }
 fn list_is_empty(h: *list_head) -> bool { __list_is_empty(&h->node) }
 fn list_is_singleton(h: *list_head) -> bool { __list_is_singleton(&h->node) }
+
