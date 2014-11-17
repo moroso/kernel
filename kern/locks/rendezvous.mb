@@ -50,8 +50,8 @@ fn rend_init(rend: *rend) {
  * *message gets set to the message of the opposing node; else, message is null 
 */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
-
+        recv_len: *u32, timeout: u32, option: u32, err: *i32, addr: *u8) -> *rend_node {
+    
     let other_head: *list_head;
     let own_head: *list_head; 
 
@@ -105,8 +105,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         }
         return null;
     }
-    
-    
+
+
     /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
         let other_node: *rend_node = list_head_entry!(other_head,
@@ -147,7 +147,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             cond_preempt_enable(enable);
             // TODO adjust ticks
             return rend_wait(rend, message, message_len, message_recv,
-                    recv_len, timeout, option, err);
+                    recv_len, timeout, option, err, null);
         }
     }
 
