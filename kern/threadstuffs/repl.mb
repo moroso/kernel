@@ -19,8 +19,10 @@ use entry::{uregs, leave_kernel};
 /* function executed by child thread to return to the code the parent was
  * executing.  Assumes child has already been added to the directory */
 fn child_repl(regs_i: *u8) {
+    
+    let frame = *(log_to_phys(0x40003edc as *u8, &(get_tcb()->proc->PD)));
+    assert!(has_flags(frame, COW_BIT));
     let regs = regs_i as *uregs;
-
     // on success, child returns 0
     regs->gpregs.eax = 0;
     leave_kernel(regs);
@@ -78,25 +80,40 @@ fn repl(parent_regs: *uregs) -> i32 {
 
     child_proc->parent_pid = parent_proc->pid as i32;
 
-    let page: *u8;
     // copy over references to new PD
-    for (page = USER_MEM_START as *u8; page <= (INT_MAX - PAGE_SIZE) as *u8; page += PAGE_SIZE) {
-        if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
-            thr_abort(child_tcb);
-            proc_destroy(child_proc);
-            return -5;
+    let pd: u32;
+    let pt: u32;
+    kmut_lock(&parent_proc->PD.mut);
+    for (pd = get_pd_entry(USER_MEM_START as *u8); pd <= get_pd_entry((INT_MAX -
+                    PAGE_SIZE) as *u8); pd += 1) {
+        if (parent_proc->PD.PT_entries[pd] == null) {
+            child_proc->PD.PT_entries[pd] = null;
+            continue;
+        }
+
+        for (pt = get_pt_entry(USER_MEM_START as *u8); pt <= get_pt_entry((INT_MAX -
+                        PAGE_SIZE) as *u8); pt+=1) {
+
+            let page = make_entry(pd, pt, 0) as *u8;
+            if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
+                kmut_unlock(&parent_proc->PD.mut);
+
+                thr_abort(child_tcb);
+                proc_destroy(child_proc);
+                return -5;
+            }
         }
     }
+    kmut_unlock(&parent_proc->PD.mut);
 
     // add tcb to directory, now that repl can no longer fail
     tcb_dir_add(child_tcb);
-
     /* add new tcb to list of children */
     kmut_lock(&(parent_proc->child_mut));
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
     parent_proc->child_count+=1;
     kmut_unlock(&(parent_proc->child_mut));
-
     schedule(child_tcb, QUEUE_BACK);
+
     child_tcb->tid as i32
 }

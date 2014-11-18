@@ -1,6 +1,6 @@
 fn main() -> i32 {
     let i = 0;
-    let ret: u32 = syslib::repl();
+    let ret: i32 = syslib::repl();
     if (ret != 0) {
         syslib::abscond(0);
     }

@@ -11,7 +11,7 @@ fn main(argc: u32, argv: **u8) -> i32 {
             argv[0], argc, argv[1]);
 
     for (i = 0; i < NUM_CHILD; i+=1) {
-        let status: u32 = syslib::repl();
+        let status: i32 = syslib::repl();
         if (status == 0) {
             syslib::abscond(1);
         } else {

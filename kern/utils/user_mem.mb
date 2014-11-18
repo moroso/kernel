@@ -9,12 +9,18 @@ use structures::VM::*;
 extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
 
 fn copy_from_user(to: *u8, from: *u8, n: u32) -> i32 {
+    if (n == 0) {
+        return 0;
+    }
     if (!is_user_addr(from) || !is_user_addr(from+n)) { return -1; }
     assert!(is_kernel_addr(to));
     userspace_copy(to, from, n)
 }
 
 fn copy_to_user(to: *u8, from: *u8, n: u32) -> i32 {
+    if (n == 0) {
+        return 0;
+    }
     if (!is_user_addr(to) || !is_user_addr(to + n)) { return -1; }
     assert!(is_kernel_addr(from));
     userspace_copy(to, from, n)

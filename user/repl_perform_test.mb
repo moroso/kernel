@@ -7,7 +7,7 @@
 mod syslib;
 
 fn main() -> i32 {
-    let child: u32 = syslib::repl();
+    let child: i32 = syslib::repl();
 		if (child == 0) {
 				syslib::perform("child_test");
 				printf!("ERROR: return from perform\n");

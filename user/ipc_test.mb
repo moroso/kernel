@@ -7,50 +7,34 @@ mod syslib;
 
 
 fn main() -> i32 {
-  while(true) {
-      while(true) {
-          let ret = syslib::repl();
-          let args: syslib::ipc_args;
-          args.dest_id = 0;
-          let message: u32 = 4;
-          args.short_src.addr = &message as *u8;
-          args.long_src.addr = 0xdeadb000 as *u8;
-          args.long_dest.addr = 0xdeadb000 as *u8;
-          args.long_src.len = 4096;
-          args.long_dest.len = 4096;
-
-          args.short_src.len = 4;
-          let dest: u32 = 0;
-          args.short_dest.addr = &dest as *u8;
-          args.short_dest.len = 4;
-          if (ret%2 == 0) {
-              args.options = 4;
-          } else if (ret%2 == 1) {
-              args.options = 0;
-          }
-
-          if (ret != 0) {
-              syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
-              args.dest_id = ret;
-              *(0xdeadb000 as *u32) = 2;
-              let send_ret = syslib::ipc_send(&args); 
-              printf!("thread %d returned from send (%d)\n", syslib::get_tid(),
-                      send_ret);
-
-              syslib::repl();
-          }
-          else {
-              let recv_ret = syslib::ipc_recv(&args);
-              printf!("thread %d returned from recv (%d)\n", syslib::get_tid(),
-                      recv_ret);
-              syslib::reply(null, 0, null, 0);
-              printf!("long %d\n", *(0xdeadb000 as *u32));
-              printf!("short: %d\n", *(args.short_dest.addr as *u32));
-
-              syslib::abscond(1);
-
-          }
-      }
-  }
-  0
+    syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
+    let i: u32 = 0;
+    
+    while(true) {
+        printf!("thread %d\n", syslib::get_tid());
+        *(0xdeadb000 as *u32) = i;
+        let ret: i32 = syslib::repl();
+        let args: syslib::ipc_args;
+        args.long_src.addr = null;
+        args.long_src.len = 0;
+        args.long_dest.len = 0;
+        args.short_src.len = 0;
+        args.short_dest.len = 0;
+        args.timeout = 0;
+        args.options = 0;
+        if (ret == 0) {
+            printf!("thread %d receiving\n", syslib::get_tid());
+            printf!("recv returned %d\n", syslib::ipc_recv(&args));
+            printf!("reply returned %d\n", syslib::ipc_reply(null, 0, null, 0));
+            syslib::abscond(1);
+        } else {
+            args.dest_id = ret as u32;
+            printf!("%d sending to %d\n", syslib::get_tid(), ret);
+            printf!("%d returning from send with status %d\n",
+                    syslib::get_tid(), syslib::ipc_send(&args));
+            printf!("returned from send\n");
+        }
+        i+=1;
+    }
+    0
 }

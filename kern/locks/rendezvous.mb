@@ -45,13 +45,49 @@ fn rend_init(rend: *rend) {
     rend->rend_active = true;
 }
 
+static rend_timeout_list: list_head = LIST_HEAD_INIT!(rend_timeout_list);
+fn rend_timeout_insert(rend_insert: *rend_node) {
+    let enable = cond_preempt_disable();
+    let node: *rend_node = null;
+    // insert before the node with the larger timeout
+    list_foreach_entry!(node, &rend_timeout_list, rend_node, timeout_link, {
+            if (node->timeout > rend_insert->timeout) {
+                list_insert_before(&rend_insert->timeout_link, &node->timeout_link); 
+                cond_preempt_enable(enable);
+                return();
+            }
+            });
+    // if there exists no larger node, insert at the end 
+    list_insert_tail(&rend_insert->timeout_link, &rend_timeout_list);
+
+    cond_preempt_enable(enable);
+}
+fn rend_timeout_remove(timeout: u32) {
+    let enable = cond_preempt_disable();
+    let node: *rend_node = null;
+    // insert before the node with the larger timeout
+    list_foreach_entry!(node, &rend_timeout_list, rend_node, timeout_link, {
+            if (node->timeout <= timeout) {
+                list_del(&node->timeout_link);
+                rend_signal(null, 0, node, ERR_TIMEOUT);
+            } else {
+                break;
+            }
+            });
+
+    cond_preempt_enable(enable);
+}
+
+
+
+
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
  * *message gets set to the message of the opposing node; else, message is null 
-*/
+ */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32, addr: *u8) -> *rend_node {
-    
+
     let other_head: *list_head;
     let own_head: *list_head; 
 
@@ -106,7 +142,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         return null;
     }
 
-
     /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
         let other_node: *rend_node = list_head_entry!(other_head,
@@ -123,6 +158,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             }
             *err = 0;
             cond_preempt_enable(enable);
+            // TODO remove when we have more intelligent timeouts
+            list_del(&other_node->timeout_link);
 
             return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
         } else {
@@ -130,6 +167,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         }
     } 
 
+    rend_timeout_insert(my_node);
     if (option != SEND_ASYNC) {
         my_node->tcb = get_tcb();
     }
@@ -138,6 +176,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
     let buffer: u32[5];
     if (option != SEND_ASYNC) {
+        printf!("thread %d sleeping\n", get_tcb()->tid);
         fp_recv(buffer);
         if (my_node->err == ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
@@ -146,6 +185,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             assert!(option == RECV);
             cond_preempt_enable(enable);
             // TODO adjust ticks
+            list_del(&my_node->timeout_link);
             return rend_wait(rend, message, message_len, message_recv,
                     recv_len, timeout, option, err, null);
         }
@@ -164,6 +204,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         printf!("halp\n");
         // assert!(!list_is_empty(own_head)); 
     }
+    assert!(!in_list(&my_node->timeout_link));
 
     null
 }
