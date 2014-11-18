@@ -48,6 +48,8 @@ fn user_thread(dummy: *u8) {
 
 fn idle(dummy: *u8) {
     while (true) {
+
+        scheduler_update(-1);
         //printf!("idle\n");
     }
 }

@@ -323,6 +323,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
+
             return ERR_INTERNAL;
         }
     } else {
@@ -352,6 +353,9 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     message_src->short_src.addr as *u8,
                     min(message_src->short_src.len, args_kern.short_dest.len)) <
                 0) {
+
+            rend_signal(null, 0, rend_node, 0);
+
             return ERR_INTERNAL;
         }
         if (message_src->short_src.len > 0 &&
@@ -416,6 +420,8 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
         if (message_kernel == null || copy_from_user(message_kernel as *u8,
                     message_short as *u8,
                     short_len) < 0) {
+
+            rend_signal(message_kernel, short_len, get_tcb()->last_send, 0);
             return ERR_INTERNAL;
         }
     }

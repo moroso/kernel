@@ -29,7 +29,7 @@ fn abscond(status: u32)  {
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
     assert!(proc != null && tcb != null);
-
+    printf!("thread %d absconding\n", tcb->tid);
     assert!(tcb != null);
     tcb_dir_remove(tcb);     
     rend_destroy(&(get_tcb()->ipc_rend), ERR_DEAD);

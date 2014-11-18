@@ -28,8 +28,8 @@ fn test_sys(arg: u32) -> u32 {
     syscall_1(1, arg)
 }
 
-fn repl() -> u32 {
-    syscall_0(shared::syscall_consts::INT_REPL)
+fn repl() -> i32 {
+    syscall_0(shared::syscall_consts::INT_REPL) as i32
 }
 
 fn thr_repl() -> i32 {
@@ -69,7 +69,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 				syscall_1(shared::syscall_consts::INT_IPC_RECV, args as u32) as i32
 }
 
-fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len:
+fn ipc_reply(message_long: *u8, long_len: u32, message_short: *u32, short_len:
 u32) -> i32 {
     syscall_4(shared::syscall_consts::INT_IPC_REPLY, message_long as u32,
             long_len, message_short as u32, short_len) as i32

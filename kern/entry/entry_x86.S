@@ -18,7 +18,6 @@ common_exit_asm:
     popl %ds
     popa
     addl $12, %esp
-
     iret
 
 .global leave_kernel
