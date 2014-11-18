@@ -15,6 +15,7 @@ use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_B
 use structures::schedule::get_tcb;
 use entry::uregs;
 use utils::stdlib::mos_memcpy;
+use utils::user_mem;
 
 mod perform;
 
@@ -54,9 +55,11 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
     }
 
     /* copy the binary data in */
+    user_mem::allow_user_access();
     let length_read: i32 = fs_read(filename, header.load_addr as *u8,
                                    header.binary_size,
                                    sizeof(bsexe_header));
+    user_mem::disallow_user_access();
     if (length_read != header.binary_size as i32) {
         // XXX: an assert seems to trip when this failure happens
         free_user_range(header.load_addr as *u8, user_esp as *u8,

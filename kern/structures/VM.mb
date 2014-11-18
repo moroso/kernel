@@ -26,6 +26,9 @@ extern fn get_cr4() -> u32;
 extern fn set_cr0(val: u32);
 extern fn set_cr3(val: u32);
 extern fn set_cr4(val: u32);
+extern fn get_eflags() -> u32;
+extern fn set_eflags(val: u32);
+
 
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
@@ -128,8 +131,14 @@ fn enable_paging() {
     // set the paging bit in cr0 to enable paging
     // set write protect bit so we fault on read-only pages in the kernel
     let cr0: u32 = get_cr0();
-    cr0|= ((1 << 31) | (1 << 16));
+    cr0 |= ((1 << 31) | (1 << 16));
+    cr0 &= ~(1 << 16); // turn off AM
     set_cr0(cr0);
+
+    // Turn on SMAP and SMEP so that we fault when we access user memory
+    // from the kernel.
+    // FIXME: We really do need to CPUID gate this.
+    set_cr4(get_cr4() | (1 << 21) | (1 << 20));
 }
 
 /* loads the virtual -> physical mappings from PD into %cr3 */
@@ -551,7 +560,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
 
 // this needs locking around the PD's
 /* takes a frame at addr_src in PD_src, and moves it to addr_dest in PD_dest.
- * original mapping is removed 
+ * original mapping is removed
  */
 fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, page_share: u32)
     -> i32 {
@@ -566,22 +575,20 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, p
         let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
         if (frame_dest_addr != null) {
             free_page(addr_dest, PD_dest);
-        } 
+        }
 
         inc_frame_ref(frame_src);
         if (page_share == 0) {
             // invalidates TLB
-            free_page(addr_src, PD_src); 
+            free_page(addr_src, PD_src);
             assert!(*log_to_phys(addr_src, PD_src) == null);
         }
         if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
                     frame_size) < 0) {
             assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
                         frame_size) >= 0);
-        } 
+        }
         dec_frame_ref(frame_src, PD_dest, frame_size);
 
         0
     }
-
-

@@ -8,16 +8,32 @@ use structures::VM::*;
 
 extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
 
+// Should CPUID gate these, maybe implement them in assembly to use the new
+// instruction for setting and clearing AC.
+fn allow_user_access() {
+    set_eflags(get_eflags() | (1 << 18));
+}
+fn disallow_user_access() {
+    set_eflags(get_eflags() & ~(1 << 18));
+}
+
+fn do_copy(to: *u8, from: *u8, n: u32) -> i32 {
+    allow_user_access();
+    let ret = userspace_copy(to, from, n);
+    disallow_user_access();
+    ret
+}
+
 fn copy_from_user(to: *u8, from: *u8, n: u32) -> i32 {
     if (!is_user_addr(from) || !is_user_addr(from+n)) { return -1; }
     assert!(is_kernel_addr(to));
-    userspace_copy(to, from, n)
+    do_copy(to, from, n)
 }
 
 fn copy_to_user(to: *u8, from: *u8, n: u32) -> i32 {
     if (!is_user_addr(to) || !is_user_addr(to + n)) { return -1; }
     assert!(is_kernel_addr(from));
-    userspace_copy(to, from, n)
+    do_copy(to, from, n)
 }
 
 fn copy_string_from_user(to: *u8, from: *u8, n: u32) -> i32 {

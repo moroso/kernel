@@ -35,7 +35,6 @@ extern fn get_esp() -> u32;
 extern fn set_esp0(val: u32);
 extern fn enable_interrupts();
 extern fn disable_interrupts();
-extern fn set_eflags(val: u32);
 
 
 
@@ -101,7 +100,7 @@ fn kernel_main() -> u32 {
     assert!(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 
-    create_idle_tcb(); 
+    create_idle_tcb();
 
     preempt_enable();
     /*** Switch to the first thread in the run queue and jump to its execution ***/
