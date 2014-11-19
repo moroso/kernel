@@ -48,7 +48,7 @@ fn rend_init(rend: *rend) {
 static rend_timeout_list: list_head = LIST_HEAD_INIT!(rend_timeout_list);
 fn rend_timeout_insert(rend_insert: *rend_node) {
     let enable = cond_preempt_disable();
-    if (rend_insert->timeout < 0) {
+    if (rend_insert->timeout == 0) {
         cond_preempt_enable(enable);
         return();
     }
@@ -80,7 +80,8 @@ fn rend_timeout_remove(timeout: u32) {
             if (node_prev != null) {
                 list_del(&node_prev->timeout_link);
                 list_del(&node_prev->rend_link); //TODO may not always be a thing
-                printf!("thread %d removing thread %d\n", get_tcb()->tid, node->tcb->tid);
+                printf!("thread %d removing thread %d\n", get_tcb()->tid,
+                node_prev->tcb->tid);
                 rend_signal(null, 0, node_prev, ERR_TIMEOUT);
                 node_prev = null;
             }
@@ -93,7 +94,7 @@ fn rend_timeout_remove(timeout: u32) {
     if (node_prev != null) {
         list_del(&node_prev->timeout_link);
         list_del(&node_prev->rend_link); //TODO may not always be a thing
-        printf!("thread %d removing thread %d\n", get_tcb()->tid, node->tcb->tid);
+        printf!("thread %d removing thread %d\n", get_tcb()->tid, node_prev->tcb->tid);
         rend_signal(null, 0, node_prev, ERR_TIMEOUT);
         node_prev = null;
     }
@@ -201,8 +202,10 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     rend_timeout_insert(my_node);
     if (option != SEND_ASYNC) {
         scheduler_update(STATE_COND as i32);
-        printf!("thread %d waking up\n", get_tcb()->tid);
-        assert!(!in_list(&my_node->timeout_link));
+        printf!("thread %d waking up err: %d\n", get_tcb()->tid, my_node->err);
+        if (in_list(&my_node->timeout_link)) {
+            list_del(&my_node->timeout_link);
+        }
         if (my_node->err == ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
             // we recurse only once, and there are no dynamic mem
@@ -221,7 +224,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     cond_preempt_enable(enable);
 
     if (option == RECV) {
-        assert!(!list_is_empty(own_head)); 
+        assert!(list_is_empty(own_head)); 
     }
 
     assert!(!in_list(&my_node->timeout_link));

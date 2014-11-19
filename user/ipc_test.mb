@@ -29,18 +29,20 @@ fn main() -> i32 {
         args.options = 0;
         if (ret == 0) {
             printf!("thread %d receiving\n", syslib::get_tid());
-            printf!("recv returned %d\n", syslib::ipc_recv(&args));
+            /*printf!("recv returned %d\n", syslib::ipc_recv(&args));
             printf!("reply returned %d\n", syslib::ipc_reply(null, 0, null, 0));
             printf!("read from long address: %d, short address: %d\n",
-                    *(0xdeadb000 as *u32), message);
-            syslib::abscond(1);
+                    *(0xdeadb000 as *u32), message);*/
+            while(true) {
+                
+            }
+            //syslib::abscond(1);
         } else {
-            args.timeout = -2;
             message = 2;
             args.dest_id = ret as u32;
             printf!("%d sending to %d\n", syslib::get_tid(), ret);
             printf!("%d returning from send with status %d\n",
-                    syslib::get_tid(), syslib::ipc_send(&args));
+                    syslib::get_tid(), syslib::ipc_recv(&args));
             printf!("returned from send\n");
         }
         i+=1;
