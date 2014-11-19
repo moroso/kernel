@@ -3,6 +3,7 @@ use structures::tcb::gpregs;
 use structures::VM::*;
 use structures::schedule::*;
 use locks::mutex::*;
+use locks::rendezvous::rend_timeout_remove;
 
 const MAX_FAULT_NUMS: u32 = 256;
 
@@ -111,6 +112,7 @@ fn timer_handler(regs: *uregs) {
     if (is_preempt_enabled()) {
         scheduler_update(-1);
     }
+    rend_timeout_remove(ticks);
 }
 
 fn get_ticks() -> u32 {
