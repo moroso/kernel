@@ -48,13 +48,19 @@ fn rend_init(rend: *rend) {
 static rend_timeout_list: list_head = LIST_HEAD_INIT!(rend_timeout_list);
 fn rend_timeout_insert(rend_insert: *rend_node) {
     let enable = cond_preempt_disable();
+    if (rend_insert->timeout < 0) {
+        cond_preempt_enable(enable);
+        return();
+    }
+    printf!("inserting timeout %d\n", rend_insert->timeout);
+
     let node: *rend_node = null;
     // insert before the node with the larger timeout
     list_foreach_entry!(node, &rend_timeout_list, rend_node, timeout_link, {
             if (node->timeout > rend_insert->timeout) {
-                list_insert_before(&rend_insert->timeout_link, &node->timeout_link); 
-                cond_preempt_enable(enable);
-                return();
+            list_insert_before(&rend_insert->timeout_link, &node->timeout_link); 
+            cond_preempt_enable(enable);
+            return();
             }
             });
     // if there exists no larger node, insert at the end 
@@ -62,18 +68,35 @@ fn rend_timeout_insert(rend_insert: *rend_node) {
 
     cond_preempt_enable(enable);
 }
+
 fn rend_timeout_remove(timeout: u32) {
     let enable = cond_preempt_disable();
     let node: *rend_node = null;
     // insert before the node with the larger timeout
+    let node_prev: *rend_node = null;
     list_foreach_entry!(node, &rend_timeout_list, rend_node, timeout_link, {
-            if (node->timeout <= timeout) {
-                list_del(&node->timeout_link);
-                rend_signal(null, 0, node, ERR_TIMEOUT);
-            } else {
-                break;
+            // wake up previous link (we don't do current so we can reset all
+            // the pointers and such)
+            if (node_prev != null) {
+                list_del(&node_prev->timeout_link);
+                list_del(&node_prev->rend_link); //TODO may not always be a thing
+                printf!("thread %d removing thread %d\n", get_tcb()->tid, node->tcb->tid);
+                rend_signal(null, 0, node_prev, ERR_TIMEOUT);
+                node_prev = null;
             }
-            });
+            if (node->timeout > timeout) { 
+                break;    
+            } 
+            node_prev = node;
+     });
+
+    if (node_prev != null) {
+        list_del(&node_prev->timeout_link);
+        list_del(&node_prev->rend_link); //TODO may not always be a thing
+        printf!("thread %d removing thread %d\n", get_tcb()->tid, node->tcb->tid);
+        rend_signal(null, 0, node_prev, ERR_TIMEOUT);
+        node_prev = null;
+    }
 
     cond_preempt_enable(enable);
 }
@@ -81,7 +104,7 @@ fn rend_timeout_remove(timeout: u32) {
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
  * *message gets set to the message of the opposing node; else, message is null 
-*/
+ */
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
 
@@ -115,6 +138,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     my_node->option = option;
     my_node->fastpath = false;
     my_node->err = 0;
+    my_node->timeout = timeout;
     list_init_node(&my_node->timeout_link);
     list_init_node(&my_node->rend_link);
 
@@ -177,6 +201,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     rend_timeout_insert(my_node);
     if (option != SEND_ASYNC) {
         scheduler_update(STATE_COND as i32);
+        printf!("thread %d waking up\n", get_tcb()->tid);
+        assert!(!in_list(&my_node->timeout_link));
         if (my_node->err == ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
             // we recurse only once, and there are no dynamic mem
