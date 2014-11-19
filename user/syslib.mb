@@ -69,6 +69,10 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 				syscall_1(shared::syscall_consts::INT_IPC_RECV, args as u32) as i32
 }
 
+fn get_ticks() -> u32 {
+				syscall_0(shared::syscall_consts::INT_GET_TICKS) as u32
+}
+
 fn ipc_reply(message_long: *u8, long_len: u32, message_short: *u32, short_len:
 u32) -> i32 {
     syscall_4(shared::syscall_consts::INT_IPC_REPLY, message_long as u32,
