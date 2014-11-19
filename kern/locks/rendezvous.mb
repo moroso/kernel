@@ -78,15 +78,12 @@ fn rend_timeout_remove(timeout: u32) {
     cond_preempt_enable(enable);
 }
 
-
-
-
 /* if an opposing node exists, grab it atomically and return it.  else, go to sleep
  * and wait for an opposing node to do the action and return null; in this case,
  * *message gets set to the message of the opposing node; else, message is null 
- */
+*/
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, option: u32, err: *i32, addr: *u8) -> *rend_node {
+        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
 
     let other_head: *list_head;
     let own_head: *list_head; 
@@ -141,7 +138,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         }
         return null;
     }
-
+    
+    
     /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
         let other_node: *rend_node = list_head_entry!(other_head,
@@ -158,26 +156,22 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             }
             *err = 0;
             cond_preempt_enable(enable);
-            // TODO remove when we have more intelligent timeouts
-            list_del(&other_node->timeout_link);
 
             return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
         } else {
             rend_signal(null, 0, other_node, ERR_REPLAY);
         }
     } 
-
-    rend_timeout_insert(my_node);
+    
     if (option != SEND_ASYNC) {
         my_node->tcb = get_tcb();
     }
     list_insert_tail(&my_node->rend_link, own_head); 
 
 
-    let buffer: u32[5];
     if (option != SEND_ASYNC) {
-        printf!("thread %d sleeping\n", get_tcb()->tid);
-        fp_recv(buffer);
+        printf!("%d sleeping\n", get_tcb()->tid);
+        scheduler_update(STATE_COND as i32);
         if (my_node->err == ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
             // we recurse only once, and there are no dynamic mem
@@ -185,17 +179,12 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             assert!(option == RECV);
             cond_preempt_enable(enable);
             // TODO adjust ticks
-            list_del(&my_node->timeout_link);
             return rend_wait(rend, message, message_len, message_recv,
-                    recv_len, timeout, option, err, null);
+                    recv_len, timeout, option, err);
         }
     }
 
-    if (!my_node->fastpath) {
-        *message_recv = my_node->message;
-    } else {
-        mos_memcpy((*message_recv), &buffer[0], my_node->message_len);
-    } 
+    *message_recv = my_node->message;
     *recv_len = my_node->message_len;
     *err = my_node->err as i32;
     cond_preempt_enable(enable);
@@ -204,7 +193,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         printf!("halp\n");
         // assert!(!list_is_empty(own_head)); 
     }
-    assert!(!in_list(&my_node->timeout_link));
 
     null
 }
@@ -227,14 +215,9 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32)
     rend_node->err = err as u32;
 
     let enable = cond_preempt_disable();
-    let buffer: u32[5];
-
-    // TODO get rid of
-    if (message_len < 5 * sizeof(u32) && message_len > 0) {
-        rend_node->fastpath = true;
-        mos_memcpy(&buffer[0], message, message_len);
-    }
-    fp_send(rend_node->tcb, buffer); 
+    rend_node->tcb->state = STATE_RUNNABLE;
+    schedule(rend_node->tcb, QUEUE_FRONT);
+    
 
     // take ourselves off the run queue to be awoken with reply?
     cond_preempt_enable(enable);

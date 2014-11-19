@@ -95,13 +95,7 @@ fn page_fault_handler(regs: *uregs) {
             tid = get_tcb()->tid;
         }
         let frame = *log_to_phys(regs->esp as *u8, PD);
-        printf!("frame %p, ref %d\n",frame , dec_frame_ref(frame, PD, KB));
-        if (!has_flags(frame, READ_WRITE_BIT)) {
-            printf!("NO COW\n");
-        } else {
-            printf!("YES COW\n");
-        }
-        printf!("Thread %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid,
+                printf!("Thread %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid,
                 log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD) );
         assert!(false);
     }
