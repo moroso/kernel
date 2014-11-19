@@ -115,6 +115,9 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     my_node->option = option;
     my_node->fastpath = false;
     my_node->err = 0;
+    list_init_node(&my_node->timeout_link);
+    list_init_node(&my_node->rend_link);
+
 
     if (option == SEND_SYNC || option == SEND_ASYNC || option ==
             SEND_SYNC_NOREPLY) {
@@ -138,14 +141,16 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         }
         return null;
     }
-    
-    
+
+
     /* see if there is another node on the other side to grab */
     if (!list_is_empty(other_head)) {
         let other_node: *rend_node = list_head_entry!(other_head,
                 rend_node, rend_link);
         assert!(other_node != null);
         list_del(&other_node->rend_link);
+        // TODO move elsewhere
+        list_del(&other_node->timeout_link);
 
         if (option != SEND_SYNC_REPLY) {
             cond_preempt_enable(enable);
@@ -155,6 +160,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
                 slub_free(message, message_len);
             }
             *err = 0;
+
+            assert!(!in_list(&my_node->timeout_link));
             cond_preempt_enable(enable);
 
             return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
@@ -162,15 +169,13 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             rend_signal(null, 0, other_node, ERR_REPLAY);
         }
     } 
-    
+
     if (option != SEND_ASYNC) {
         my_node->tcb = get_tcb();
     }
     list_insert_tail(&my_node->rend_link, own_head); 
-
-
+    rend_timeout_insert(my_node);
     if (option != SEND_ASYNC) {
-        printf!("%d sleeping\n", get_tcb()->tid);
         scheduler_update(STATE_COND as i32);
         if (my_node->err == ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
@@ -190,10 +195,10 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     cond_preempt_enable(enable);
 
     if (option == RECV) {
-        printf!("halp\n");
-        // assert!(!list_is_empty(own_head)); 
+        assert!(!list_is_empty(own_head)); 
     }
 
+    assert!(!in_list(&my_node->timeout_link));
     null
 }
 
@@ -217,7 +222,7 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32)
     let enable = cond_preempt_disable();
     rend_node->tcb->state = STATE_RUNNABLE;
     schedule(rend_node->tcb, QUEUE_FRONT);
-    
+
 
     // take ourselves off the run queue to be awoken with reply?
     cond_preempt_enable(enable);
