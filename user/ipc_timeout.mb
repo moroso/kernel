@@ -1,0 +1,111 @@
+/* ipc_timeout.mb 
+ * tests timeouts in send and recv 
+ * Author: Amanda M. Watson
+*/
+
+mod syslib;
+const NUM_ITERS: u32 = 100;
+const NUM_THREADS: u32 = 60;
+
+fn main() -> i32 {
+   
+    let ret_1 = syslib::repl();
+    let status: u32;
+    if (ret_1 != 0) {
+        while(syslib::bide(&status) >=0) {
+            if (status < 0) {
+                printf!("***FAILURE***\n");
+                syslib::abscond(-1);
+            }
+        }
+        printf!("***SUCCESS***\n");
+        syslib::abscond(1);
+    }
+
+    let j: u32 = 0;
+
+    let parent_1 = syslib::get_tid();
+    for (j = 0; j < NUM_THREADS; j+=1) {
+
+        if syslib::get_tid() != parent_1 {
+            break;
+        }
+        syslib::repl();
+    }
+    let parent = syslib::get_tid();
+    let ret: i32 = syslib::repl();
+
+    /* create arg parameters */
+    let args: syslib::ipc_args; 
+    args.options = 0; // requires reply
+    args.long_dest.len = 0;
+    args.short_src.len = 0;
+    args.long_src.len = 0;
+
+
+    if (ret == 0) {
+        args.dest_id = parent;
+        args.timeout = -1;
+        let message = -1; 
+        args.short_dest.len = sizeof(u32); 
+        args.short_dest.addr = &message;
+        let send_ret: i32;
+        if ((send_ret = syslib::ipc_send(&args)) != 0) {
+            printf!("ERROR: thread %d returned from send with value %d. Expected 0", syslib::get_tid(), send_ret);
+            syslib::abscond(-1);
+        }
+        if (message != 0) {
+            printf!("ERROR: thread %d did not receive message\n",
+                    syslib::get_tid());
+            syslib::abscond(-1);
+
+        }
+        printf!("child received message!\n");
+        syslib::abscond(1);
+    } else {
+        let i: u32 = 0;
+        // tests timeout on send
+        for (i = 0; i < NUM_ITERS; i+=1) {
+            printf!("timeout: %d\n", i);
+            args.dest_id = ret as u32;
+            args.timeout = i; // no timeout
+            let ticks_orig = syslib::get_ticks();
+            let send_ret = syslib::ipc_send(&args);
+            if (send_ret != -5) {
+                printf!("ERROR thread %d returned from send with return value %d. expected -5\n", syslib::get_tid(), send_ret);
+            }
+            if (syslib::get_ticks() < ticks_orig + i) {
+                printf!("error: thread %d returned prematurely\n",
+                        syslib::get_tid());
+                syslib::abscond(-1);
+            }
+
+            printf!("success!\n");
+        }
+        // tests timeout on receive
+        let message: u32 = 0;
+        syslib::ipc_recv(&args);
+        syslib::ipc_reply(null, 0, &message, sizeof(u32));
+        for (i = 0; i < NUM_ITERS; i+=1) {
+            printf!("timeout: %d\n", i);
+            args.dest_id = ret as u32;
+            args.timeout = i; // no timeout
+            let ticks_orig = syslib::get_ticks();
+            let recv_ret = syslib::ipc_recv(&args);
+            if (recv_ret != -5) {
+                printf!("ERROR thread %d returned from recv with return value %d. expected -5\n", syslib::get_tid(), recv_ret);
+                syslib::abscond(-1);
+            }
+
+            if (syslib::get_ticks() < ticks_orig + i) {
+                printf!("error: thread %d returned prematurely\n",
+                        syslib::get_tid());
+                syslib::abscond(-1);
+            }
+            printf!("success!\n");
+        }
+
+    }
+    syslib::abscond(1);
+    0
+}

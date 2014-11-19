@@ -1,5 +1,5 @@
 use entry;
-use entry::uregs;
+use entry::*;
 use shared::syscall_consts::*;
 use threadstuffs::repl::*;
 use threadstuffs::abscond::*;
@@ -54,6 +54,9 @@ fn sys_init() {
     syscall!(INT_IPC_RECV, ipc_recv);
     syscall!(INT_NEW_PAGES, new_pages);
     syscall!(INT_IPC_REPLY, reply);
+    syscall!(INT_GET_TICKS, get_ticks);
+
+
 
 }
 

@@ -1,5 +1,6 @@
 /* ipc_test.mb 
- * Test of long IPC; repls a child thread, and then sends the page 0xdeadb000 to it
+ * basic ipc test: creates a thread, sends a long and short message.  recipiant
+ * sends a short reply
  * Author: Amanda M. Watson
 */
 
@@ -8,42 +9,72 @@ mod syslib;
 
 fn main() -> i32 {
     let i: u32 = 0;
-    
-    while(true) {
-        printf!("thread %d\n", syslib::get_tid());
+    let long_src = 0xdeadb000 as *u8; 
+    let long_dest = 0xdaaaa000 as *u8; 
+    let long_len = 4096; // size of KB page
+    let KB = 1024;   
 
-        syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
-        *(0xdeadb000 as *u32) = i;
+    while(true) { 
         let ret: i32 = syslib::repl();
-        let args: syslib::ipc_args;
-        let message: u32 = 0;
-        args.long_src.addr = 0xdeadb000 as *u8;
-        args.long_src.len = 4096;
-        args.long_dest.len = 4096;
-        args.long_dest.addr = 0xdeadb000 as *u8;
-        args.short_src.len = 4;
-        args.short_src.addr = &message as *u8;
-        args.short_dest.len = 4;
-        args.short_dest.addr = &message as *u8;
-        args.timeout = 4;
-        args.options = 0;
+
+        /* create arg parameters */
+        let args: syslib::ipc_args; 
+        args.timeout = -1; // no timeout
+        args.options = 0; // requires reply
+
+        // if we are the child, we're receiving
         if (ret == 0) {
-            printf!("thread %d receiving\n", syslib::get_tid());
-            /*printf!("recv returned %d\n", syslib::ipc_recv(&args));
-            printf!("reply returned %d\n", syslib::ipc_reply(null, 0, null, 0));
-            printf!("read from long address: %d, short address: %d\n",
-                    *(0xdeadb000 as *u32), message);*/
-            while(true) {
-                
+            let message: u32 = -1;
+            args.long_dest.addr = long_dest;
+            args.long_dest.len = long_len;
+            args.short_dest.addr = &message as *u8;
+            args.short_dest.len = sizeof(u32); 
+            args.short_src.len = 0;
+            args.long_src.len = 0;
+            let reply: u32 = syslib::get_tid();
+
+            let recv_ret = syslib::ipc_recv(&args);
+            if (recv_ret < 0) {
+                printf!("ERROR! recv returned with error %d\n", recv_ret);
+                assert!(false);
             }
-            //syslib::abscond(1);
+            // ensure both long and short messages were delivered correctly
+            assert!(message == 2);
+            assert!(*(long_dest as *u32) == i);
+
+            let reply_ret = syslib::ipc_reply(null, 0, &reply,
+                    sizeof(u32));
+            if (reply_ret < 0) {
+                printf!("ERROR! reply returned with error %d\n", reply_ret);
+                assert!(false);
+            }
+
+            syslib::abscond(1);
         } else {
-            message = 2;
+
+            // we're sending
+            if (syslib::new_pages(long_src, long_len, KB) < 0) {
+                printf!("new_pages failed\n"); 
+                syslib::abscond(-1);
+            }
+
+            let message = 2;
+            let reply = -1;
+            *(long_src as *u32) = i;
+            args.long_src.addr = long_src;
+            args.long_src.len = long_len;
+            args.long_dest.len = 0;
+            args.long_dest.addr = null;
+            args.short_src.len = sizeof(u32);
+            args.short_src.addr = &message as *u8;
+            args.short_dest.len = sizeof(u32);
+            args.short_dest.addr = &reply as *u8;
             args.dest_id = ret as u32;
-            printf!("%d sending to %d\n", syslib::get_tid(), ret);
+
             printf!("%d returning from send with status %d\n",
-                    syslib::get_tid(), syslib::ipc_recv(&args));
-            printf!("returned from send\n");
+                    syslib::get_tid(), syslib::ipc_send(&args));
+            assert!(reply == ret);
+
         }
         i+=1;
     }
