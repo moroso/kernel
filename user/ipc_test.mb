@@ -7,17 +7,19 @@ mod syslib;
 
 
 fn main() -> i32 {
-    syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
     let i: u32 = 0;
     
     while(true) {
         printf!("thread %d\n", syslib::get_tid());
+
+        syslib::new_pages(0xdeadb000 as *u8, 4096, 1024);
         *(0xdeadb000 as *u32) = i;
         let ret: i32 = syslib::repl();
         let args: syslib::ipc_args;
-        args.long_src.addr = null;
-        args.long_src.len = 0;
-        args.long_dest.len = 0;
+        args.long_src.addr = 0xdeadb000 as *u8;
+        args.long_src.len = 4096;
+        args.long_dest.len = 4096;
+        args.long_dest.addr = 0xdeadb000 as *u8;
         args.short_src.len = 0;
         args.short_dest.len = 0;
         args.timeout = 0;
@@ -26,6 +28,7 @@ fn main() -> i32 {
             printf!("thread %d receiving\n", syslib::get_tid());
             printf!("recv returned %d\n", syslib::ipc_recv(&args));
             printf!("reply returned %d\n", syslib::ipc_reply(null, 0, null, 0));
+            printf!("read from long address: %d\n", *(0xdeadb000 as *u32));
             syslib::abscond(1);
         } else {
             args.dest_id = ret as u32;
