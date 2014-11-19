@@ -16,21 +16,26 @@ fn main() -> i32 {
         *(0xdeadb000 as *u32) = i;
         let ret: i32 = syslib::repl();
         let args: syslib::ipc_args;
+        let message: u32 = 0;
         args.long_src.addr = 0xdeadb000 as *u8;
         args.long_src.len = 4096;
         args.long_dest.len = 4096;
         args.long_dest.addr = 0xdeadb000 as *u8;
-        args.short_src.len = 0;
-        args.short_dest.len = 0;
+        args.short_src.len = 4;
+        args.short_src.addr = &message as *u8;
+        args.short_dest.len = 4;
+        args.short_dest.addr = &message as *u8;
         args.timeout = 0;
         args.options = 0;
         if (ret == 0) {
             printf!("thread %d receiving\n", syslib::get_tid());
             printf!("recv returned %d\n", syslib::ipc_recv(&args));
             printf!("reply returned %d\n", syslib::ipc_reply(null, 0, null, 0));
-            printf!("read from long address: %d\n", *(0xdeadb000 as *u32));
+            printf!("read from long address: %d, short address: %d\n",
+                    *(0xdeadb000 as *u32), message);
             syslib::abscond(1);
         } else {
+            message = 2;
             args.dest_id = ret as u32;
             printf!("%d sending to %d\n", syslib::get_tid(), ret);
             printf!("%d returning from send with status %d\n",
