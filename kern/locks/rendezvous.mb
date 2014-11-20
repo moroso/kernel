@@ -241,7 +241,6 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32)
     rend_node->message = message;
     rend_node->message_len = message_len;
     rend_node->err = err as u32;
-
     let enable = cond_preempt_disable();
     if (in_list(&rend_node->timeout_link)) {
         list_del(&rend_node->timeout_link);

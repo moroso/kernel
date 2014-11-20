@@ -170,6 +170,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }
 
     if dest_tcb == null {
+
         return ERR_DEST;
     }
 
@@ -194,16 +195,25 @@ fn ipc_send(args: *ipc_args) -> i32 {
             &message_recv as **u32,
             &recv_len, 
             timeout, option, &err);  
-    
+
     if (err == ERR_TIMEOUT) {
+        tcb_end_lookup(dest_tcb);
         return ERR_TIMEOUT;
     }
 
     // if tcb died before we could transfer, return with error
+    if (err == ERR_DEAD) {
+
+        tcb_end_lookup(dest_tcb);
+        return ERR_DEAD;
+    }
+
     if (err < 0) {
         tcb_end_lookup(dest_tcb);
-        return ERR_DEST;
+        return ERR_INTERNAL;
     }
+
+
 
     // if we have no rend_node and no error, this means the full transfer
     // occurred; clean up and return
@@ -327,8 +337,14 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     if (err == ERR_TIMEOUT) {
         return ERR_TIMEOUT;
     }
+
+    // if tcb died before we could transfer, return with error
+    if (err == ERR_DEAD) {
+        return ERR_DEST;
+    }
+
     if (err < 0) {
-        return ERR_DEST; 
+        return ERR_INTERNAL;
     }
 
     // if we have no rend_node and no error, this means the full transfer
@@ -384,11 +400,12 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
         // if a reply isn't expected, wake up source immediately
         if (message_src->options&OPTION_NO_REPLY != 0 || message_src->options&OPTION_ASYNC != 0) {
+            assert!(rend_node->can_timeout = false);
             rend_signal(null, 0, rend_node, 0);
         } else {
             assert!(rend_node->tcb != null);
             list_insert_head(&rend_node->rend_link, &(get_tcb()->last_send));
-            assert!(rend_node->can_timeout = false || rend_node->timeout ==
+            assert!(rend_node->can_timeout == false || rend_node->timeout ==
                     -1);
             rend_node->can_timeout = true;
         }

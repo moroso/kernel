@@ -1,11 +1,12 @@
 /* ipc_timeout.mb 
- * tests timeouts in send and recv 
+ * tests timeouts in send, recv and between recv and reply. Success condition
+ * does not actuall check all threads, but errors are thrown if things go wrong 
  * Author: Amanda M. Watson
 */
 
 mod syslib;
 const NUM_ITERS: u32 = 100;
-const NUM_THREADS: u32 = 60;
+const NUM_THREADS: u32 = 50;
 
 fn main() -> i32 {
    
@@ -103,6 +104,54 @@ fn main() -> i32 {
                 syslib::abscond(-1);
             }
             printf!("success!\n");
+        }
+        for (i = 0; i < NUM_ITERS; i+=1) {
+            let repl_ret = syslib::repl();
+            if (repl_ret == 0) {
+                args.long_dest.len = 0;
+                args.short_dest.len = 0; 
+                args.timeout = 100;
+                assert!(syslib::ipc_recv(&args) == 0);
+                let ticks = syslib::get_ticks();
+                printf!("%d received; waiting before reply\n", syslib::get_tid());
+                while(syslib::get_ticks() < (ticks + 50)) {
+
+                }
+                printf!("%d replying\n", syslib::get_tid());
+
+                let reply_ret = syslib::ipc_reply(null, 0, null, 0);
+                if (reply_ret != -4) {
+                    printf!("%d ERROR in reply.  expected -4, got %d\n",
+                            syslib::get_tid(), reply_ret);
+                } else {
+                    printf!("%d success!\n", syslib::get_tid());
+                }
+            } else {
+                args.dest_id = repl_ret as u32;
+                args.timeout = 50;
+                args.short_src.len = 0; 
+                args.long_src.len = 0;
+                let ticks = syslib::get_ticks();
+                printf!("%d waiting before send\n", syslib::get_tid());
+
+                while(syslib::get_ticks() < (ticks + 8)) {
+
+                }
+                printf!("%d done waiting, sending to parent\n", syslib::get_tid());
+
+                let send_ret = syslib::ipc_send(&args);
+                if (send_ret != -5) {
+                    printf!("%d ERROR from send.  Expected -5, received %d\n",
+                            syslib::get_tid(),
+                            send_ret);
+                } else {
+                    printf!("%d success!\n", syslib::get_tid());
+                }
+
+                syslib::abscond(1);
+            } 
+
+
         }
 
     }
