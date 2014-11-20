@@ -110,9 +110,9 @@ fn timer_handler(regs: *uregs) {
 
     // printf!("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
+        rend_timeout_remove(ticks);
         scheduler_update(-1);
     }
-    rend_timeout_remove(ticks);
 }
 
 fn get_ticks() -> u32 {

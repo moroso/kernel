@@ -140,7 +140,6 @@ fn in_list(node: *list_node) -> bool {
         assert!(node->prev == null);
         return false;
     }
-    printf!("LIST: %p\n", node->next);
     assert!(node->prev != null);
     true
 }

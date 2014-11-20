@@ -10,7 +10,7 @@ use structures::proc_dir::*;
 use locks::mutex::*;
 use locks::cond::*;
 use consts::STATE_DEAD;
-use structures::schedule::get_tcb;
+use structures::schedule::*;
 use structures::VM::{is_user_addr, page_transfer, log_to_phys, is_addr_aligned};
 use locks::rendezvous::*;
 use consts::*;
@@ -277,9 +277,12 @@ fn ipc_send(args: *ipc_args) -> i32 {
  */
 fn ipc_recv(args: *ipc_args) -> i32 {
     let args_kern: ipc_args;
-    if (get_tcb()->last_send != null) {
+    let enable = cond_preempt_disable();
+    if (!list_is_empty(&get_tcb()->last_send)) {
+        cond_preempt_enable(enable);
         return ERR_REPLY;
     }
+    cond_preempt_enable(enable);
 
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
         return ERR_INTERNAL;
@@ -384,7 +387,10 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             rend_signal(null, 0, rend_node, 0);
         } else {
             assert!(rend_node->tcb != null);
-            get_tcb()->last_send = rend_node;
+            list_insert_head(&rend_node->rend_link, &(get_tcb()->last_send));
+            assert!(rend_node->can_timeout = false || rend_node->timeout ==
+                    -1);
+            rend_node->can_timeout = true;
         }
 
     }
@@ -400,32 +406,42 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
 /* replies to the last sender */
 fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) -> i32 {
-    // TODO how does other guy update on timeout?
-    if (get_tcb()->last_send == null) {
+
+    let enable = cond_preempt_disable();
+    if (list_is_empty(&get_tcb()->last_send)) {
+        cond_preempt_enable(enable);
         return ERR_REPLY;
     }
-    let rend_node = get_tcb()->last_send;
-    let message_src: *message_node = rend_node->message as *message_node;
+
+    let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
+            rend_link);
+    assert!(last_send != null);
+    last_send->can_timeout = false;
+    list_del(&last_send->rend_link);
+    cond_preempt_enable(enable);
+
+    let message_src: *message_node = last_send->message as *message_node;
 
 
     if (message_src->long_dest.len > 0) {
 
         let transfer_len = min!(message_src->long_src.len, long_len);
-        kmut_2lock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
+        kmut_2lock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
         let page: u32;
         for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
             if (page_transfer(message_long + page,
                         message_src->long_dest.addr + page,
                         &(get_tcb()->proc->PD),
-                        &(rend_node->tcb->proc->PD), 0) < 0) {
+                        &(last_send->tcb->proc->PD), 0) < 0) {
                 transfer_len = max(0, page - PAGE_SIZE);
                 break;
             }
         }
-        kmut_2unlock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
+        kmut_2unlock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
 
         message_src->long_dest.len = transfer_len;
     }
+
 
     let message_kernel = null;
     if (short_len > 0) {
@@ -434,14 +450,13 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
                     message_short as *u8,
                     short_len) < 0) {
 
-            rend_signal(message_kernel, short_len, get_tcb()->last_send, 0);
+
+            rend_signal(message_kernel, short_len, last_send, 0);
             return ERR_INTERNAL;
         }
     }
 
-    rend_signal(message_kernel, short_len, get_tcb()->last_send, 0);
-    get_tcb()->last_send = null;
-
+    rend_signal(message_kernel, short_len, last_send, 0);
 
     0
 }

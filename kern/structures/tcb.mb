@@ -48,7 +48,7 @@ struct tcb {
     kstack_top: *u8,
     
     ipc_rend: rend, 
-    last_send: *rend_node,
+    last_send: list_head,
 
     link: list_node, // used for putting on run queue
     proc_link: list_node,
@@ -110,7 +110,7 @@ fn tcb_init(tcb: *tcb) {
     list_init_node(&(tcb->dir_link));
     tcb->pid = -1;
     rend_init(&tcb->ipc_rend);
-    tcb->last_send = null;
+    list_init_head(&tcb->last_send);
 
 }
 

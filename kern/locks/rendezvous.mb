@@ -25,18 +25,17 @@ struct rend_node {
     message_len: u32,
     tcb: *tcb,
     timeout: u32,
+    can_timeout: bool,
     timeout_link: list_node,
     rend_link: list_node,
     option: u32,
     err: u32,
-    fastpath: bool,
 }
 
 struct rend {
     send_head: list_head,
     recv_head: list_head,
     rend_active: bool,
-    last_send: *tcb,
 }
 
 fn rend_init(rend: *rend) {
@@ -77,22 +76,21 @@ fn rend_timeout_remove(timeout: u32) {
             // wake up previous link (we don't do current so we can reset all
             // the pointers and such)
             if (node_prev != null) {
-                list_del(&node_prev->timeout_link);
-                list_del(&node_prev->rend_link); //TODO may not always be a thing
-                rend_signal(null, 0, node_prev, ERR_TIMEOUT);
-                node_prev = null;
+            if (node_prev->can_timeout) {
+            list_del(&node_prev->rend_link); 
+            rend_signal(null, 0, node_prev, ERR_TIMEOUT);
+            }
+            node_prev = null;
             }
             if (node->timeout > timeout) { 
-                break;    
+            break;    
             } 
             node_prev = node;
-     });
+            });
 
-    if (node_prev != null) {
-        list_del(&node_prev->timeout_link);
-        list_del(&node_prev->rend_link); //TODO may not always be a thing
+    if (node_prev != null && node_prev->can_timeout) {
+        list_del(&node_prev->rend_link); 
         rend_signal(null, 0, node_prev, ERR_TIMEOUT);
-        node_prev = null;
     }
 
     cond_preempt_enable(enable);
@@ -133,7 +131,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     my_node->message = message;
     my_node->message_len = message_len;
     my_node->option = option;
-    my_node->fastpath = false;
+    my_node->can_timeout = true;
     my_node->err = 0;
     my_node->timeout = timeout;
     list_init_node(&my_node->timeout_link);
@@ -169,13 +167,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         let other_node: *rend_node = list_head_entry!(other_head,
                 rend_node, rend_link);
         assert!(other_node != null);
-
+        other_node->can_timeout = false;
         list_del(&other_node->rend_link);
-        if (other_node->timeout != -1) {
-            // TODO move elsewhere
-            list_del(&other_node->timeout_link);
-        }
-
 
         if (option != SEND_SYNC_REPLY) {
             cond_preempt_enable(enable);
@@ -187,8 +180,10 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             *err = 0;
 
             assert!(!in_list(&my_node->timeout_link));
-            cond_preempt_enable(enable);
+            assert!(in_list(&other_node->timeout_link) || other_node->timeout ==
+                    -1);
 
+            cond_preempt_enable(enable);
             return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
         } else {
             rend_signal(null, 0, other_node, ERR_REPLAY);
@@ -241,13 +236,16 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32)
         }
         slub_free(rend_node as *u32, sizeof(rend_node));
         return ();
-    }
+    } 
 
     rend_node->message = message;
     rend_node->message_len = message_len;
     rend_node->err = err as u32;
 
     let enable = cond_preempt_disable();
+    if (in_list(&rend_node->timeout_link)) {
+        list_del(&rend_node->timeout_link);
+    }
     rend_node->tcb->state = STATE_RUNNABLE;
     schedule(rend_node->tcb, QUEUE_FRONT);
 
