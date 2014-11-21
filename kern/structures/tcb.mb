@@ -16,6 +16,8 @@ use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock,
                            preempt_enable, enable_interrupts};
 use locks::rendezvous::*;
 
+const MB_TABLE_SIZE: u32 = 200; // number of descriptors in table
+
 extern fn get_eflags() -> u32;
 
 /* this will be outmoded as soon as the new arch comes in */
@@ -46,9 +48,11 @@ fn tbc_init_func() {
 struct tcb {
     tid: u32,
     kstack_top: *u8,
-    
+
+    /*** ipc things ***/    
     ipc_rend: rend, 
     last_send: list_head,
+    mb_desc_table: i32[MB_TABLE_SIZE], // maps mailbox descriptors to their ids
 
     link: list_node, // used for putting on run queue
     proc_link: list_node,
@@ -111,7 +115,7 @@ fn tcb_init(tcb: *tcb) {
     tcb->pid = -1;
     rend_init(&tcb->ipc_rend);
     list_init_head(&tcb->last_send);
-
+    mos_memset(&(tcb->mb_desc_table)[0], -1, sizeof(i32) * MB_TABLE_SIZE);
 }
 
 
