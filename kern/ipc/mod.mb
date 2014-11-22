@@ -386,7 +386,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
         // if a reply isn't expected, wake up source immediately
         if (message_src->options&OPTION_NO_REPLY != 0 || message_src->options&OPTION_ASYNC != 0) {
-            assert!(rend_node->can_timeout = false);
+            assert!(rend_node->can_timeout == false);
             rend_signal(null, 0, rend_node, 0);
         } else {
             assert!(rend_node->tcb != null);
