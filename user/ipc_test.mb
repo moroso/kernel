@@ -25,6 +25,7 @@ fn main() -> i32 {
         // if we are the child, we're receiving
         if (ret == 0) {
             let message: u32 = -1;
+            args.dest_id = syslib::get_tid();
             args.long_dest.addr = long_dest;
             args.long_dest.len = long_len;
             args.short_dest.addr = &message as *u8;
@@ -32,11 +33,13 @@ fn main() -> i32 {
             args.short_src.len = 0;
             args.long_src.len = 0;
             let reply: u32 = syslib::get_tid();
-
+            printf!("thread %d receiving\n", syslib::get_tid());
             let recv_ret = syslib::ipc_recv(&args);
             if (recv_ret < 0) {
                 printf!("ERROR! recv returned with error %d\n", recv_ret);
                 assert!(false);
+            } else {
+                printf!("thread %d success\n", syslib::get_tid());
             }
             // ensure both long and short messages were delivered correctly
             assert!(message == 2);
@@ -70,7 +73,7 @@ fn main() -> i32 {
             args.short_dest.len = sizeof(u32);
             args.short_dest.addr = &reply as *u8;
             args.dest_id = ret as u32;
-
+            printf!("thread %d sending\n", syslib::get_tid());
             printf!("%d returning from send with status %d\n",
                     syslib::get_tid(), syslib::ipc_send(&args));
             assert!(reply == ret);
