@@ -8,77 +8,9 @@ mod syslib;
 
 
 fn main() -> i32 {
-    let i: u32 = 0;
-    let long_src = 0xdeadb000 as *u8; 
-    let long_dest = 0xdaaaa000 as *u8; 
-    let long_len = 4096; // size of KB page
-    let KB = 1024;   
-    while(true) { 
-        let ret: i32 = syslib::repl();
+    let mb_desc = syslib::mailbox_new();
+    let ret = syslib::repl();
 
-        /* create arg parameters */
-        let args: syslib::ipc_args; 
-        args.timeout = -1; // no timeout
-        args.options = 0; // requires reply
-
-        // if we are the child, we're receiving
-        if (ret == 0) {
-            let message: u32 = -1;
-            args.dest_id = 0;
-            args.long_dest.addr = long_dest;
-            args.long_dest.len = long_len;
-            args.short_dest.addr = &message as *u8;
-            args.short_dest.len = sizeof(u32); 
-            args.short_src.len = 0;
-            args.long_src.len = 0;
-            let reply: u32 = syslib::get_tid();
-            printf!("thread %d receiving\n", syslib::get_tid());
-            let recv_ret = syslib::ipc_recv(&args);
-            if (recv_ret < 0) {
-                printf!("ERROR! recv returned with error %d\n", recv_ret);
-                assert!(false);
-            } else {
-                printf!("thread %d success\n", syslib::get_tid());
-            }
-            // ensure both long and short messages were delivered correctly
-            assert!(message == 2);
-            assert!(*(long_dest as *u32) == i);
-
-            let reply_ret = syslib::ipc_reply(null, 0, &reply,
-                    sizeof(u32));
-            if (reply_ret < 0) {
-                printf!("ERROR! reply returned with error %d\n", reply_ret);
-                assert!(false);
-            }
-
-            syslib::abscond(1);
-        } else {
-
-            // we're sending
-            if (syslib::new_pages(long_src, long_len, KB) < 0) {
-                printf!("new_pages failed\n"); 
-                syslib::abscond(-1);
-            }
-
-            let message = 2;
-            let reply = -1;
-            *(long_src as *u32) = i;
-            args.long_src.addr = long_src;
-            args.long_src.len = long_len;
-            args.long_dest.len = 0;
-            args.long_dest.addr = null;
-            args.short_src.len = sizeof(u32);
-            args.short_src.addr = &message as *u8;
-            args.short_dest.len = sizeof(u32);
-            args.short_dest.addr = &reply as *u8;
-            args.dest_id = ret as u32;
-            printf!("thread %d sending\n", syslib::get_tid());
-            printf!("%d returning from send with status %d\n",
-                    syslib::get_tid(), syslib::ipc_send(&args));
-            assert!(reply == ret);
-
-        }
-        i+=1;
-    }
+    syslib::abscond(1);
     0
 }

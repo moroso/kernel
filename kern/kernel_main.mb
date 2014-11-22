@@ -85,7 +85,7 @@ fn create_idle_tcb() {
     let new_tcb: *tcb = thr_create(idle, null, 0);
     assert!(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
-    proc_init(proc1, new_tcb);
+    proc_init(proc1, new_tcb, null);
     assert!(proc1 != null);
     run_queue.idle_tcb = new_tcb;
     schedule(new_tcb, QUEUE_FRONT);
@@ -99,7 +99,7 @@ fn kernel_main() -> u32 {
     tcb_dir_add(new_tcb);
     assert!(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
-    proc_init(proc1, new_tcb);
+    proc_init(proc1, new_tcb, null);
     assert!(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 

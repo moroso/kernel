@@ -13,6 +13,7 @@ use structures::tcb_dir::*;
 use locks::mutex::*;
 use structures::mailbox::*;
 use locks::lol_atomics::*;
+use structures::proc::*;
 
 const MB_TABLE_SIZE: u32 = 64; // number of descriptors in the table
 
@@ -21,8 +22,13 @@ struct mb_desc_table {
     mut: kmut,
 }
 
-fn mb_desc_init(table: *mb_desc_table) {
-    mos_memset(&(table->desc_table)[0], 0, sizeof(*mailbox_t) * MB_TABLE_SIZE);    
+fn mb_desc_init(table: *mb_desc_table, parent_proc: *proc) {
+    if (parent_proc == null) {
+        mos_memset(&(table->desc_table)[0], 0, sizeof(*mailbox_t) * MB_TABLE_SIZE);    
+    } else {
+        mos_memcpy(&(table->desc_table)[0],
+                &(parent_proc->mb_desc.desc_table)[0], MB_TABLE_SIZE * sizeof(*mailbox_t));
+    }
     kmut_init(&table->mut);
 }
 
