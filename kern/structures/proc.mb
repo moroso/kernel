@@ -74,5 +74,6 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
 
 fn proc_destroy(old_proc: *proc) {
    PD_destroy(&(old_proc->PD), init_PD->PT_entries);    
+   mb_table_destroy(&old_proc->mb_desc);
    proc_dir_remove(old_proc); 
 }
