@@ -9,6 +9,7 @@ use structures::tcb::*;
 use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
+use structures::mailbox::mailbox_new;
 
 extern fn enable_interrupts();
 
@@ -55,6 +56,8 @@ fn sys_init() {
     syscall!(INT_NEW_PAGES, new_pages);
     syscall!(INT_IPC_REPLY, reply);
     syscall!(INT_GET_TICKS, get_ticks);
+    syscall!(INT_MAILBOX_NEW, mailbox_new);
+
 
 
 

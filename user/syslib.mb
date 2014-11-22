@@ -79,3 +79,7 @@ u32) -> i32 {
             long_len, message_short as u32, short_len) as i32
 }
 
+// returns descriptor if works, negative error code otherwise
+fn mailbox_new() -> i32 {
+    syscall_0(shared::syscall_consts::INT_MAILBOX_NEW) as i32
+}
