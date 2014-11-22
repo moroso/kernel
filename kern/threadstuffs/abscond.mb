@@ -15,7 +15,6 @@ use structures::tcb_dir::*;
 use structures::proc_dir::*;
 use structures::schedule::*;
 use structures::VM::*;
-use locks::rendezvous::*;
 
 /*
  * I wrote a kernel far too recently to want to try and use an interesting
@@ -32,7 +31,6 @@ fn abscond(status: u32)  {
     printf!("thread %d absconding\n", tcb->tid);
     assert!(tcb != null);
     tcb_dir_remove(tcb);     
-    rend_destroy(&(get_tcb()->ipc_rend), ERR_DEAD);
 
     // if we still have a parent
 
