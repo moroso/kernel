@@ -26,19 +26,18 @@ fn mb_desc_init(table: *mb_desc_table) {
     kmut_init(&table->mut);
 }
 
-fn get_ipc_dest(id: u32) -> *tcb {
-    // lookup id from descriptor
-    //kmut_lock(&get_tcb()->mb_table.mut);
-    //let tid = get_tcb()->mb_table.desc_table[id]; 
-    // TODO hack while we don't have a name server
-    let tid = id;
-    //kmut_unlock(&get_tcb()->mb_table.mut);
-
-    if (tid < 0) {
+fn get_ipc_dest(id: u32) -> *mailbox_t {
+    let proc = get_tcb()->proc;
+    if (id >= MB_TABLE_SIZE) {
         return null;
     }
+    assert!(proc != null);
+    let table = &(proc->mb_desc);
+    kmut_lock(&table->mut);
+    let mb = table->desc_table[id];    
+    kmut_unlock(&table->mut);
+    mb
 
-    tcb_lookup(tid as u32)
 }
 
 // add mailbox to descriptor table, return descriptor.  returns failure if all

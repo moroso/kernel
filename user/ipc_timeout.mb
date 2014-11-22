@@ -85,12 +85,12 @@ fn main() -> i32 {
         }
         // tests timeout on receive
         let message: u32 = 0;
-        args.dest_id = syslib::get_tid();
+        args.dest_id = 0;
         syslib::ipc_recv(&args);
         syslib::ipc_reply(null, 0, &message, sizeof(u32));
         for (i = 0; i < NUM_ITERS; i+=1) {
             printf!("timeout: %d\n", i);
-            args.dest_id = syslib::get_tid();
+            args.dest_id = 0;
             args.timeout = i; // no timeout
             let ticks_orig = syslib::get_ticks();
             let recv_ret = syslib::ipc_recv(&args);
@@ -109,7 +109,7 @@ fn main() -> i32 {
         for (i = 0; i < NUM_ITERS; i+=1) {
             let repl_ret = syslib::repl();
             if (repl_ret == 0) {
-                args.dest_id = syslib::get_tid();
+                args.dest_id = 0;
                 args.long_dest.len = 0;
                 args.short_dest.len = 0; 
                 args.timeout = 100;

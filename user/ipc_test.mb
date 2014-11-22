@@ -25,7 +25,7 @@ fn main() -> i32 {
         // if we are the child, we're receiving
         if (ret == 0) {
             let message: u32 = -1;
-            args.dest_id = syslib::get_tid();
+            args.dest_id = 0;
             args.long_dest.addr = long_dest;
             args.long_dest.len = long_len;
             args.short_dest.addr = &message as *u8;
