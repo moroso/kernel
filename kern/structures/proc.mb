@@ -37,7 +37,7 @@ struct proc {
     proc_cond: kcond,
 }
 
-fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
+fn proc_init(new_proc: *proc, new_tcb: *tcb, parent_proc: *proc) -> i32 {
     assert!(new_tcb->state == STATE_NEW);
 
     list_init_head(&(new_proc->peer_tcb_list));
@@ -67,7 +67,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     new_proc->parent_pid = -1;
     new_proc->child_count = 0;
     new_proc->dir_ref = 1;
-    mb_desc_init(&new_proc->mb_desc);
+    mb_desc_init(&new_proc->mb_desc, parent_proc);
     proc_dir_add(new_proc);
     0
 }

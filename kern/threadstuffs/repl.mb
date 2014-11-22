@@ -52,12 +52,6 @@ fn repl_handler() -> i32 {
 fn repl(parent_regs: *uregs) -> i32 {
 
     let parent_proc = get_tcb()->proc;
-    if (parent_proc->mb_desc.desc_table[0] == null) {
-        // TODO temporary
-        let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
-        assert!(mb != null);
-        assert!(mb_init(mb, parent_proc) == 0);
-    }
     /* if we don't have only on thread in parent process, return with error */
     if (!list_is_singleton(&(parent_proc->peer_tcb_list))) {
         return -1;
@@ -75,12 +69,11 @@ fn repl(parent_regs: *uregs) -> i32 {
         return -3;
     }
 
-    if (proc_init(child_proc, child_tcb) == -1) {
+    if (proc_init(child_proc, child_tcb, parent_proc) == -1) {
         slub_free(child_proc as *u32, sizeof(proc));
         thr_abort(child_tcb);
         return -4;
     }
-
     child_proc->parent_pid = parent_proc->pid as i32;
 
     // copy over references to new PD
@@ -116,11 +109,6 @@ fn repl(parent_regs: *uregs) -> i32 {
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
     parent_proc->child_count+=1;
     kmut_unlock(&(parent_proc->child_mut));
-    
-    // TODO temporary
-    let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
-    assert!(mb != null);
-    assert!(mb_init(mb, child_proc) == 0);
 
     schedule(child_tcb, QUEUE_BACK);
 
