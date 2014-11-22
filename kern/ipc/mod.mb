@@ -229,7 +229,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
             let pid_recv = dest_tcb->pid;
             let proc_recv = proc_lookup(pid_recv);
             if (proc_recv == null || proc_recv->PD.PT_entries == null) {
-                // TODO free short message stuff of errs
+                // TODO free short message stuff if errs
                 tcb_end_lookup(dest_tcb);
                 return ERR_DEAD;
 

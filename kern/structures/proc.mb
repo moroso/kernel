@@ -6,6 +6,7 @@ use structures::proc_dir::*;
 use locks::mutex::*;
 use locks::cond::*;
 use utils::slab_alloc::*;
+use ipc::desc_table::*;
 
 struct exit_status_t {
     status: u32,
@@ -17,6 +18,8 @@ struct proc {
     PD: PD_t,
     pid: u32,
     parent_pid: i32,
+
+    mb_desc: mb_desc_table,
 
     peer_tcb_list: list_head, // tcbs in a proc
     child_proc_list: list_head, // children of proc
@@ -64,6 +67,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb) -> i32 {
     new_proc->parent_pid = -1;
     new_proc->child_count = 0;
     new_proc->dir_ref = 1;
+    mb_desc_init(&new_proc->mb_desc);
     proc_dir_add(new_proc);
     0
 }
