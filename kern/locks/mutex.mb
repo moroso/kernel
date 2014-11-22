@@ -62,8 +62,6 @@ fn kmut_2lock(mut1: *kmut, mut2: *kmut) {
 }
 
 fn kmut_2unlock(mut1: *kmut, mut2: *kmut) {
-    let first_lock: *kmut = min(mut1 as u32, mut2 as u32) as *kmut;
-    let second_lock: *kmut = max(mut1 as u32, mut2 as u32) as *kmut;
-    kmut_unlock(first_lock);
-    kmut_unlock(second_lock);
+    kmut_unlock(mut1);
+    kmut_unlock(mut2);
 }

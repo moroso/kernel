@@ -51,7 +51,6 @@ struct tcb {
     /*** ipc things ***/    
     ipc_rend: rend, 
     last_send: list_head,
-    mb_table: mb_desc_table, // maps mailbox descriptors to their ids
 
     link: list_node, // used for putting on run queue
     proc_link: list_node,
@@ -114,7 +113,6 @@ fn tcb_init(tcb: *tcb) {
     tcb->pid = -1;
     rend_init(&tcb->ipc_rend);
     list_init_head(&tcb->last_send);
-    desc_table_init(tcb); 
 }
 
 
