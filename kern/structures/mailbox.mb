@@ -1,0 +1,60 @@
+/* 
+ *
+ * Author: Amanda M. Watson
+*/
+use locks::rendezvous::*;
+use structures::proc::*;
+use structures::schedule::*;
+use ipc::desc_table::*;
+use utils::slab_alloc::*;
+
+const ERR_OWNER: i32 = -7;
+
+struct mailbox_t {
+    mb_rend: rend,
+    owner: *proc,
+    ref_count: u32, // denotes how many desc tables have references
+    active: bool, 
+}
+
+// create mailbox, add own proc as owner, add to desc table.
+// returns error if there is no room to add the descriptor
+// otherwise, returns new descriptor
+fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
+    printf!("init %p\n", mb);
+    assert!(proc != null);
+    rend_init(&(mb->mb_rend));
+    mb->owner = proc; 
+    mb->active = true;
+    mb->ref_count = 0;
+    let ret = mb_table_add(&proc->mb_desc, mb);
+    assert!(mb->ref_count == 1);
+    ret
+}
+
+// TODO we can probably encapsulate the rend_node business if we're careful
+fn mb_wait(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
+        recv_len: *u32, timeout: u32, err: *i32) -> *rend_node {
+    if (get_tcb()->proc != mb->owner) {
+        *err = ERR_OWNER; // TODO send this error to user
+        return null;
+    }
+    rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
+            RECV, err)
+}
+
+fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
+        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
+
+    rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
+            option, err)
+
+}
+
+fn mb_destroy(mb: *mailbox_t) {
+    mb->active = false;
+    rend_destroy(&mb->mb_rend, ERR_DEAD);
+    assert!(mb->ref_count == 0);
+    mb->owner = null; 
+    slub_free(mb as *u32, sizeof(mailbox_t));
+}
