@@ -23,13 +23,24 @@ struct mb_desc_table {
 }
 
 fn mb_desc_init(table: *mb_desc_table, parent_proc: *proc) {
+
+    kmut_init(&table->mut);
     if (parent_proc == null) {
         mos_memset(&(table->desc_table)[0], 0, sizeof(*mailbox_t) * MB_TABLE_SIZE);    
     } else {
-        mos_memcpy(&(table->desc_table)[0],
-                &(parent_proc->mb_desc.desc_table)[0], MB_TABLE_SIZE * sizeof(*mailbox_t));
+        let i: u32;
+        let child_table = table; 
+        let parent_table =  &(parent_proc->mb_desc);
+        kmut_lock(&parent_table->mut);
+        for (i = 0; i < MB_TABLE_SIZE; i+=1) {
+            child_table->desc_table[i] = null;
+            if (parent_table->desc_table[i] != null) {
+                assert!(mb_table_add(child_table, parent_table->desc_table[i])
+                        >= 0);
+            } 
+        }
+        kmut_unlock(&parent_table->mut);
     }
-    kmut_init(&table->mut);
 }
 
 fn get_ipc_dest(id: u32) -> *mailbox_t {

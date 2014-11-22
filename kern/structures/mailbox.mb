@@ -22,7 +22,9 @@ fn mailbox_new() -> i32 {
     if (mb == null) {
         return -1;
     }
-    mb_init(mb, get_tcb()->proc)
+    let ret: i32 = mb_init(mb, get_tcb()->proc);
+    ret
+
 }
 
 // create mailbox, add own proc as owner, add to desc table.
@@ -40,8 +42,9 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
 }
 
 // TODO we can probably encapsulate the rend_node business if we're careful
-fn mb_wait(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
+fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, err: *i32) -> *rend_node {
+
     if (get_tcb()->proc != mb->owner) {
         *err = ERR_OWNER; // TODO send this error to user
         return null;

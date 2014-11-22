@@ -9,6 +9,7 @@ mod syslib;
 
 fn main() -> i32 {
     let mb_desc = syslib::mailbox_new();
+    assert!(mb_desc == 0);
     let args: syslib::ipc_args;
     args.dest_id = 0;
     args.long_src.len = 0;
@@ -17,12 +18,14 @@ fn main() -> i32 {
     args.short_dest.len = 0;
     args.timeout = -1;
     args.options = 4;
-    let ret = syslib::repl();
-    if (ret == 0) {
-        printf!("send returned %d\n", syslib::ipc_send(&args));
-    } else {
-        printf!("recv returned %d\n", syslib::ipc_recv(&args));
+    while (true) {
+        let ret = syslib::repl();
+        if (ret == 0) {
+            printf!("send returned %d\n", syslib::ipc_send(&args));
+            syslib::abscond(1);
+        } else {
+            printf!("recv returned %d\n", syslib::ipc_recv(&args));
+        }
     }
-    syslib::abscond(1);
     0
 }
