@@ -20,6 +20,7 @@ use utils::string::*;
 use utils::user_mem::*;
 use utils::list::*;
 use entry::get_ticks;
+mod desc_table;
 
 
 extern fn get_cr3() -> u32;
@@ -54,22 +55,11 @@ struct ipc_args {
 
 // size of buffer we're willing to put on the stack for short messages
 const SHORT_BUFFER_MAX: u32 = 200;
-// maximum size of fastpath message
-const FASTPATH_MAX: u32 = 100;
 
 const ERR_INTERNAL: i32 = -1;
 const ERR_DEST: i32 = -2;
 const ERR_ARGS: i32 = -3;
 const ERR_REPLY: i32 = -4;
-
-fn get_ipc_dest(id: u32) -> *tcb {
-    // lookup id from descriptor
-    let tid = get_tcb()->mb_desc_table[id]; 
-    if (tid < 0) {
-        return null;
-    }
-    tcb_lookup(tid as u32)
-}
 
 /*
  * given a valid source buffer and an active tid, send a message to thread
@@ -168,7 +158,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }    
 
     // TODO talk about mailboxes, not tcbs
-    let dest_tcb = get_ipc_dest(args_kern.dest_id);
+    let dest_tcb = desc_table::get_ipc_dest(args_kern.dest_id);
     if dest_tcb == get_tcb() {
         tcb_end_lookup(dest_tcb);
         return ERR_DEST;

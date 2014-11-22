@@ -1,0 +1,77 @@
+/* interface and implementation of the ipc descriptor table, which translates
+ * ipc descriptors to mailbox ids kernel-side 
+ *
+ * Author Amanda M. Watson
+*/
+
+
+use structures::tcb::*;
+use utils::stdlib::*;
+use structures::schedule::*;
+use structures::tcb_dir::*;
+use locks::mutex::*;
+
+const MB_TABLE_SIZE: u32 = 64; // number of descriptors in table
+
+struct mb_desc_table {
+    table: i32[MB_TABLE_SIZE],
+    mut: kmut,
+}
+
+fn desc_table_init(tcb: *tcb) {
+
+    mos_memset(&(tcb->mb_table.table)[0], -1, sizeof(i32) * MB_TABLE_SIZE);
+    // one's own tid is always assigned to index 0
+    tcb->mb_table.table[0] = tcb->tid as i32;
+    kmut_init(&tcb->mb_table.mut);
+}
+
+fn get_ipc_dest(id: u32) -> *tcb {
+    // lookup id from descriptor
+    kmut_lock(&get_tcb()->mb_table.mut);
+    //let tid = get_tcb()->mb_table.table[id]; 
+    // TODO hack while we don't have a name server
+    let tid = id;
+    kmut_unlock(&get_tcb()->mb_table.mut);
+
+    if (tid < 0) {
+        return null;
+    }
+
+    tcb_lookup(tid as u32)
+}
+
+// KERNEL ONLY 
+// returns descriptor on success, negative value if full
+fn add_descriptor_entry(id: u32) -> i32 {
+    let table: *i32 = &(get_tcb()->mb_table.table)[0];
+    let i: u32 = 0;
+    kmut_lock(&get_tcb()->mb_table.mut);
+    for (i = 0; i < MB_TABLE_SIZE; i+=1) {
+        if (table[i] == -1) {
+            table[i] = id as i32;
+            kmut_unlock(&get_tcb()->mb_table.mut);
+            return i as i32;
+        }
+    }
+    kmut_unlock(&get_tcb()->mb_table.mut);
+    -1
+}
+
+// does nothing if id is 0
+fn delete_entry(desc: u32) {
+    if (desc == 0) {
+        return ();
+    }
+    kmut_lock(&get_tcb()->mb_table.mut);
+    get_tcb()->mb_table.table[desc] = -1;
+    kmut_unlock(&get_tcb()->mb_table.mut);
+}
+
+fn clear_desc_table() {
+    kmut_lock(&get_tcb()->mb_table.mut);
+    mos_memset(&(get_tcb()->mb_table.table)[0], -1, sizeof(i32) * MB_TABLE_SIZE);
+    kmut_unlock(&get_tcb()->mb_table.mut);
+}
+
+
