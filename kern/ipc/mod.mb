@@ -184,7 +184,8 @@ fn ipc_send(args: *ipc_args) -> i32 {
     if (args_kern.timeout == -1) {
         timeout = -1;
     }
-    let rend_node = rend_wait(&(dest_tcb->ipc_rend), 
+    printf!("MB %d %p\n", dest_tcb->tid, dest_tcb->proc->mb_desc.desc_table[0]);
+    let rend_node = rend_wait(&(dest_tcb->proc->mb_desc.desc_table[0]->mb_rend), 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
@@ -325,7 +326,9 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         return ERR_DEST;
     } 
 
-    let rend_node = rend_wait(&(dest_tcb->ipc_rend), 
+    printf!("MB %d %p\n", dest_tcb->tid, dest_tcb->proc->mb_desc.desc_table[0]);
+
+    let rend_node = rend_wait(&(dest_tcb->proc->mb_desc.desc_table[0]->mb_rend), 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
