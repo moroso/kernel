@@ -19,11 +19,7 @@ use structures::mailbox::*;
 
 /* function executed by child thread to return to the code the parent was
  * executing.  Assumes child has already been added to the directory */
-fn child_repl(regs_i: *u8) {
-    // TODO temporary
-    let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
-    assert!(mb != null);
-    assert!(mb_init(mb) >= 0);
+fn child_repl(regs_i: *u8) { 
     let regs = regs_i as *uregs;
     // on success, child returns 0
     regs->gpregs.eax = 0;
@@ -56,7 +52,12 @@ fn repl_handler() -> i32 {
 fn repl(parent_regs: *uregs) -> i32 {
 
     let parent_proc = get_tcb()->proc;
-
+    if (parent_proc->mb_desc.desc_table[0] == null) {
+        // TODO temporary
+        let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
+        assert!(mb != null);
+        assert!(mb_init(mb, parent_proc) == 0);
+    }
     /* if we don't have only on thread in parent process, return with error */
     if (!list_is_singleton(&(parent_proc->peer_tcb_list))) {
         return -1;
@@ -115,6 +116,12 @@ fn repl(parent_regs: *uregs) -> i32 {
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
     parent_proc->child_count+=1;
     kmut_unlock(&(parent_proc->child_mut));
+    
+    // TODO temporary
+    let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
+    assert!(mb != null);
+    assert!(mb_init(mb, child_proc) == 0);
+
     schedule(child_tcb, QUEUE_BACK);
 
     child_tcb->tid as i32
