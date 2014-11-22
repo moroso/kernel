@@ -158,7 +158,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }    
 
     // TODO talk about mailboxes, not tcbs
-    let dest_tcb = desc_table::get_ipc_dest(args_kern.dest_id);
+    let dest_tcb = tcb_lookup(args_kern.dest_id);
     if dest_tcb == get_tcb() {
         tcb_end_lookup(dest_tcb);
         return ERR_DEST;
@@ -321,32 +321,27 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         timeout = -1;
     }
     
-    let dest_tcb = desc_table::get_ipc_dest(args_kern.dest_id);
-    if (dest_tcb == null) {
+    let dest_mb = desc_table::get_ipc_dest(args_kern.dest_id);
+    if (dest_mb == null) {
         return ERR_DEST;
     } 
 
-    printf!("MB %d %p\n", dest_tcb->tid, dest_tcb->proc->mb_desc.desc_table[0]);
-
-    let rend_node = rend_wait(&(dest_tcb->proc->mb_desc.desc_table[0]->mb_rend), 
+    let rend_node = rend_wait(&(dest_mb->mb_rend), 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
             timeout, RECV, &err);  
 
     if (err == ERR_TIMEOUT) {
-        tcb_end_lookup(dest_tcb);
         return ERR_TIMEOUT;
     }
 
     // if tcb died before we could transfer, return with error
     if (err == ERR_DEAD) {
-        tcb_end_lookup(dest_tcb);
         return ERR_DEST;
     }
 
     if (err < 0) {
-        tcb_end_lookup(dest_tcb);
         return ERR_INTERNAL;
     }
 
@@ -359,7 +354,6 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
-            tcb_end_lookup(dest_tcb);
             return ERR_INTERNAL;
         }
     } else {
@@ -390,7 +384,6 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                 0) {
 
             rend_signal(null, 0, rend_node, 0);
-            tcb_end_lookup(dest_tcb);
 
             return ERR_INTERNAL;
         }
@@ -418,11 +411,9 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
-        tcb_end_lookup(dest_tcb);
 
         return ERR_INTERNAL;
     }
-    tcb_end_lookup(dest_tcb);
 
     0
 }
