@@ -29,7 +29,6 @@ fn mailbox_new() -> i32 {
 // returns error if there is no room to add the descriptor
 // otherwise, returns new descriptor
 fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
-    printf!("init %p\n", mb);
     assert!(proc != null);
     rend_init(&(mb->mb_rend));
     mb->owner = proc; 
