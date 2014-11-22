@@ -13,7 +13,6 @@ fn main() -> i32 {
     let long_dest = 0xdaaaa000 as *u8; 
     let long_len = 4096; // size of KB page
     let KB = 1024;   
-
     while(true) { 
         let ret: i32 = syslib::repl();
 

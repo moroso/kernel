@@ -37,7 +37,6 @@ fn get_ipc_dest(id: u32) -> *mailbox_t {
     let mb = table->desc_table[id];    
     kmut_unlock(&table->mut);
     mb
-
 }
 
 // add mailbox to descriptor table, return descriptor.  returns failure if all

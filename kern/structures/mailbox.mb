@@ -17,6 +17,14 @@ struct mailbox_t {
     active: bool, 
 }
 
+fn mailbox_new() -> i32 {
+    let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
+    if (mb == null) {
+        return -1;
+    }
+    mb_init(mb, get_tcb()->proc)
+}
+
 // create mailbox, add own proc as owner, add to desc table.
 // returns error if there is no room to add the descriptor
 // otherwise, returns new descriptor
