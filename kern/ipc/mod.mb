@@ -176,8 +176,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     message_send.short_src.len = args_kern.short_src.len;
     message_send.options = args_kern.options;
 
-    let static_buffer : u32[5];
-    let message_recv: *u8 = &static_buffer[0] as *u8;
+    let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
 
@@ -313,32 +312,38 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let message_send: message_node;
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
 
-    let static_buffer : u32[5];
-    let message_recv: *u8 = &static_buffer[0] as *u8;
-
+    let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
     let timeout = args_kern.timeout + get_ticks();
     if (args_kern.timeout == -1) {
         timeout = -1;
     }
+    
+    let dest_tcb = desc_table::get_ipc_dest(args_kern.dest_id);
+    if (dest_tcb == null) {
+        return ERR_DEST;
+    } 
 
-    let rend_node = rend_wait(&(get_tcb()->ipc_rend), 
+    let rend_node = rend_wait(&(dest_tcb->ipc_rend), 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
             timeout, RECV, &err);  
 
     if (err == ERR_TIMEOUT) {
+        tcb_end_lookup(dest_tcb);
         return ERR_TIMEOUT;
     }
 
     // if tcb died before we could transfer, return with error
     if (err == ERR_DEAD) {
+        tcb_end_lookup(dest_tcb);
         return ERR_DEST;
     }
 
     if (err < 0) {
+        tcb_end_lookup(dest_tcb);
         return ERR_INTERNAL;
     }
 
@@ -351,7 +356,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
-
+            tcb_end_lookup(dest_tcb);
             return ERR_INTERNAL;
         }
     } else {
@@ -382,6 +387,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                 0) {
 
             rend_signal(null, 0, rend_node, 0);
+            tcb_end_lookup(dest_tcb);
 
             return ERR_INTERNAL;
         }
@@ -409,8 +415,11 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
+        tcb_end_lookup(dest_tcb);
+
         return ERR_INTERNAL;
     }
+    tcb_end_lookup(dest_tcb);
 
     0
 }
