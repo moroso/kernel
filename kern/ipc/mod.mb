@@ -47,7 +47,7 @@ const SHORT_BUFFER_MAX: u32 = 200;
  *    maximum of long_src.len bytes will be copied to the recipiant.  long_src.addr
  *    is ignored if long_src.len is 0.  returns success (but with no copy) if pages
  *    are not mapped at the time of the copy.  returns ERR_ARGS if long_src.len is 
- *    not aligned to 4096
+ *    not page aligned
  * - long_dest: specifies a buffer for a long reply from receiver.
  *    long_dest.len gets altered to be the final length of the message copied.  ignored if
  *     message is async or doesn't expect a reply
@@ -141,7 +141,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }    
 
     /* looks up descriptor for dest mailbox */
-    let dest_mb = desc_table::get_ipc_dest(args_kern.dest_id);
+    let dest_mb = desc_table::mb_desc_lookup(args_kern.dest_id);
 
     if dest_mb == null {
         return IPC_ERR_DEST;
@@ -168,7 +168,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     /*** if there was an error during the process, return ***/
     if (err < 0) {
 
-        if (err == ERR_OWNER) {
+        if (err == MB_ERR_OWNER) {
             return IPC_ERR_DEST;
         }
 
@@ -255,7 +255,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
  * Arguments are passed in an ipc_args struct.  Their fields are the following: 
  *
  * - dest_id: the mailbox descriptor being sent to.  function returns ERR_DEST if
- * dest_id is not a valid descriptor 
+ *   dest_id is not a valid descriptor or if the invoking thread is not an owner 
  * - long_src: ignored for recv
  * - long_dest: specifies a buffer for a long message from the sender
  *    long_dest.len gets altered to be the final length of the message copied. 
@@ -324,13 +324,9 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
-    let timeout = args_kern.timeout + get_ticks();
-    if (args_kern.timeout == -1) {
-        timeout = -1;
-    }
 
     /* look up mailbox descriptor to find the mailbox we're waiting on */
-    let dest_mb = desc_table::get_ipc_dest(args_kern.dest_id);
+    let dest_mb = desc_table::mb_desc_lookup(args_kern.dest_id);
     if (dest_mb == null) {
         return IPC_ERR_DEST;
     } 
@@ -338,12 +334,12 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let dest_tcb = mb_recv(dest_mb, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32, &recv_len, 
-            timeout, &err);  
+            args_kern.timeout, &err);  
 
     // if recv had an error, return with err
     if (err < 0) {
         
-        if (err == ERR_OWNER) {
+        if (err == MB_ERR_OWNER) {
             return IPC_ERR_DEST;
         }
 
@@ -432,6 +428,9 @@ fn ipc_recv(args: *ipc_args) -> i32 {
  * is 0.
  *
  * Returns 0 on success, negative error code of failure.  
+ *
+ * TODO hide rend manipulation behind a layer of abstraction, as with the other
+ * functions
  */
 fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) -> i32 {
 
