@@ -1,14 +1,22 @@
-/* mailbox.mb contains functions and declarations for mailbox structure.  The
+/* mailbox.mb
+ * Contains functions and declarations for mailbox structure.  The
  * mailbox allows owners to receive messages, and non-owners to send them.  When
  * a reply is expected, the mailbox saves the sender's data in the receiving tcb
- * for future wakeup (either on end, or on reply)
+ * for future wakeup (either on cleanup when it exits the ipc function, or on reply)
  *
  * A mailbox is owned by the proc that creates it: all threads in that proc can
  * receive on the mailbox.  All other threads will return with error if they
  * attempt to receive
  *
+ * children of the owner proc will be allowed to the mailbox, but are not
+ * allowed to receive on it
+ *
  * We can think of the mailbox, to some extent, as the middle layer between the
- * rend primitive and IPC 
+ * rend primitive and the IPC functions
+ *
+ * NOTE: some language about whether the sender/receiver does the transfer will
+ * be confusing without proper understanding of the rend synchronization
+ * primitive.  See locks/rendezvous.mb for clarification.
  *
  * Author: Amanda M. Watson
 */
@@ -22,9 +30,12 @@ use structures::tcb::*;
 use entry::get_ticks;
 
 // the error that's returned if we attempt to wait on a mailbox we do not own
-const ERR_OWNER: i32 = -7;
-const ERR_INTERNAL: i32 = -8;
+const MB_ERR_OWNER: i32 = -7;
+// error internal to mailbox
+const MB_ERR_INTERNAL: i32 = -8;
 
+/* The mailbox structure: owners receive messages on a mailbox, while threads
+ * with a descriptor that maps to the mailbox can send to them */
 struct mailbox_t {
     // primitive that synchronizes senders
     // and receivers
@@ -37,22 +48,23 @@ struct mailbox_t {
     active: bool, 
 }
 
-/* allocates a new mailbox, and assigns proc of invoking thread as its owner.
+/* allocates a new mailbox, and assigns proc of invoking thread as its owner,
+ * adds mailbox to invoking proc's descriptor table.
  * Assumes owner has corresponding proc
  * Returns mailbox descriptor on success, negative error code on OOM failure, or
  * if descriptor table is full */
 fn mailbox_new() -> i32 {
     let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
     if (mb == null) {
-        return -2;
+        return MB_ERR_INTERNAL;
     }
     let ret: i32 = mb_init(mb, get_tcb()->proc);
     ret
 }
 
-// create mailbox, add own proc as owner, add to desc table.
-// returns error if there is no room to add the descriptor
-// otherwise, returns new descriptor
+/* create mailbox, add own proc as owner, add to desc table.
+ * returns error if there is no room to add the descriptor
+ * otherwise, returns new descriptor */
 fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     assert!(proc != null);
     rend_init(&(mb->mb_rend));
@@ -64,18 +76,60 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     ret
 }
 
+/* 
+ * When an owner thread invokes mb_recv, it blocks until either it times out, or
+ * a sending thread delivers a message.  
+ * 
+ * Assuming no errors, there are two
+ * cases for mb_recv (see explanation in locks/rendezvous.mb for further clarification):
+ * either the invoking thread slept on rend_wait (meaning rend_wait returns
+ * null), or the invoking thread never sleeps at all, and retrieves a rend_node
+ * containint information for a sender blocked on the mailbox (rend_wait returns
+ * rend_node).  In the former case, we return no message (note that the sender
+ * may have altered the message we sent).  In the latter case, we return the
+ * sender's message and store the rend_node at last_send to be woken up later
+ * (in the case of a reply-based send, this happens on reply.  Otherwise, when
+ * we call mb_recv_end).  
+ *
+ * - mb: the mailbox the invoking thread is waiting on.  returns with err
+ *   MB_ERR_OWNER if thread's proc is not the owner of mb
+ * - message: the message being send to the sender.  This message can contain
+ *   whatever info is necessary for the sender thread to know how to treat a
+ *   sleeping receiver.  
+ * - message_len: lenth of message.  mailboxes require a non-zero message length 
+ * - message_recv: pointer where message left by sender can be stored.  In the
+ *   case of mailboxes, a non-empty message denotes that the invoking thread's
+ *   message has been received and handled.  Otherwise, we are receiving the
+ *   request of the sender
+ * - recv_len: pointer to where receiver length is stored.  The value at
+ *   recv_len is updated to denote the legnth of the message at message_recv
+ * - timeout: how many cycles the invoking thread should block in wait of a
+ *   transfer before returning with error.  Note that thread is unable to time
+ *   out while the sending thread is performing the transfer.
+ * - err: stores any errors that arise; *err = 0 means receipt was successful
+ * 
+ * Returns a the contents of the tcb field in the received rend_node; null if no 
+ * rend_node is retrieved. 
+ *
+*/
 fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, err: *i32) -> *tcb {
+    
+    assert!(message_len > 0);
 
-    if (!mb->active) {
-        *err = ERR_INTERNAL;
+    if (!(mb->active)) {
+        *err = MB_ERR_INTERNAL;
         return null;
+    }
+    
+    if (timeout != -1) { 
+        timeout = timeout + get_ticks();
     }
 
     assert!(list_is_empty(&get_tcb()->last_send));
 
     if (get_tcb()->proc != mb->owner) {
-        *err = ERR_OWNER;         
+        *err = MB_ERR_OWNER;         
         return null;
     }
     let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
@@ -121,8 +175,10 @@ fn mb_end_recv(err: i32) {
 fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
 
-    if (!mb->active) {
-        *err = ERR_INTERNAL;
+    assert!(message_len > 0);
+
+    if (!(mb->active)) {
+        *err = MB_ERR_INTERNAL;
         return null;
     }
 

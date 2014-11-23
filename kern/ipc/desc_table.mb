@@ -43,7 +43,7 @@ fn mb_desc_init(table: *mb_desc_table, parent_proc: *proc) {
     }
 }
 
-fn get_ipc_dest(id: u32) -> *mailbox_t {
+fn mb_desc_lookup(id: u32) -> *mailbox_t {
     let proc = get_tcb()->proc;
     if (id >= MB_TABLE_SIZE) {
         return null;
