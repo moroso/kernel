@@ -17,13 +17,24 @@ struct ipc_args {
     options: u32,
 }
 
+/*** sending options: denotes how messages should be send.  Arguments to the
+ * 'options' flag in ipc_args ***/
 const IPC_SHARE: u32 = 1; // shared memory
 const OPTION_ASYNC: u32 = 2; // asynchronous send
 const OPTION_NO_REPLY: u32 = 4; // sync, but no reply
 const OPTION_SHARE: u32 = 8; // shared memory
 
-const ERR_INTERNAL: i32 = -1;
-const ERR_DEST: i32 = -2;
-const ERR_ARGS: i32 = -3;
-const ERR_REPLY: i32 = -4;
+/*** errors: errors that can be returned to the invoker ***/
+// unspecified internal error, such as OOM
+const IPC_ERR_INTERNAL: i32 = -1;
+// destination mailbox does not exist (could be in the process of being created) 
+const IPC_ERR_DEST: i32 = -2;
+// invalid arguments
+const IPC_ERR_ARGS: i32 = -3;
+// recv must reply to the last thread before it is allowed to recv again
+const IPC_ERR_REPLY: i32 = -4;
+// thread timed out before a message was transferred
+const IPC_ERR_TIMEOUT: i32 = -5;
+// other thread died during our invocation
+const IPC_ERR_DEAD: i32 = -6;
 

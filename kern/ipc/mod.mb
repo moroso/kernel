@@ -24,8 +24,6 @@ use structures::mailbox::*;
 use shared::ipc_defs::*;
 mod desc_table;
 
-extern fn get_cr3() -> u32;
-
 struct message_node {
     long_src: buffer_t,
     long_dest: buffer_t, 
@@ -73,7 +71,7 @@ const SHORT_BUFFER_MAX: u32 = 200;
 fn ipc_send(args: *ipc_args) -> i32 {
     let args_kern: ipc_args;
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
-        return ERR_INTERNAL;
+        return IPC_ERR_INTERNAL;
     } 
 
     let option: u32 = SEND_SYNC_REPLY;
@@ -102,7 +100,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
         if (short_message == null || copy_from_user(short_message as *u8,
                     args_kern.short_src.addr,
                     args_kern.short_src.len) < 0) {
-            return ERR_INTERNAL;
+            return IPC_ERR_INTERNAL;
         }
     }
 
@@ -112,25 +110,25 @@ fn ipc_send(args: *ipc_args) -> i32 {
             (!is_user_addr(args_kern.long_dest.addr)  && args_kern.long_dest.len > 0)  ||
             (!is_user_addr(args_kern.short_src.addr)  && args_kern.short_src.len > 0) ||
             (!is_user_addr(args_kern.short_dest.addr))  && args_kern.short_dest.len > 0)  {
-        return ERR_ARGS;  
+        return IPC_ERR_ARGS;  
     }
 
     // ensures long addresses are page aligned
     if ((!is_addr_aligned(args_kern.long_src.addr) && args_kern.long_src.len > 0)||
             (!is_addr_aligned(args_kern.long_dest.addr)) && args_kern.long_dest.len > 0)  {
-        return ERR_ARGS;  
+        return IPC_ERR_ARGS;  
     }
 
     // ensures short message is smaller than page
     if (args_kern.short_src.len > PAGE_SIZE) {
-        return ERR_ARGS;
+        return IPC_ERR_ARGS;
     }
 
     // ensures long lengths are multiples of page sizee 
     if (args_kern.long_src.len%PAGE_SIZE != 0 ||
             args_kern.long_dest.len%PAGE_SIZE != 0)
     {
-        return ERR_ARGS;
+        return IPC_ERR_ARGS;
     }    
 
     // TODO talk about mailboxes, not tcbs
@@ -138,7 +136,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     if dest_mb == null {
 
-        return ERR_DEST;
+        return IPC_ERR_DEST;
     }
 
     let message_send: message_node;
@@ -162,18 +160,18 @@ fn ipc_send(args: *ipc_args) -> i32 {
             &recv_len, 
             timeout, option, &err);  
 
-    if (err == ERR_TIMEOUT) {
-        return ERR_TIMEOUT;
+    if (err == REND_ERR_TIMEOUT) {
+        return IPC_ERR_TIMEOUT;
     }
 
     // if tcb died before we could transfer, return with error
-    if (err == ERR_DEAD) {
+    if (err == REND_ERR_DEAD) {
 
-        return ERR_DEAD;
+        return IPC_ERR_DEAD;
     }
 
     if (err < 0) {
-        return ERR_INTERNAL;
+        return IPC_ERR_INTERNAL;
     }
 
 
@@ -187,7 +185,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
-            return ERR_INTERNAL;
+            return IPC_ERR_INTERNAL;
         }
     } else {
         // otherwise, we do the transfer ourselves and wake up the other guy
@@ -198,7 +196,8 @@ fn ipc_send(args: *ipc_args) -> i32 {
             let proc_recv = proc_lookup(pid_recv);
             if (proc_recv == null || proc_recv->PD.PT_entries == null) {
                 // TODO free short message stuff if errs
-                return ERR_DEAD;
+                mb_end_send(null, 0, IPC_ERR_DEAD);
+                return IPC_ERR_DEAD;
 
             }
 
@@ -220,12 +219,14 @@ fn ipc_send(args: *ipc_args) -> i32 {
             proc_end_lookup(proc_recv);
             message_dest->long_dest.len = transfer_len;
         } 
-        rend_signal(short_message, args_kern.short_src.len, rend_node, 0);
+        mb_end_send(short_message, args_kern.short_src.len, 0);
     }
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
-        return ERR_INTERNAL;
+
+        mb_end_send(null, 0, IPC_ERR_INTERNAL);
+        return IPC_ERR_INTERNAL;
     }
 
     0
@@ -250,29 +251,29 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let enable = cond_preempt_disable();
     if (!list_is_empty(&get_tcb()->last_send)) {
         cond_preempt_enable(enable);
-        return ERR_REPLY;
+        return IPC_ERR_REPLY;
     }
     cond_preempt_enable(enable);
 
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
-        return ERR_INTERNAL;
+        return IPC_ERR_INTERNAL;
     }
 
     // check to see if addresses all point to user addresses
     if ((!is_user_addr(args_kern.long_dest.addr)  && args_kern.long_dest.len > 0)  ||
             (!is_user_addr(args_kern.short_dest.addr))  && args_kern.short_dest.len > 0)  {
-        return ERR_ARGS;  
+        return IPC_ERR_ARGS;  
     }
 
     // ensures long addresses are page aligned
     if ((!is_addr_aligned(args_kern.long_dest.addr)) && args_kern.long_dest.len > 0)  {
-        return ERR_ARGS;  
+        return IPC_ERR_ARGS;  
     }
 
     // ensures long lengths are multiples of page sizee 
     if (args_kern.long_dest.len%PAGE_SIZE != 0)
     {
-        return ERR_ARGS;
+        return IPC_ERR_ARGS;
     }    
 
     let message_send: message_node;
@@ -288,7 +289,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     let dest_mb = desc_table::get_ipc_dest(args_kern.dest_id);
     if (dest_mb == null) {
-        return ERR_DEST;
+        return IPC_ERR_DEST;
     } 
 
     let rend_node = mb_recv(dest_mb, 
@@ -296,17 +297,17 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             &message_recv as **u32, &recv_len, 
             timeout, &err);  
 
-    if (err == ERR_TIMEOUT) {
-        return ERR_TIMEOUT;
+    if (err == REND_ERR_TIMEOUT) {
+        return IPC_ERR_TIMEOUT;
     }
 
     // if tcb died before we could transfer, return with error
-    if (err == ERR_DEAD) {
-        return ERR_DEST;
+    if (err == REND_ERR_DEAD) {
+        return IPC_ERR_DEAD;
     }
 
     if (err < 0) {
-        return ERR_INTERNAL;
+        return IPC_ERR_INTERNAL;
     }
 
     // if we have no rend_node and no error, this means the full transfer
@@ -318,7 +319,8 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
-            return ERR_INTERNAL;
+            mb_end_recv(IPC_ERR_INTERNAL);
+            return IPC_ERR_INTERNAL;
         }
     } else {
 
@@ -347,9 +349,8 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     min(message_src->short_src.len, args_kern.short_dest.len)) <
                 0) {
 
-            rend_signal(null, 0, rend_node, 0);
-
-            return ERR_INTERNAL;
+            mb_end_recv(IPC_ERR_INTERNAL);
+            return IPC_ERR_INTERNAL;
         }
         if (message_src->short_src.len > 0 &&
                 message_src->options&(OPTION_NO_REPLY | OPTION_ASYNC) == 0 &&
@@ -358,27 +359,16 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     message_src->short_src.len);
         } 
 
-
-        // if a reply isn't expected, wake up source immediately
-        if (message_src->options&OPTION_NO_REPLY != 0 || message_src->options&OPTION_ASYNC != 0) {
-            assert!(rend_node->can_timeout == false);
-            rend_signal(null, 0, rend_node, 0);
-        } else {
-            assert!(rend_node->tcb != null);
-            list_insert_head(&rend_node->rend_link, &(get_tcb()->last_send));
-            assert!(rend_node->can_timeout == false || rend_node->timeout ==
-                    -1);
-            rend_node->can_timeout = true;
-        }
-
     }
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
 
-        return ERR_INTERNAL;
+        mb_end_recv(IPC_ERR_INTERNAL);
+        return IPC_ERR_INTERNAL;
     }
 
+    mb_end_recv(0);
     0
 }
 
@@ -389,7 +379,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
     let enable = cond_preempt_disable();
     if (list_is_empty(&get_tcb()->last_send)) {
         cond_preempt_enable(enable);
-        return ERR_REPLY;
+        return IPC_ERR_REPLY;
     }
 
     let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
@@ -430,7 +420,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
 
 
             rend_signal(message_kernel, short_len, last_send, 0);
-            return ERR_INTERNAL;
+            return IPC_ERR_INTERNAL;
         }
     }
 
