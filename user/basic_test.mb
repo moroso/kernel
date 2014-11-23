@@ -4,7 +4,7 @@ fn main() -> i32 {
     if (ret != 0) {
         syslib::abscond(0);
     }
-    let pointer: u32;
+    let pointer: i32;
     syslib::bide(&pointer);
     while true {
         printf!("userland!\n");

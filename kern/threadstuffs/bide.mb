@@ -10,6 +10,9 @@ use locks::cond::*;
 use structures::tcb::*;
 use structures::proc::*;
 use structures::schedule::*;
+use utils::user_mem::*;
+
+const debug_bide: bool = false;
 
 /* when a thread invokes bide, it returns an exit status from a child process,
  * if possible.  If a child has exited and its status has not yet been
@@ -18,9 +21,7 @@ use structures::schedule::*;
  * exits.  On success, bide returns the pid of the exited child.
  * If the thread has no children whose exit statuses could be collected,
  * bide returns immediatly with error.  */
-fn bide(pointer: *u32) -> i32 {
-    // TODO check to see if pointer can be dereferenced
-
+fn bide(pointer: *i32) -> i32 {
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
     assert!(proc != null && tcb != null);
@@ -36,13 +37,17 @@ fn bide(pointer: *u32) -> i32 {
         assert!(proc->num_bide_waiters <= proc->child_count);
         if (proc->num_bide_waiters == proc->child_count) {
             kmut_unlock(&(proc->child_mut));
-            printf!("thread %d returning with error\n ", get_tcb()->tid);
+            if (debug_bide) {
+                printf!("thread %d returning with error\n ", get_tcb()->tid);
+            }
 
             return -1;
         }
-
-        printf!("thread %d choosing to wait (%d vs %d)\n", get_tcb()->tid,
-                proc->num_bide_waiters, proc->child_count);
+        proc->num_bide_waiters+=1;
+        if (debug_bide) {
+            printf!("thread %d choosing to wait (%d vs %d)\n", get_tcb()->tid,
+                    proc->num_bide_waiters, proc->child_count);
+        }
         kcond_wait(&(proc->proc_cond), &(proc->child_mut));
     }
 
@@ -50,20 +55,28 @@ fn bide(pointer: *u32) -> i32 {
             exit_status_t, link);
     assert!(new_status != null);
 
-    list_del(&(new_status->link));
 
     let status = new_status->status;
+    if (copy_to_user(pointer as *u8, &status as *u8, sizeof(i32)) < 0) {
+        proc->num_bide_waiters-=1;
+
+        kmut_unlock(&(proc->child_mut));
+        return -2;
+    }
+
+    list_del(&(new_status->link));
     let tid: u32 = new_status->tid;
 
     slub_free(new_status as *u32, sizeof(exit_status_t));
 
-    // TODO is this correct?  if so, it's named wrong
     proc->child_count-=1;
-
+    proc->num_bide_waiters+=1;
     kmut_unlock(&(proc->child_mut));
 
-    *pointer = status;
-    printf!("thread %d retrieving a status\n", get_tcb()->tid);
+
+    if (debug_bide) {
+        printf!("thread %d retrieving a status\n", get_tcb()->tid);
+    }
 
     tid as i32
 }

@@ -429,7 +429,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
 
     if (message_src->long_dest.len > 0) {
 
-        let transfer_len = min!(message_src->long_src.len, long_len);
+        let transfer_len = min!(message_src->long_dest.len, long_len);
         kmut_2lock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
         let page: u32;
         for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
@@ -443,7 +443,6 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
         }
         kmut_2unlock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
 
-        message_src->long_dest.len = transfer_len;
     }
 
 

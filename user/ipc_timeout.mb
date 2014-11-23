@@ -11,7 +11,7 @@ const NUM_THREADS: u32 = 50;
 fn main() -> i32 {
    
     let ret_1 = syslib::repl();
-    let status: u32;
+    let status: i32;
     if (ret_1 != 0) {
         while(syslib::bide(&status) >=0) {
             if (status < 0) {
