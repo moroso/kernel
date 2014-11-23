@@ -8,6 +8,7 @@ use structures::schedule::*;
 use ipc::desc_table::*;
 use utils::slab_alloc::*;
 use utils::list::*;
+use structures::tcb::*;
 
 const ERR_OWNER: i32 = -7;
 
@@ -44,7 +45,7 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
 
 // TODO we can probably encapsulate the rend_node business if we're careful
 fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, err: *i32) -> *rend_node {
+        recv_len: *u32, timeout: u32, err: *i32) -> *tcb {
 
     assert!(list_is_empty(&get_tcb()->last_send));
 
@@ -59,9 +60,12 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
         assert!(ret->can_timeout == false || ret->timeout ==
                 -1);
+        assert!(ret->message_len > 0 && ret->message != null);
+        *recv_len = ret->message_len;
+        *message_recv = ret->message;
+        return ret->tcb;
     }
-
-    ret
+    null
 }
 
 fn mb_end_recv(err: i32) {
@@ -87,17 +91,21 @@ fn mb_end_recv(err: i32) {
 }
 
 fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
+        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
 
     let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
             option, err);
 
-     if (ret != null) {
+    if (ret != null) {
         list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
         assert!(ret->can_timeout == false || ret->timeout ==
                 -1);
+        assert!(ret->message_len > 0 && ret->message != null);
+        *recv_len = ret->message_len;
+        *message_recv = ret->message;
+        return ret->tcb;
     }
-    ret
+    null
 }
 
 fn mb_end_send(message: *u32, message_len: u32, err: i32) {

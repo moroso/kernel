@@ -154,7 +154,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     if (args_kern.timeout == -1) {
         timeout = -1;
     }
-    let rend_node = mb_send(dest_mb, 
+    let dest_tcb = mb_send(dest_mb, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
@@ -178,7 +178,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     // if we have no rend_node and no error, this means the full transfer
     // occurred; clean up and return
-    if (rend_node == null) {
+    if (recv_len == 0) {
         // new length written into message (sender updates this length)
         args_kern.long_dest.len = message_send.long_dest.len;
         args_kern.short_dest.len = min(recv_len, args_kern.short_dest.len);
@@ -189,10 +189,10 @@ fn ipc_send(args: *ipc_args) -> i32 {
         }
     } else {
         // otherwise, we do the transfer ourselves and wake up the other guy
-        let message_dest: *message_node = rend_node->message as *message_node;
+        let message_dest: *message_node = message_recv as *message_node;
         if (message_dest->long_dest.len > 0) {
-            assert!(rend_node->tcb != null);
-            let pid_recv = rend_node->tcb->pid;
+            assert!(dest_tcb != null);
+            let pid_recv = dest_tcb->pid;
             let proc_recv = proc_lookup(pid_recv);
             if (proc_recv == null || proc_recv->PD.PT_entries == null) {
                 // TODO free short message stuff if errs
@@ -292,7 +292,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         return IPC_ERR_DEST;
     } 
 
-    let rend_node = mb_recv(dest_mb, 
+    let dest_tcb = mb_recv(dest_mb, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32, &recv_len, 
             timeout, &err);  
@@ -312,28 +312,27 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     // if we have no rend_node and no error, this means the full transfer
     // occurred; clean up and return
-    if (rend_node == null) {
+    if (recv_len == 0) {
         // new length written into message (sender updates this length)
         args_kern.long_dest.len = message_send.long_dest.len;
         args_kern.short_dest.len = recv_len;
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
-            mb_end_recv(IPC_ERR_INTERNAL);
             return IPC_ERR_INTERNAL;
         }
     } else {
 
-        let message_src: *message_node = rend_node->message as *message_node;
+        let message_src: *message_node = message_recv as *message_node;
         let transfer_len = min!(message_src->long_src.len, args_kern.long_dest.len);
         if (transfer_len > 0) {
-
-            kmut_2lock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
+            assert!(dest_tcb != null);
+            kmut_2lock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
             let page: u32;
             for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
                 if (page_transfer(message_src->long_src.addr + page,
                             args_kern.long_dest.addr + page,
-                            &(rend_node->tcb->proc->PD), 
+                            &(dest_tcb->proc->PD), 
                             &(get_tcb()->proc->PD),
                             message_src-> options&OPTION_SHARE) < 0) {
                     transfer_len = max(0, page - PAGE_SIZE);
@@ -341,7 +340,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                 }
             }
             args_kern.long_dest.len = transfer_len;
-            kmut_2unlock(&(get_tcb()->proc->PD.mut), &(rend_node->tcb->proc->PD.mut));
+            kmut_2unlock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
 
         }
         if (copy_to_user((args_kern.short_dest.addr),
@@ -359,16 +358,15 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     message_src->short_src.len);
         } 
 
+        mb_end_recv(0);
     }
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
 
-        mb_end_recv(IPC_ERR_INTERNAL);
         return IPC_ERR_INTERNAL;
     }
 
-    mb_end_recv(0);
     0
 }
 
@@ -409,7 +407,6 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
         kmut_2unlock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
 
     }
-
 
     let message_kernel = null;
     if (short_len > 0) {
