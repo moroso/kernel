@@ -7,6 +7,7 @@ use structures::proc::*;
 use structures::schedule::*;
 use ipc::desc_table::*;
 use utils::slab_alloc::*;
+use utils::list::*;
 
 const ERR_OWNER: i32 = -7;
 
@@ -45,25 +46,78 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
 fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, err: *i32) -> *rend_node {
 
+    assert!(list_is_empty(&get_tcb()->last_send));
+
     if (get_tcb()->proc != mb->owner) {
         *err = ERR_OWNER; // TODO send this error to user
         return null;
     }
-    rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
-            RECV, err)
+    let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
+            RECV, err);
+
+    if (ret != null) {
+        list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
+        assert!(ret->can_timeout == false || ret->timeout ==
+                -1);
+    }
+
+    ret
+}
+
+fn mb_end_recv(err: i32) {
+
+    if (list_is_empty(&get_tcb()->last_send)) {
+        return ();
+    }
+
+    let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
+            rend_link);
+
+    if (last_send->option != SEND_SYNC_REPLY || err < 0) {
+        assert!(last_send->can_timeout == false);
+        list_del(&last_send->rend_link);
+        rend_signal(null, 0, last_send, err);
+    } else {
+        assert!(last_send->tcb != null);
+        assert!(last_send->can_timeout == false || last_send->timeout ==
+                -1);
+        last_send->can_timeout = true;
+    }
+
 }
 
 fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
 
-    rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
-            option, err)
+    let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
+            option, err);
+
+     if (ret != null) {
+        list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
+        assert!(ret->can_timeout == false || ret->timeout ==
+                -1);
+    }
+    ret
+}
+
+fn mb_end_send(message: *u32, message_len: u32, err: i32) {
+    if (list_is_empty(&get_tcb()->last_send)) {
+        assert!(message_len == 0);
+        return ();
+    }
+
+    let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
+            rend_link);
+    assert!(last_send->option == RECV);
+    assert!(last_send->can_timeout == false);
+    list_del(&last_send->rend_link);
+    rend_signal(message, message_len, last_send, err);
 
 }
 
 fn mb_destroy(mb: *mailbox_t) {
     mb->active = false;
-    rend_destroy(&mb->mb_rend, ERR_DEAD);
+    rend_destroy(&mb->mb_rend, REND_ERR_DEAD);
     assert!(mb->ref_count == 0);
     mb->owner = null; 
     slub_free(mb as *u32, sizeof(mailbox_t));

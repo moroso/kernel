@@ -6,6 +6,7 @@ use consts::*;
 use utils::slab_alloc::*;
 use utils::stdlib::*;
 use entry::get_ticks;
+use shared::ipc_defs::*;
 
 /* sync options */
 const SEND_SYNC_REPLY: u32 = 0;
@@ -15,10 +16,10 @@ const SEND_SYNC_NOREPLY: u32 = 3;
 const RECV: u32 = 1;
 
 /* error options */
-const ERR_MEM: i32 = -1;
-const ERR_TIMEOUT: i32 = -5;
-const ERR_DEAD: i32 = -3;
-const ERR_REPLAY: i32 = -4;
+const REND_ERR_MEM: i32 = -1;
+const REND_ERR_TIMEOUT: i32 = -5;
+const REND_ERR_DEAD: i32 = -3;
+const REND_ERR_REPLAY: i32 = -4;
 
 struct rend_node {
     message: *u32,
@@ -78,7 +79,7 @@ fn rend_timeout_remove(timeout: u32) {
             if (node_prev != null) {
             if (node_prev->can_timeout) {
             list_del(&node_prev->rend_link); 
-            rend_signal(null, 0, node_prev, ERR_TIMEOUT);
+            rend_signal(null, 0, node_prev, REND_ERR_TIMEOUT);
             }
             node_prev = null;
             }
@@ -90,7 +91,7 @@ fn rend_timeout_remove(timeout: u32) {
 
     if (node_prev != null && node_prev->can_timeout) {
         list_del(&node_prev->rend_link); 
-        rend_signal(null, 0, node_prev, ERR_TIMEOUT);
+        rend_signal(null, 0, node_prev, REND_ERR_TIMEOUT);
     }
 
     cond_preempt_enable(enable);
@@ -113,14 +114,14 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     } else {
         my_node = slub_alloc(sizeof(rend_node)) as *rend_node;
         if (my_node == null) {
-            *err = ERR_MEM;
+            *err = REND_ERR_MEM;
             return null;  
         }
         let new_message = slub_alloc(message_len) as *u32;
         // TODO this policy is bad.  possible rend needs a better interface 
         if (new_message == null) {
             slub_free(my_node as *u32, sizeof(rend_node));
-            *err = ERR_MEM;
+            *err = REND_ERR_MEM;
 
             return null 
         }
@@ -153,7 +154,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     my_node->timeout = timeout; 
 
     if (!rend->rend_active) {
-        *err = ERR_DEAD; 
+        *err = REND_ERR_DEAD; 
         if (option == SEND_ASYNC) {
             slub_free(my_node as *u32, sizeof(rend_node));
             slub_free(message as *u32, message_len);
@@ -186,7 +187,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             cond_preempt_enable(enable);
             return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
         } else {
-            rend_signal(null, 0, other_node, ERR_REPLAY);
+            rend_signal(null, 0, other_node, REND_ERR_REPLAY);
         }
     } 
 
@@ -200,7 +201,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         if (in_list(&my_node->timeout_link)) {
             list_del(&my_node->timeout_link);
         }
-        if (my_node->err == ERR_REPLAY as u32) {
+        if (my_node->err == REND_ERR_REPLAY as u32) {
             // TODO this is sorta bad.  it is made more ok by the guarantee that
             // we recurse only once, and there are no dynamic mem
             // allocations to worry about
