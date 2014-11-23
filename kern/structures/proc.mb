@@ -47,15 +47,17 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb, parent_proc: *proc) -> i32 {
     kcond_init(&(new_proc->proc_cond));
     kmut_init(&(new_proc->child_mut));
 
+    new_proc->num_bide_waiters = 0;
     new_proc->exit_status = slub_alloc(sizeof(exit_status_t)) as *exit_status_t;
     if (new_proc->exit_status == null) {
         return -1;
     }
+    list_init_node(&(new_proc->exit_status->link));
+    
     if (PD_init(&(new_proc->PD)) < 0) {
         slub_free(new_proc->exit_status as *u32, sizeof(exit_status_t));
         return -1;
     }
-    list_init_node(&(new_proc->exit_status->link));
     new_proc->exit_status->status = 1; // TODO change
     new_proc->pid = new_proc->exit_status->tid = new_tcb->tid;
     new_tcb->pid = new_proc->pid as i32;

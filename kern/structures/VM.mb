@@ -373,6 +373,9 @@ fn free_frame(frame: *u8, size: u32) {
 fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_user_addr(log_addr));
     let new_frame: *u8 = get_frame(KB);
+    if (new_frame == null) {
+        return -3;
+    }
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
 
     // TODO I know there's a reason I shouldn't be doing this.  I just can't put
