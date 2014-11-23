@@ -111,6 +111,20 @@ fn __list_insert_between(n: *list_node, n1: *list_node, n2: *list_node) {
     n1->next = n;
     n2->prev = n;
 
+    if (ptr_too_low!(n2->next)) {
+        printf!("%p %p\n", n2, n2->next); 
+    }
+    if (ptr_too_low!(n1->next)) {
+        printf!("%p %p\n", n1, n1->next); 
+    }
+    if (ptr_too_low!(n2->prev)) {
+        printf!("%p %p\n", n2, n2->prev); 
+    }
+    if (ptr_too_low!(n1->prev)) {
+        printf!("%p %p\n", n1, n1->prev); 
+    }
+
+
     assert!(!(ptr_too_low!(n1)));
     assert!(!(ptr_too_low!(n2)));
     assert!(!(ptr_too_low!(n->next)));
@@ -119,6 +133,7 @@ fn __list_insert_between(n: *list_node, n1: *list_node, n2: *list_node) {
     assert!(!(ptr_too_low!(n1->prev)));
     assert!(!(ptr_too_low!(n2->next)));
     assert!(!(ptr_too_low!(n2->prev)));
+
 }
 
 fn list_insert_after(n_new: *list_node, n_old: *list_node) {

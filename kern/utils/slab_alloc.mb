@@ -53,18 +53,11 @@ fn slab_add(size: u32, cache: *cache_head) {
     if (slab == null) {
         return ();
     }
-    let desc: *slab_descriptor = slab as *slab_descriptor;
-    let slab_temp = slab as *u8;
-    slab_temp+=sizeof(slab_descriptor);
-    slab = slab_temp as *u32;
-    desc->slab_low = slab;
-    list_init_node(&(desc->slab_link)); 
-    list_insert_head(&desc->slab_link, &cache->slab_list);
 
     /* divide into elements */
     let node_prev: *u32 = slab;
     let i: u32;
-    for (i = size; i < (SLAB_SIZE - sizeof(slab_descriptor)); i+=size) {
+    for (i = size; i < (SLAB_SIZE); i+=size) {
         let node: *u32 = ((node_prev as u32) + size) as *u32;
         *node_prev = node as u32;
         node_prev = node;
@@ -82,7 +75,7 @@ fn slab_add(size: u32, cache: *cache_head) {
     };
 
     /* should divide evenly */
-    //assert!(i == ((SLAB_SIZE - sizeof(slab_descriptor))/size));
+    assert!(i == (SLAB_SIZE/size));
     cache->slab = slab;
 
 }
