@@ -40,7 +40,7 @@ fn abscond(status: u32) {
     syscall_1(shared::syscall_consts::INT_ABSCOND, status);
 }
 
-fn bide(pointer: *u32) -> i32 {
+fn bide(pointer: *i32) -> i32 {
     syscall_1(shared::syscall_consts::INT_BIDE, pointer as u32) as i32
 }
 

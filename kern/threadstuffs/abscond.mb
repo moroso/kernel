@@ -39,7 +39,6 @@ fn abscond(status: u32)  {
 
         set_exit_status(proc, status);
         let parent_proc: *proc = proc_lookup(proc->parent_pid);
-
         proc_destroy(proc);
         if (parent_proc != null) {
             kmut_lock(&(parent_proc->child_mut));
