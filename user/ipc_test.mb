@@ -5,7 +5,7 @@
 */
 
 mod syslib;
-const NUM_ITERS: u32 = 100;
+const NUM_ITERS: u32 = 500;
 const NUM_THREADS: u32 = 100;
 
 fn main() -> i32 {
@@ -50,7 +50,7 @@ fn main() -> i32 {
                 ret = syslib::repl();
                 if (ret == 0) {
                     short_message = syslib::get_tid();
-                    printf!("send returned %d\n", syslib::ipc_send(&args));
+                    printf!("%d send returned %d\n", syslib::get_tid(), syslib::ipc_send(&args));
                     assert!(*(dest_addr as *u32) == syslib::get_tid());
                     syslib::abscond(1);
                 } else {
@@ -59,7 +59,7 @@ fn main() -> i32 {
                         syslib::abscond(-1);
                     }
                     *(src_addr as *u32) = ret as u32;
-                    printf!("recv returned %d\n", syslib::ipc_recv(&args));
+                    printf!("%d recv returned %d\n", syslib::get_tid(), syslib::ipc_recv(&args));
                     assert!(syslib::ipc_recv(&args) < 0);
                     assert!(syslib::ipc_reply(src_addr, len_long, null, 0) >= 0);
                     assert!((short_message) as i32 == ret);
