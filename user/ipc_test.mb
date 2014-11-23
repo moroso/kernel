@@ -11,7 +11,7 @@ const NUM_THREADS: u32 = 50;
 fn main() -> i32 {
     let j: u32;
     let ret: i32;
-    for (j = 0; j < NUM_THREADS; j+= 1) {
+    for (j = 0; j < NUM_THREADS; j+=1) {
         ret = syslib::repl();
         if (ret == 0) {
             ret = syslib::repl();
@@ -27,15 +27,15 @@ fn main() -> i32 {
                 }
                 syslib::abscond(0);
             }
-
+            syslib::mailbox_new();
             let mb_desc = syslib::mailbox_new();
-            assert!(mb_desc == 0);
+            assert!(mb_desc > 0);
             let src_addr: *u8 = 0xdeadb000 as *u8;
             let dest_addr: *u8 = 0xdeaaa000 as *u8;
             let len_long = 4096;
             let short_message: u32 = -1;
             let args: syslib::ipc_args;
-            args.dest_id = 0;
+            args.dest_id = mb_desc as u32;
             args.long_src.len = 0;
             args.long_dest.addr = dest_addr;
             args.long_dest.len = len_long;

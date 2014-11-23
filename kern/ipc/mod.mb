@@ -21,8 +21,8 @@ use utils::user_mem::*;
 use utils::list::*;
 use entry::get_ticks;
 use structures::mailbox::*;
+use shared::ipc_defs::*;
 mod desc_table;
-
 
 extern fn get_cr3() -> u32;
 
@@ -34,33 +34,8 @@ struct message_node {
     err: u32,
 }
 
-struct buffer_t {
-    addr: *u8,
-    len: u32,
-}
-
-const IPC_SHARE: u32 = 1; // shared memory
-const OPTION_ASYNC: u32 = 2; // asynchronous send
-const OPTION_NO_REPLY: u32 = 4; // sync, but no reply
-const OPTION_SHARE: u32 = 8; // shared memory
-
-struct ipc_args {
-    dest_id: u32,
-    long_src: buffer_t,
-    long_dest: buffer_t, 
-    short_src: buffer_t,
-    short_dest: buffer_t,
-    timeout: u32,
-    options: u32,
-}
-
 // size of buffer we're willing to put on the stack for short messages
 const SHORT_BUFFER_MAX: u32 = 200;
-
-const ERR_INTERNAL: i32 = -1;
-const ERR_DEST: i32 = -2;
-const ERR_ARGS: i32 = -3;
-const ERR_REPLY: i32 = -4;
 
 /*
  * given a valid source buffer and an active tid, send a message to thread
