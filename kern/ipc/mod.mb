@@ -168,6 +168,10 @@ fn ipc_send(args: *ipc_args) -> i32 {
     /*** if there was an error during the process, return ***/
     if (err < 0) {
 
+        if (err == ERR_OWNER) {
+            return IPC_ERR_DEST;
+        }
+
         if (err == REND_ERR_TIMEOUT) {
             return IPC_ERR_TIMEOUT;
         }
@@ -202,7 +206,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
          * note that this also means that we will need to call mb_end_send
          * before we exit to make sure the sleeping receiver is woken up/handed
          * the short message (this includes in the error cases)
-        */
+         */
         let message_dest: *message_node = message_recv as *message_node;
         if (message_dest->long_dest.len > 0) {
 
@@ -277,7 +281,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
  * 
  * function immediately returns error if the last received thread with a reply
  * option has not been replied to
-*/
+ */
 
 fn ipc_recv(args: *ipc_args) -> i32 {
 
@@ -338,6 +342,11 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     // if recv had an error, return with err
     if (err < 0) {
+        
+        if (err == ERR_OWNER) {
+            return IPC_ERR_DEST;
+        }
+
         if (err == REND_ERR_TIMEOUT) {
             return IPC_ERR_TIMEOUT;
         }
@@ -423,9 +432,9 @@ fn ipc_recv(args: *ipc_args) -> i32 {
  * is 0.
  *
  * Returns 0 on success, negative error code of failure.  
-*/
+ */
 fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) -> i32 {
-    
+
     // check to see if addresses all point to user addresses
     if ((!is_user_addr(message_long as *u32)  && long_len > 0)  ||
             (!is_user_addr(message_short)  && short_len > 0))  {

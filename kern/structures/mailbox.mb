@@ -1,4 +1,14 @@
-/* 
+/* mailbox.mb contains functions and declarations for mailbox structure.  The
+ * mailbox allows owners to receive messages, and non-owners to send them.  When
+ * a reply is expected, the mailbox saves the sender's data in the receiving tcb
+ * for future wakeup (either on end, or on reply)
+ *
+ * A mailbox is owned by the proc that creates it: all threads in that proc can
+ * receive on the mailbox.  All other threads will return with error if they
+ * attempt to receive
+ *
+ * We can think of the mailbox, to some extent, as the middle layer between the
+ * rend primitive and IPC 
  *
  * Author: Amanda M. Watson
 */
@@ -11,23 +21,33 @@ use utils::list::*;
 use structures::tcb::*;
 use entry::get_ticks;
 
+// the error that's returned if we attempt to wait on a mailbox we do not own
 const ERR_OWNER: i32 = -7;
+const ERR_INTERNAL: i32 = -8;
 
 struct mailbox_t {
+    // primitive that synchronizes senders
+    // and receivers
     mb_rend: rend,
+    // denotes the proc that owns the mailbox. only threads that belong to this
+    // proc will be allowed to receive messages from the mailbox 
     owner: *proc,
     ref_count: u32, // denotes how many desc tables have references
+    // denotes whether the mailbox is accepting activity
     active: bool, 
 }
 
+/* allocates a new mailbox, and assigns proc of invoking thread as its owner.
+ * Assumes owner has corresponding proc
+ * Returns mailbox descriptor on success, negative error code on OOM failure, or
+ * if descriptor table is full */
 fn mailbox_new() -> i32 {
     let mb = slub_alloc(sizeof(mailbox_t)) as *mailbox_t; 
     if (mb == null) {
-        return -1;
+        return -2;
     }
     let ret: i32 = mb_init(mb, get_tcb()->proc);
     ret
-
 }
 
 // create mailbox, add own proc as owner, add to desc table.
@@ -44,14 +64,18 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     ret
 }
 
-// TODO we can probably encapsulate the rend_node business if we're careful
 fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, err: *i32) -> *tcb {
+
+    if (!mb->active) {
+        *err = ERR_INTERNAL;
+        return null;
+    }
 
     assert!(list_is_empty(&get_tcb()->last_send));
 
     if (get_tcb()->proc != mb->owner) {
-        *err = ERR_OWNER; // TODO send this error to user
+        *err = ERR_OWNER;         
         return null;
     }
     let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
@@ -96,6 +120,11 @@ fn mb_end_recv(err: i32) {
 
 fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
+
+    if (!mb->active) {
+        *err = ERR_INTERNAL;
+        return null;
+    }
 
     if (timeout != -1) { 
         timeout = timeout + get_ticks();
