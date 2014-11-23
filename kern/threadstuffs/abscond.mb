@@ -57,8 +57,8 @@ fn abscond(status: u32)  {
         }
     }
 
+    get_tcb()->proc = null;
     decrease_proc_ref(proc);
-    proc = null;
 
     kmut_lock(&abscond_lock);
 

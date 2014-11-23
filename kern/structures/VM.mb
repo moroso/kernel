@@ -137,6 +137,14 @@ fn load_PD(PD: *PD_t) {
     assert!(!(ptr_too_low!(PD)));
     assert!(!(ptr_too_low!(PD->PT_entries)));
     assert!(is_addr_aligned(PD->PT_entries as *u8));
+    if (!(!ptr_too_low!(log_to_phys(4096 as *u8, PD))  &&
+                !ptr_too_low!(*log_to_phys(4096 as *u8, PD)))) {
+        printf!("tcb: %p\n", get_tcb());
+        printf!("tid %d\n", get_tcb()->tid);
+    } 
+
+    assert!(!ptr_too_low!(log_to_phys(4096 as *u8, PD))  &&
+            !ptr_too_low!(*log_to_phys(4096 as *u8, PD))); 
     set_cr3(PD->PT_entries as u32);
 }
 
@@ -203,16 +211,35 @@ fn set_flags(log_addr: *u8, PD: *PD_t, flags: u32) {
 
 fn get_frame_ref(frame: *u8) -> u32 {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
-    assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
+
+    if (!(frame_num > 0 && frame_num < MAX_FRAME_NUM)) {
+        printf!("tid: %d frame: %p frame_num: %d\n", get_tcb()->tid, frame,
+                frame_num);
+        assert!(false);
+    }
     (frame_table[frame_num])
 }
 
 fn dec_frame_ref(frame: *u8, PD: *PD_t, size: u32) -> u32 {
+    if (!(!ptr_too_low!(frame) && frame < USER_MEM_START as *u8)) {
+        printf!("%p\n", frame);
+    }
+    assert!(!ptr_too_low!(frame) && frame < USER_MEM_START as *u8);
+
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
+    if (!(frame_num > 0 && frame_num < MAX_FRAME_NUM)) {
+        printf!("tid: %d frame: %p frame_num: %d\n", get_tcb()->tid, frame,
+                frame_num);
+        assert!(false);
+    }
+
     assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
 
     let ref_count: *u32 = &(frame_table[frame_num]);
-    assert!(*ref_count > 0);
+    if (*ref_count <= 0) {
+        printf!("tcb: %p frame: %p, ref %d\n", get_tcb(), frame, *ref_count);
+        assert!(false);
+    }
     let old_ref = atomic_add(ref_count, -1);
     // TODO remove once kernel is more stable 
     assert!(size == KB);
@@ -243,6 +270,7 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
     if (frame == null) {
         return 0;
     }
+    assert!(!ptr_too_low!(frame) && frame < USER_MEM_START as *u8);
     let size: u32 = KB;
     if (has_flags(frame, PAGE_SIZE_BIT)) {
         size = MB;
@@ -279,6 +307,11 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     if (frame == null) {
         return ();
     }
+
+    if (ptr_too_low!(frame)) {
+        printf!("tcb: %p %p %p\n", get_tcb(), log_addr, frame);
+    }
+    assert!(!ptr_too_low!(frame));
     /* if we are the only PD holding this page, free it */
     /* there is a race in the handler where we can overcommit by a frame.  We'll see how much I
      * care  */
