@@ -9,6 +9,7 @@ use ipc::desc_table::*;
 use utils::slab_alloc::*;
 use utils::list::*;
 use structures::tcb::*;
+use entry::get_ticks;
 
 const ERR_OWNER: i32 = -7;
 
@@ -64,6 +65,9 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         *recv_len = ret->message_len;
         *message_recv = ret->message;
         return ret->tcb;
+    } else {
+        *recv_len = 0;
+        *message_recv = null;
     }
     null
 }
@@ -93,6 +97,10 @@ fn mb_end_recv(err: i32) {
 fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
 
+    if (timeout != -1) { 
+        timeout = timeout + get_ticks();
+    }
+
     let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
             option, err);
 
@@ -104,7 +112,11 @@ fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         *recv_len = ret->message_len;
         *message_recv = ret->message;
         return ret->tcb;
+    } else {
+        *recv_len = 0;
+        *message_recv = null;
     }
+
     null
 }
 

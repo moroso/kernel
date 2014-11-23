@@ -35,45 +35,15 @@ struct message_node {
 // size of buffer we're willing to put on the stack for short messages
 const SHORT_BUFFER_MAX: u32 = 200;
 
-/*
- * given a valid source buffer and an active tid, send a message to thread
- *  if sending tcb is called while
- * tcb id is waiting, it will perform the transfer itself. If not, it
- * relies on the receiver to perform the
- * transfer.  
- * 
- * The current modes of message passing are the following:
- *  - Long IPC: this is synchronous only.  Sends a page range starting at long_src
- *  and extending to len_long.  If receiver is not currently waiting, thread
- *  deschedules until receiver dies or the receiver sends a reply.
- *  Otherwise, transfers the pages into the receiver's VM and wake up receiver.
- *  Original mapping is removed.  Also sends a short
- *  message message with length len_short.
- * - Short IPC: both synchronous and asynchronous.  A synchronous send acts just
- * like long IPC, but without mapping pages into the VM.  In async, if a
- * receiver is blocked, messages between sender and receiver are exchanged
- * immediately.  if no receiver is available, the message is left for the
- * receiver to pick up later, and sneder returns without a return message. 
- *
- * Requires that long_src be mapped in and be a user address. Requires that
- * len_short be less than PAGE_SIZE
- * Transfer removes mapping ar addr src and stores the frames at long_dest
- * Returns 0 on synchronous success, 1 if message was asynchronous.  A negative error
- * value is returned on error.
- *
- * id: currently the TID of the receiving tcb
- * long_src: the address at which the starting soure frame is mapped
- * message: short message to receiver
- * len_short: length of message
- * len_long: maximum length of transfer in bytes
- * timeout: time (in ms) before we return failure 
- */
 fn ipc_send(args: *ipc_args) -> i32 {
+    
+    /* copying arguments into the kernel */   
     let args_kern: ipc_args;
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
         return IPC_ERR_INTERNAL;
     } 
 
+    /* identifying send options for internal IPC */ 
     let option: u32 = SEND_SYNC_REPLY;
     if (args_kern.options&OPTION_ASYNC != 0) {
         option = SEND_ASYNC;
@@ -94,7 +64,6 @@ fn ipc_send(args: *ipc_args) -> i32 {
             let short_message_temp: u32[SHORT_BUFFER_MAX];
             short_message = &short_message_temp[0];
         } else {
-            // TODO make this go on the stack if we can do fastpath
             short_message = slub_alloc(args_kern.short_src.len); 
         }
         if (short_message == null || copy_from_user(short_message as *u8,
@@ -113,32 +82,32 @@ fn ipc_send(args: *ipc_args) -> i32 {
         return IPC_ERR_ARGS;  
     }
 
-    // ensures long addresses are page aligned
+    /* ensures long addresses are page aligned */
     if ((!is_addr_aligned(args_kern.long_src.addr) && args_kern.long_src.len > 0)||
             (!is_addr_aligned(args_kern.long_dest.addr)) && args_kern.long_dest.len > 0)  {
         return IPC_ERR_ARGS;  
     }
 
-    // ensures short message is smaller than page
+    /* ensures short message is smaller than page */
     if (args_kern.short_src.len > PAGE_SIZE) {
         return IPC_ERR_ARGS;
     }
 
-    // ensures long lengths are multiples of page sizee 
+    /* ensures long lengths are multiples of page sizes */
     if (args_kern.long_src.len%PAGE_SIZE != 0 ||
             args_kern.long_dest.len%PAGE_SIZE != 0)
     {
         return IPC_ERR_ARGS;
     }    
 
-    // TODO talk about mailboxes, not tcbs
+    /* looks up descriptor for dest mailbox */
     let dest_mb = desc_table::get_ipc_dest(args_kern.dest_id);
 
     if dest_mb == null {
-
         return IPC_ERR_DEST;
     }
 
+    /*** create message that relays ipc info to receiver ***/
     let message_send: message_node;
     mos_memcpy(&message_send.long_src, &args_kern.long_src, sizeof(buffer_t));
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
@@ -150,57 +119,56 @@ fn ipc_send(args: *ipc_args) -> i32 {
     let recv_len: u32;
     let err: i32;
 
-    let timeout = args_kern.timeout + get_ticks();
-    if (args_kern.timeout == -1) {
-        timeout = -1;
-    }
     let dest_tcb = mb_send(dest_mb, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
-            timeout, option, &err);  
+            args_kern.timeout, option, &err);  
 
-    if (err == REND_ERR_TIMEOUT) {
-        return IPC_ERR_TIMEOUT;
-    }
-
-    // if tcb died before we could transfer, return with error
-    if (err == REND_ERR_DEAD) {
-
-        return IPC_ERR_DEAD;
-    }
-
+    /*** if there was an error during the process, return ***/
     if (err < 0) {
+
+        if (err == REND_ERR_TIMEOUT) {
+            return IPC_ERR_TIMEOUT;
+        }
+
+        // if tcb died before we could transfer, return with error
+        if (err == REND_ERR_DEAD) {
+
+            return IPC_ERR_DEAD;
+        }
         return IPC_ERR_INTERNAL;
     }
 
-
-
-    // if we have no rend_node and no error, this means the full transfer
-    // occurred; clean up and return
+    // if we have no message and no error, this means the full transfer
+    // occurred on the other side; clean up and return
     if (recv_len == 0) {
-        // new length written into message (sender updates this length)
+
+        /* receiver already transferred long message, so update length */
         args_kern.long_dest.len = message_send.long_dest.len;
+
+        /* copy receiver's short reply to userland */
         args_kern.short_dest.len = min(recv_len, args_kern.short_dest.len);
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
             return IPC_ERR_INTERNAL;
         }
+
     } else {
-        // otherwise, we do the transfer ourselves and wake up the other guy
+
+        /* if we have a message, this means the receiver is sleeping, and we
+         * perform the transfer ourselves */
         let message_dest: *message_node = message_recv as *message_node;
         if (message_dest->long_dest.len > 0) {
+
             assert!(dest_tcb != null);
-            let pid_recv = dest_tcb->pid;
-            let proc_recv = proc_lookup(pid_recv);
-            if (proc_recv == null || proc_recv->PD.PT_entries == null) {
-                // TODO free short message stuff if errs
-                mb_end_send(null, 0, IPC_ERR_DEAD);
-                return IPC_ERR_DEAD;
+            /* in our current system, all active tcbs must have an active proc.
+             * Thus, we don't need to increment the ref count  */
+            let proc_recv = dest_tcb->proc;
+            assert!(proc_recv != null);
 
-            }
-
+            /*** transfer long message ***/
             let transfer_len = min!(args_kern.long_src.len, message_dest->long_dest.len);
             kmut_2lock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
 
@@ -215,17 +183,16 @@ fn ipc_send(args: *ipc_args) -> i32 {
                 }
             }
             kmut_2unlock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
-
-            proc_end_lookup(proc_recv);
             message_dest->long_dest.len = transfer_len;
         } 
+
+        /*** transfer short message and wake up receiver ***/
         mb_end_send(short_message, args_kern.short_src.len, 0);
     }
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
 
-        mb_end_send(null, 0, IPC_ERR_INTERNAL);
         return IPC_ERR_INTERNAL;
     }
 
