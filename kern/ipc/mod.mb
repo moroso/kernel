@@ -24,6 +24,9 @@ use structures::mailbox::*;
 use shared::ipc_defs::*;
 mod desc_table;
 
+/* instructs a thread receiving the invoker on how to conduct the transfer.
+ * Receiver may alter fields to denote how much memory is transferred to the
+ * destination */
 struct message_node {
     long_src: buffer_t,
     long_dest: buffer_t, 
@@ -35,6 +38,43 @@ struct message_node {
 // size of buffer we're willing to put on the stack for short messages
 const SHORT_BUFFER_MAX: u32 = 200;
 
+/* ipc_send: sends a long and/or short message to an active recipiant
+ * arguments are passed in the form of the 'args' struct: 
+ * 
+ * - dest_id: the mailbox descriptor being sent to.  function returns ERR_DEST if
+ * dest_id is not a valid descriptor 
+ * - long_src: specifies the long message to be passed to the recipiant.  A
+ *    maximum of long_src.len bytes will be copied to the recipiant.  long_src.addr
+ *    is ignored if long_src.len is 0.  returns success (but with no copy) if pages
+ *    are not mapped at the time of the copy.  returns ERR_ARGS if long_src.len is 
+ *    not aligned to 4096
+ * - long_dest: specifies a buffer for a long reply from receiver.
+ *    long_dest.len gets altered to be the final length of the message copied.  ignored if
+ *     message is async or doesn't expect a reply
+ * - short_src: specifies a short message to be passed to the recipiant.  A
+ *    maximum of short_src.len bytes will be copied to the recipiant.
+ *    short_src.addr is ignored if short_src.len is 0.  returns ERR_ARGS if
+ *     short_src.len is larger than PAGE_SIZE
+ * - short_dest: specifies a buffer for a short reply from receiver.  Is ignored
+ *    if send doesn't expect a reply.  A maximum of short_dest.len bytes is copied;
+ *    short_dest.len is altered to specify number of bytes copied to
+ *    short_dest.addr
+ * - timeout: how many clock cycles a message should wait for receipt/reply
+ *    until it expires.  message is unable to timeout while being modified by
+ *    ipc_recv or ipc_reply.  a timeout of -1 means the message does not expire
+ * - option specifies what kind of message (async, sync_reply, sync_noreply) and
+ *    whether long message is shared
+ *
+ * If the receiver is waiting and no reply is expected, the invoking thread will
+ * perform the transfer and wake up the receiver; else, the receiver performs
+ * the transfer and wakes up the invoking thread after.  If a reply is expected,
+ * the sender blocks until it is collected by a receiver, or it times out.
+ *
+ * Returns 0 on success, a negative error code on error.  the dest fields in
+ * args are altered to denote how much was copied to the specified buffers.
+ * Note that message transfers might still be successful, even if a negative
+ * error code is returned
+*/
 fn ipc_send(args: *ipc_args) -> i32 {
     
     /* copying arguments into the kernel */   
@@ -156,9 +196,13 @@ fn ipc_send(args: *ipc_args) -> i32 {
         }
 
     } else {
-
         /* if we have a message, this means the receiver is sleeping, and we
-         * perform the transfer ourselves */
+         * perform the transfer ourselves 
+         *
+         * note that this also means that we will need to call mb_end_send
+         * before we exit to make sure the sleeping receiver is woken up/handed
+         * the short message (this includes in the error cases)
+        */
         let message_dest: *message_node = message_recv as *message_node;
         if (message_dest->long_dest.len > 0) {
 
@@ -199,20 +243,42 @@ fn ipc_send(args: *ipc_args) -> i32 {
     0
 }
 
-/* 
- * receives a number of pages up to len_long bytes, mapped in starting with address
+/* ipc_recv: receives a number of pages up to len_long bytes, mapped in starting with address
  * long_dest.  If a sender is waiting to send, retrieves their info and performs
  * the transfer.  Otherwise, deschedules until a sender becomes available and
- * does the transfer itself.  Returns 0 on success,
- * negative error code on failure
+ * does the transfer itself.  
  *
- * Requires long_dest be a userland address
+ * Arguments are passed in an ipc_args struct.  Their fields are the following: 
  *
- * long_dest: userspace address where new pages are to be mapped in
- * message: buffer for a message
- * len_short: length of message 
- * timeout: time (in ms) before we give up waiting and return failure
- */
+ * - dest_id: the mailbox descriptor being sent to.  function returns ERR_DEST if
+ * dest_id is not a valid descriptor 
+ * - long_src: ignored for recv
+ * - long_dest: specifies a buffer for a long message from the sender
+ *    long_dest.len gets altered to be the final length of the message copied. 
+ * - short_src: Ignored for recv
+ * - short_dest: specifies a buffer for a short message from sender.  
+ *    A maximum of short_dest.len bytes is copied;
+ *    short_dest.len is altered to specify number of bytes copied to
+ *    short_dest.addr
+ * - timeout: how many clock cycles a message should wait for receipt
+ *    until it expires.  message is unable to timeout while being modified by
+ *    ipc_send.  a timeout of -1 means the message does not expire
+ * - option specifies whether long message is shared.  Sending options are
+ *    ignored
+ *
+ * If the sender is already waiting, the invoking thread will
+ * perform the transfer and wake up the sender; else, the sender performs
+ * the transfer and wakes up the invoking thread after.  
+ *
+ * Returns 0 on success, a negative error code on error.  the dest fields in
+ * args are altered to denote how much was copied to the specified buffers.
+ * Note that message transfers might still be successful, even if a negative
+ * error code is returned
+ * 
+ * function immediately returns error if the last received thread with a reply
+ * option has not been replied to
+*/
+
 fn ipc_recv(args: *ipc_args) -> i32 {
     let args_kern: ipc_args;
     let enable = cond_preempt_disable();
