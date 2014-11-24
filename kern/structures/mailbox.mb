@@ -116,13 +116,13 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  * restarted) by mb_end_recv(); it is incorrect to leave a function that calls
  * mb_recv and retrieves a message without knowing when the thread will call mb_end_recv;
  *
- *
  * Further note that just because a tcb is returned, it does not mean the tcb is
- * blocked.  in the async case, the tcb returned could be active
+ * blocked.  in the async case, the tcb returned could be active.  look at
+ * option to determine whether the returned tcb is in an active state
  * 
 */
 fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, err: *i32) -> *tcb {
+        recv_len: *u32, timeout: u32, option: *u32, err: *i32) -> *tcb {
     
     if (!(mb->active)) {
         *err = MB_ERR_INTERNAL;
@@ -145,12 +145,14 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
     /* if we need to wake up our sender after we return, store sender in the
      * tcb with its timeout disabled */
     if (ret != null) {
+        assert!(ret->option != RECV);
         list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
         assert!(ret->can_timeout == false || ret->timeout ==
                 -1);
         assert!(ret->message_len > 0 && ret->message != null);
         *recv_len = ret->message_len;
         *message_recv = ret->message;
+        *option = ret->option;
         assert!(ret->tcb != null);
         return ret->tcb;
     } 
