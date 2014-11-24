@@ -66,6 +66,16 @@ const REND_ERR_TIMEOUT: i32 = -5;
 const REND_ERR_DEAD: i32 = -3;
 const REND_ERR_REPLAY: i32 = -4;
 
+/* The rendezvous synchronization primitive */
+struct rend {
+    send_head: list_head,
+    recv_head: list_head,
+    rend_active: bool,
+}
+
+/* represents a tcb passing a message through the rend.  allocated internally
+ * but returned to the invoking thread so that they can process the message and
+ * signal the blocked tcb */
 struct rend_node {
     message: *u32,
     message_len: u32,
@@ -78,19 +88,20 @@ struct rend_node {
     err: u32,
 }
 
-struct rend {
-    send_head: list_head,
-    recv_head: list_head,
-    rend_active: bool,
-}
-
+/* initializes a rend */
 fn rend_init(rend: *rend) {
     list_init_head(&rend->recv_head);
     list_init_head(&rend->send_head);
     rend->rend_active = true;
 }
 
+/*** structures manipulating active rend_nodes with a timeout time.  inserted
+ * during rend_wait and sorted by timeout; removed either when signaled, or when
+ * their timeout expires (removal in timer handler) ***/
 static rend_timeout_list: list_head = LIST_HEAD_INIT!(rend_timeout_list);
+
+/* inserts a rend node into timeout queue, sorted by timeout time.  A timeout of
+ * -1 denotes that rend_node cannot timeout, and so will not be added  */
 fn rend_timeout_insert(rend_insert: *rend_node) {
     let enable = cond_preempt_disable();
     if (rend_insert->timeout == -1) {
@@ -113,6 +124,8 @@ fn rend_timeout_insert(rend_insert: *rend_node) {
     cond_preempt_enable(enable);
 }
 
+/* invoked by timer handler to wake up all nodes (with timeout error) whose
+ * timeout times are smaller than timeout (IE have expired) */
 fn rend_timeout_remove(timeout: u32) {
     let enable = cond_preempt_disable();
     let node: *rend_node = null;
@@ -297,6 +310,7 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32)
     cond_preempt_enable(enable);
 }
 
+/* Cleans up a dying rend: wakes up all waiting threads (with error) */
 fn rend_destroy(rend: *rend, err: i32) {
     rend->rend_active = false;
 
