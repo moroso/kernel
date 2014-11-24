@@ -266,4 +266,13 @@ fn rend_destroy(rend: *rend, err: i32) {
 
         rend_signal(null, 0, wakeup_node, err as i32);  
     }
+    
+    while(!list_is_empty(&rend->recv_head) ) {
+        let wakeup_node = list_head_entry!(&rend->recv_head,
+                rend_node, rend_link);
+        list_del(&(wakeup_node->rend_link));
+
+        rend_signal(null, 0, wakeup_node, err as i32);  
+    }
+
 }

@@ -77,19 +77,18 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
 }
 
 /* 
- * When an owner thread invokes mb_recv, it blocks until either it times out, or
- * a sending thread delivers a message.  
+ *  When an owner thread invokes mb_recv on a mailbox mb, it blocks until either it times out, or
+ *  a sending thread calls mb_send on mb. 
  * 
- * Assuming no errors, there are two
- * cases for mb_recv (see explanation in locks/rendezvous.mb for further clarification):
- * either the invoking thread slept on rend_wait (meaning rend_wait returns
- * null), or the invoking thread never sleeps at all, and retrieves a rend_node
- * containing information for a sender blocked on the mailbox (rend_wait returns
- * rend_node).  In the former case, we return no message (note that the sender
- * may have altered the message we sent).  In the latter case, we return the
- * sender's message and store the rend_node at last_send to be woken up later
- * (in the case of a reply-based send, this happens on reply.  Otherwise, when
- * we call mb_recv_end).  
+ *  if rend_wait returns a non-null rend_node, it means that a sender is blocked
+ *  on us (the invoking thread), and we are responsible for the message transfer
+ *  once we exit mb_recv.  we denote this case by returning the sender's tcb.
+ *  mb_recv also stores the rend_node in the tcb (last_send), so it can be
+ *  reawoken (or at least allowed to time out) when mb_end_recv is called.
+ *
+ *  If the return value of rend_wait is null, this means the sender has already
+ *  performed the transfer and is not blocked on us.  We denote this by
+ *  returning null
  *
  * - mb: the mailbox the invoking thread is waiting on.  returns with err
  *   MB_ERR_OWNER if thread's proc is not the owner of mb
@@ -105,17 +104,17 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  *   out while the sending thread is performing the transfer.
  * - err: stores any errors that arise; *err = 0 means receipt was successful
  * 
- * Barring errors, returns the tcb of the sender if we're responsible for the transfer.  null if
- * the transfer already happened. 
+ *  Barring errors, returns the tcb of the sender if we're responsible for the transfer.  null if
+ *  the transfer already happened. 
  *
- * It's important to note that if message_len is non-zero, this means the
- * sending thread is waiting to be woken up (or at least have its timeout
- * restarted) by mb_end_recv(); it is incorrect to leave a function that calls
- * mb_recv and retrieves a message without knowing when the thread will call mb_end_recv;
+ *  It's important to note that if message_len is non-zero, this means the
+ *  sending thread is waiting to be woken up (or at least have its timeout
+ *  restarted) by mb_end_recv(); it is incorrect to leave a function that calls
+ *  mb_recv and retrieves a message without knowing when the thread will call mb_end_recv;
  *
- * Further note that just because a tcb is returned, it does not mean the tcb is
- * blocked.  in the async case, the tcb returned could be active.  look at
- * option to determine whether the returned tcb is in an active state
+ *  Further note that just because a tcb is returned, it does not mean the tcb is
+ *  blocked.  in the async case, the tcb returned could be active.  look at
+ *  option to determine whether the returned tcb is in an active state
  * 
 */
 fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
@@ -158,11 +157,13 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
     null
 }
 
-/* Cleanup in the case that a thread calls mb_end_recv and retrieves a message
- * from a blocked sender.  Should be invoked once transfer from sender to receiver is
+/* Cleanup in the case that a thread calls mb_recv and retrieves a non-null
+ * tcb.  Should be invoked once transfer from sender to receiver is
  * complete.  If the sender does not expect a reply, wakes it up
  * immediately; otherwise, it sets can_timeout to true, allowing the sender to
  * timeout and return if the receiver takes to long to reply
+ *
+ * Note that this function must still be called if a message is async
  *
  * - err: error code to send the sender (denotes whether transfer was successful)
  *
@@ -194,15 +195,18 @@ fn mb_end_recv(err: i32) {
 }
 
 /* 
- * When a thread invokes mb_send on a valid mailbox, it blocks until either it times out, or
- * a receiving thread delivers a message.  
+ *  When a thread invokes mb_send on a mailbox mb, it blocks until either it times out, or
+ *  a receiving thread calls mb_recv on mb. 
  * 
- *  Like mb_recv, there are two cases for mb_send: either a non-zero message is
- *  store in message_recv (denoted by a nonzero length in recv_len), meaning
- *  that mb_send retrieved a blocked receiver and is responsible for wakeup, or
- *  no message, meaning a call to mb_recv already received the invoking thread's
- *  message, performed the transfer, and stored and relavent information in
- *  message.  
+ *  if rend_wait returns a non-null rend_node, it means that a receiver is blocked
+ *  on us (the invoking thread), and we are responsible for the message transfer
+ *  once we exit mb_send.  we denote this case by returning the receiver's tcb.
+ *  mb_send also stores the rend_node in the tcb (last_send), so it can be
+ *  reawoken when mb_end_send is called.
+ *
+ *  If the return value of rend_wait is null, this means the receiver has already
+ *  performed the transfer and is not blocked on us.  We denote this by
+ *  returning null
  *
  * - mb: the mailbox the invoking thread is waiting on.  returns with err
  *   MB_ERR_OWNER if thread's proc is not the owner of mb
@@ -221,18 +225,7 @@ fn mb_end_recv(err: i32) {
  *   out while the sending thread is performing the transfer.
  * - err: stores any errors that arise; *err = 0 means receipt was successful
  * 
- * Returns a the contents of the tcb field in the received rend_node; null if no 
- * rend_node is retrieved. 
- *
- * It's important to note that if message_len is non-zero, this means the
- * sending thread is waiting to be woken up (or at least have its timeout
- * restarted) by mb_end_recv(); it is incorrect to leave a function that calls
- * mb_recv and retrieves a message without knowing when the thread will call mb_end_recv;
- *
- * Further note that just because mb_recv returns null, this does not mean a
- * message was not received.  In the case of an async message, for instance, no
- * tcb will be waiting to be woken up/have a long message passed, and thus will
- * not be stored in the rend_node.
+ * Returns the reciever's tcb if a rend_node is retrieved; null otherwise 
  */
 
 fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
@@ -266,6 +259,17 @@ fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
     null
 }
 
+/* Cleanup in the case that a thread calls mb_send and retrieves a non-null
+ * tcb.  Should be invoked once long transfer from receiver to sender is
+ * complete. wakes up receiver while passing it a short message
+ *
+ * - message: short message being passed to receiver
+ * - message_len: length of message
+ * - err: error code to send the receiver (denotes whether transfer was successful)
+ *
+ * Returns immediately if no sender if waiting to be woken up
+ * */
+
 fn mb_end_send(message: *u32, message_len: u32, err: i32) {
     if (list_is_empty(&get_tcb()->last_send)) {
         assert!(message_len == 0);
@@ -281,6 +285,8 @@ fn mb_end_send(message: *u32, message_len: u32, err: i32) {
 
 }
 
+/* destroys a mailbox; wakes up all waiting threads with an error and frees the
+ * mailbox.  Assumes mailbox ref_count is 0 */
 fn mb_destroy(mb: *mailbox_t) {
     mb->active = false;
     rend_destroy(&mb->mb_rend, REND_ERR_DEAD);
