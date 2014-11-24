@@ -10,6 +10,7 @@ const NUM_ITERS: u32 = 100;
 const NUM_THREADS: u32 = 50;
 
 fn main() -> i32 {
+    
     let j: u32;
     let ret: i32;
     for (j = 0; j < NUM_THREADS; j+=1) {
@@ -30,6 +31,7 @@ fn main() -> i32 {
             }
             let mb_desc = syslib::mailbox_new();
             assert!(mb_desc == 0);
+
             let short_message: u32 = -1;
             let args: syslib::shared::ipc_defs::ipc_args;
             args.dest_id = mb_desc as u32;
@@ -42,30 +44,17 @@ fn main() -> i32 {
             args.timeout = -1;
             args.options = 0;
             let i: u32;
-            for (i = 0; i < NUM_ITERS; i+=1) {
-                ret = syslib::repl();
-                if (ret == 0) {
-
-                    
+            ret = syslib::repl();
+            if (ret == 0) {
+                for (i = 0; i < NUM_ITERS; i+=1) {
                     args.options = syslib::shared::ipc_defs::OPTION_ASYNC; 
-                    short_message = syslib::get_tid();
-                    let ticks_cur = syslib::get_ticks();
-                    printf!("thread %d beginning wait\n", syslib::get_tid());
-                    // TODO replace with a yield; what we're trying to do here
-                    // is ensure the receiver is asleep before we perform the
-                    // send
-                    while (syslib::get_ticks() < ticks_cur + 60) {
-
-                    }
-                    printf!("thread %d finished waiting; performing send\n", syslib::get_tid());
+                    short_message = i;
+                    printf!("thread %d sending message %d\n", syslib::get_tid(),
+                            i);
                     printf!("%d send returned %d\n", syslib::get_tid(), syslib::ipc_send(&args));
-                    syslib::abscond(1);
-                } else {
+                } 
 
-                    printf!("%d recv returned %d\n", syslib::get_tid(), syslib::ipc_recv(&args));
-                    assert!(syslib::ipc_reply(src_addr, len_long, null, 0) < 0);
-                    assert!((short_message) as i32 == ret);
-                }
+                syslib::abscond(1);
             }
 
             let status: i32;
@@ -77,6 +66,13 @@ fn main() -> i32 {
             if (status < 0) {
                 syslib::abscond(-1);
             }
+            i = 0;
+            args.timeout = 0; // we're polling, essentially
+            while ((ret = syslib::ipc_recv(&args)) >= 0) {
+                assert!(short_message == i);
+                i+=1;
+            }
+            assert!(i == NUM_ITERS);
             syslib::abscond(0);
         }
     }
