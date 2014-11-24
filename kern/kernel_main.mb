@@ -42,7 +42,7 @@ extern fn set_eflags(val: u32);
 fn user_thread(dummy: *u8) {
 
     let arg_array = ["foo", "bar", null];
-    assert!(perform("async_test2", &arg_array[0]) >= 0);
+    assert!(perform("ipc_async_test2", &arg_array[0]) >= 0);
     assert!(false);
 }
 
