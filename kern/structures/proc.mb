@@ -21,7 +21,10 @@ struct proc {
 
     mb_desc: mb_desc_table,
 
+    proc_mut: kmut,
     peer_tcb_list: list_head, // tcbs in a proc
+
+    child_mut: kmut,
     child_proc_list: list_head, // children of proc
 
     dir_link: list_node,
@@ -31,7 +34,6 @@ struct proc {
 
     exit_status: *exit_status_t,
     exit_status_list: list_head,
-    child_mut: kmut,
 
     num_bide_waiters: u32, // the number of tcbs waiting on bide
     proc_cond: kcond,
@@ -46,6 +48,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb, parent_proc: *proc) -> i32 {
 
     kcond_init(&(new_proc->proc_cond));
     kmut_init(&(new_proc->child_mut));
+    kmut_init(&(new_proc->proc_mut));
 
     new_proc->num_bide_waiters = 0;
     new_proc->exit_status = slub_alloc(sizeof(exit_status_t)) as *exit_status_t;
@@ -53,7 +56,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb, parent_proc: *proc) -> i32 {
         return -1;
     }
     list_init_node(&(new_proc->exit_status->link));
-    
+
     if (PD_init(&(new_proc->PD)) < 0) {
         slub_free(new_proc->exit_status as *u32, sizeof(exit_status_t));
         return -1;
@@ -75,7 +78,7 @@ fn proc_init(new_proc: *proc, new_tcb: *tcb, parent_proc: *proc) -> i32 {
 }
 
 fn proc_destroy(old_proc: *proc) {
-   PD_destroy(&(old_proc->PD), init_PD->PT_entries);    
-   mb_table_destroy(&old_proc->mb_desc);
-   proc_dir_remove(old_proc); 
+    PD_destroy(&(old_proc->PD), init_PD->PT_entries);    
+    mb_table_destroy(&old_proc->mb_desc);
+    proc_dir_remove(old_proc); 
 }

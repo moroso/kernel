@@ -34,12 +34,17 @@ fn abscond(status: u32)  {
 
     // if we still have a parent
 
+    kmut_lock(&(tcb->proc->proc_mut));
     // if we are the only thread in the process, free our pcb
     if (list_is_singleton(&(proc->peer_tcb_list))) {
+        list_del(&(tcb->proc_link));
+        kmut_unlock(&(tcb->proc->proc_mut));
+
         set_exit_status(proc, status);
         let parent_proc: *proc = proc_lookup(proc->parent_pid);
         proc_destroy(proc);
         if (parent_proc != null) {
+            // I am preeetty sure we can't deadlock
             kmut_lock(&(parent_proc->child_mut));
             // remove child from list
             list_del(&(proc->child_link));
@@ -54,9 +59,13 @@ fn abscond(status: u32)  {
             // free exit status.  init doesn't get it
             slub_free(proc->exit_status as *u32, sizeof(exit_status_t));
         }
+    } else {
+        list_del(&(tcb->proc_link));
+        kmut_unlock(&(tcb->proc->proc_mut));
     }
 
-    get_tcb()->proc = null;
+
+    tcb->proc = null;
     decrease_proc_ref(proc);
 
     kmut_lock(&abscond_lock);
