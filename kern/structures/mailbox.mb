@@ -84,7 +84,7 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  * cases for mb_recv (see explanation in locks/rendezvous.mb for further clarification):
  * either the invoking thread slept on rend_wait (meaning rend_wait returns
  * null), or the invoking thread never sleeps at all, and retrieves a rend_node
- * containint information for a sender blocked on the mailbox (rend_wait returns
+ * containing information for a sender blocked on the mailbox (rend_wait returns
  * rend_node).  In the former case, we return no message (note that the sender
  * may have altered the message we sent).  In the latter case, we return the
  * sender's message and store the rend_node at last_send to be woken up later
@@ -97,10 +97,7 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  *   whatever info is necessary for the sender thread to know how to treat a
  *   sleeping receiver.  
  * - message_len: lenth of message.  
- * - message_recv: pointer where message left by sender can be stored.  In the
- *   case of mailboxes, a non-empty message denotes that the invoking thread's
- *   message has been received and handled.  Otherwise, we are receiving the
- *   request of the sender
+ * - message_recv: pointer where message left by sender can be stored.  
  * - recv_len: pointer to where receiver length is stored.  The value at
  *   recv_len is updated to denote the legnth of the message at message_recv
  * - timeout: how many cycles the invoking thread should block in wait of a
@@ -149,7 +146,6 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
         assert!(ret->can_timeout == false || ret->timeout ==
                 -1);
-        assert!(ret->message_len > 0 && ret->message != null);
         *recv_len = ret->message_len;
         *message_recv = ret->message;
         *option = ret->option;
@@ -255,10 +251,10 @@ fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
             option, err);
 
     if (ret != null) {
+        assert!(ret->option == RECV);
         list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
         assert!(ret->can_timeout == false || ret->timeout ==
                 -1);
-        assert!(ret->message_len > 0 && ret->message != null);
         *recv_len = ret->message_len;
         *message_recv = ret->message;
         assert!(ret->tcb != null);

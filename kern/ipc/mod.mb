@@ -91,6 +91,12 @@ fn ipc_send(args: *ipc_args) -> i32 {
         option = SEND_SYNC_NOREPLY;
     }
 
+    /* if we're async, ignore long arguments */
+    if (option == SEND_ASYNC) {
+        args_kern.long_src.len = 0;
+        args_kern.long_dest.len = 0;
+    }
+
     let shared: u32 = args_kern.options&OPTION_SHARE;
 
     /* if the message is short and needs a reply (meaning we're asleep until the
@@ -152,12 +158,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
     message_send.short_src.addr = short_message as *u8;
     message_send.short_src.len = args_kern.short_src.len;
-    message_send.options = args_kern.options;
-
-    if (option == SEND_ASYNC) {
-        message_send.long_src.len = 0;
-        message_send.long_dest.len = 0;
-    }
+    message_send.options = args_kern.options; 
 
     let message_recv: *u8;
     let recv_len: u32;
