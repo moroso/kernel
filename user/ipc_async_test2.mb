@@ -1,6 +1,6 @@
 /* ipc_async_test2.mb 
- * thread creates a child, waits to receive an async message.  child waits until
- * receiver is blocking, sends a short message, attempts to send a long one, and then absconds.   
+ * thread creates a child, waits until child has exited.  child sends NUM_ITERS
+ * async messages before it absconds.   
  * Author: Amanda M. Watson
 */
 
