@@ -1,0 +1,31 @@
+fn strncpy(to: *u8, from: *u8, len: u32) -> u32 {
+    let i: u32;
+    for (i = 0; i < len; i+=1) {
+        to[i] = from[i];
+        if (from[i] == 0) {
+            break;
+        }
+    }
+    i+1
+}
+
+fn strnlen(str: *u8, max_len: u32) -> u32 {
+    let i: u32 = 0;
+    while (str[i] != 0 && i < max_len) {
+        i+=1;
+    }
+    i
+
+}
+
+fn strcmp(s1: *u8, s2: *u8) -> i32 {
+    let c: u32 = 0;
+    while (s1[c] != 0 && s2[c] != 0) {
+        if (s1[c] != s2[c]) {
+            return -1;
+        }
+
+        c+=1;
+    }
+    0
+}
