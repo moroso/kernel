@@ -30,10 +30,6 @@
  * cond_vars), and instead have the transfer performed by whichever thread is
  * not currently blocked on receipt.  
  *
- * TODO right now, there are about three places in the code that assume we will
- * only have one receiver per rend.  This is not going to be true for long. 
- * The fix shouldn't be that hard, but has yet to be done
- *
  * TODO there are also two dubious design choices: the choice of recursion in
  * the replay case for rend_wait (which is bounded by 1 for now but won't be once
  * there can be multiple receivers), and the on-the-fly dynamic memory
