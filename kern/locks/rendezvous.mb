@@ -191,9 +191,8 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         }
     } 
 
-    if (option != SEND_ASYNC) {
-        my_node->tcb = get_tcb();
-    }
+    my_node->tcb = get_tcb();
+
     list_insert_tail(&my_node->rend_link, own_head); 
     rend_timeout_insert(my_node);
     if (option != SEND_ASYNC) {
@@ -230,7 +229,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 /* give new message to rend_node and wake it up */
 fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32) {
 
-    if (rend_node->tcb == null) {
+    if (rend_node->option == SEND_ASYNC) {
 
         if (rend_node->message != null) {
             slub_free(rend_node->message, rend_node->message_len); // TODO not this 
