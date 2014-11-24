@@ -7,7 +7,7 @@
 mod shared;
 mod syslib;
 const NUM_ITERS: u32 = 100;
-const NUM_THREADS: u32 = 50;
+const NUM_THREADS: u32 = 100;
 
 fn main() -> i32 {
     
@@ -66,6 +66,8 @@ fn main() -> i32 {
             if (status < 0) {
                 syslib::abscond(-1);
             }
+
+            /* now that we've ensured our child has exited, collect its messages */
             i = 0;
             args.timeout = 0; // we're polling, essentially
             while ((ret = syslib::ipc_recv(&args)) >= 0) {
