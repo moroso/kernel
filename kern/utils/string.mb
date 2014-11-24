@@ -28,5 +28,8 @@ fn mos_strcmp(s1: *u8, s2: *u8) -> i32 {
 
         c+=1;
     }
-    0
+    if (s1[c] == 0 && s2[c] == 0) {
+        return 0;
+    }
+    -1
 }
