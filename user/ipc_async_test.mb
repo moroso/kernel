@@ -1,0 +1,111 @@
+/* ipc_async_test.mb 
+ * thread creates a child, waits to receive an async message.  child waits until
+ * receiver is blocking, sends a short message, attempts to send a long one, and then absconds.   
+ * Author: Amanda M. Watson
+*/
+
+mod shared;
+mod syslib;
+const NUM_ITERS: u32 = 100;
+const NUM_THREADS: u32 = 50;
+
+fn main() -> i32 {
+    let j: u32;
+    let ret: i32;
+    for (j = 0; j < NUM_THREADS; j+=1) {
+        ret = syslib::repl();
+        if (ret == 0) {
+            ret = syslib::repl();
+            if (ret != 0) {
+                let status: i32 = 0;
+                while (syslib::bide(&status) > 0) {
+                    if status < 0 {
+                        syslib::abscond(-1);
+                    }
+                }
+                if (status < 0) {
+                    syslib::abscond(-1);
+                }
+                syslib::abscond(0);
+            }
+            let mb_desc = syslib::mailbox_new();
+            assert!(mb_desc == 0);
+            let src_addr: *u8 = 0xdeadb000 as *u8;
+            let dest_addr: *u8 = 0xdeaaa000 as *u8;
+            let len_long = 4096;
+            let short_message: u32 = -1;
+            let args: syslib::shared::ipc_defs::ipc_args;
+            args.dest_id = mb_desc as u32;
+            args.long_src.len = 0;
+            args.long_dest.addr = dest_addr;
+            args.long_dest.len = len_long;
+            args.short_src.len = 4;
+            args.short_dest.len = 4;
+            args.short_dest.addr = &short_message as *u8;
+            args.short_src.addr = &short_message as *u8; 
+            args.timeout = -1;
+            args.options = 0;
+            let i: u32;
+            for (i = 0; i < NUM_ITERS; i+=1) {
+                ret = syslib::repl();
+                if (ret == 0) {
+
+                    if (syslib::new_pages(src_addr, len_long, 1024) < 0) {
+                        printf!("err in new_pages\n");
+                        syslib::abscond(-1);
+                    }
+
+                    *(src_addr as *u32) = syslib::get_tid();
+                    args.long_src.len = len_long;
+                    args.long_src.addr = src_addr;
+                    args.options = syslib::shared::ipc_defs::OPTION_ASYNC; 
+                    short_message = syslib::get_tid();
+                    let ticks_cur = syslib::get_ticks();
+                    printf!("thread %d beginning wait\n", syslib::get_tid());
+                    // TODO replace with a yield; what we're trying to do here
+                    // is ensure the receiver is asleep before we perform the
+                    // send
+                    while (syslib::get_ticks() < ticks_cur + 60) {
+
+                    }
+                    printf!("thread %d finished waiting; performing send\n", syslib::get_tid());
+                    printf!("%d send returned %d\n", syslib::get_tid(), syslib::ipc_send(&args));
+                    // ensure transfer did not occur
+                    assert!(*(src_addr as *u32) == syslib::get_tid());
+                    syslib::abscond(1);
+                } else {
+
+                    printf!("%d recv returned %d\n", syslib::get_tid(), syslib::ipc_recv(&args));
+                    assert!(syslib::ipc_reply(src_addr, len_long, null, 0) < 0);
+                    assert!((short_message) as i32 == ret);
+                }
+            }
+
+            let status: i32;
+            while(syslib::bide(&status) >= 0) {
+                if status < 0 {
+                    syslib::abscond(-1);
+                }
+            }
+            if (status < 0) {
+                syslib::abscond(-1);
+            }
+            syslib::abscond(0);
+        }
+    }
+    let status: i32 = 0;
+    while (syslib::bide(&status) > 0) {
+        if status < 0 {
+            printf!("***ERROR***\n");
+            syslib::abscond(-1);
+        }
+    }
+    if (status < 0) {
+        printf!("***ERROR***\n");
+        syslib::abscond(-1);
+    }
+    printf!("***SUCCESS***\n");
+    syslib::abscond(0);
+
+    0
+}
