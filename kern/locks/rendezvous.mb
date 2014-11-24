@@ -14,7 +14,7 @@
  * a rend_node, this means the invoking thread is responsible for a) the message
  * transfer and b) waking up the tcb inside the rend_node.  
  *
- * A thread is reawoken by calling rend_signal (which is invoked after the
+ * A thread is reawoken by calling rend_signal (which should be called after the
  * message transfer) on the given rend_node.  
  * 
  * rend_nodes also have timeouts.  If the node times out while still on the
