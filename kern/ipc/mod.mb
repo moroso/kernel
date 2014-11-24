@@ -328,6 +328,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
+    let send_option: u32;
 
     /* look up mailbox descriptor to find the mailbox we're waiting on */
     let dest_mb = desc_table::mb_desc_lookup(args_kern.dest_id);
@@ -338,7 +339,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let dest_tcb = mb_recv(dest_mb, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32, &recv_len, 
-            args_kern.timeout, &err);  
+            args_kern.timeout, &send_option, &err);  
 
     // if recv had an error, return with err
     if (err < 0) {
@@ -375,6 +376,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         let message_src: *message_node = message_recv as *message_node;
         let transfer_len = min!(message_src->long_src.len, args_kern.long_dest.len);
         if (transfer_len > 0) {
+            assert!(send_option != SEND_ASYNC);
             assert!(dest_tcb != null);
             kmut_2lock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
             let page: u32;
