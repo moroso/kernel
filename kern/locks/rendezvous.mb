@@ -1,3 +1,48 @@
+/* locks/rendezvous.mb: implementation of the rendezvous synchronization
+ * primitive
+ * 
+ * It should be noted that "rendezvous" is something of a misnomer here. In our
+ * implementation, there are two types of threads: a send thread and a receive
+ * thread.  a rend struct has a send list and a receive list, one for each type
+ * of thread.  And so, when a thread invokes rend_wait, it checks to see if a
+ * thread is already in the list of the other type; if it is, the invoking
+ * thread pops it off the list and returns with it.  Otherwise, it waits on its
+ * own list for a thread of the other type to call rend_wait.
+ * 
+ * in each list, a thread is stored inside a rend_node, which contains
+ * information about the transfer, including a message.  when rend_wait returns
+ * a rend_node, this means the invoking thread is responsible for a) the message
+ * transfer and b) waking up the tcb inside the rend_node.  
+ *
+ * A thread is reawoken by calling rend_signal (which is invoked after the
+ * message transfer) on the given rend_node.  
+ * 
+ * rend_nodes also have timeouts.  If the node times out while still on the
+ * list, it gets removed and signaled with an error.  
+ *
+ * there are several sending options that can specify whether sender or receiver
+ * performs the transfer.
+ *
+ * The justification for the weirdness was the notion that often, messages will
+ * be sent without expecting a reply.  In these cases, it is faster to avoid the
+ * complicated dance of waking up on thread while putting your own to sleep so
+ * that the other thread can send you a message (as we would see with
+ * cond_vars), and instead have the transfer performed by whichever thread is
+ * not currently blocked on receipt.  
+ *
+ * TODO right now, there are about three places in the code that assume we will
+ * only have one receiver per rend.  This is not going to be true for long. 
+ * The fix shouldn't be that hard, but has yet to be done
+ *
+ * TODO there are also two dubious design choices: the choice of recursion in
+ * the replay case for rend_wait (which is bounded by 1 for now but won't be once
+ * there can be multiple receivers), and the on-the-fly dynamic memory
+ * allocation for asynchronous messages (it is perhaps more tasteful to assume
+ * the invoker has dynamically allocated their message)
+ *
+ * Author: Amanda M. Watson
+*/
+
 use locks::mutex::*;
 use structures::tcb::*;
 use utils::list::*;
@@ -206,7 +251,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             // allocations to worry about
             assert!(option == RECV);
             cond_preempt_enable(enable);
-            // TODO adjust ticks
             return rend_wait(rend, message, message_len, message_recv,
                     recv_len, timeout, option, err);
         }
