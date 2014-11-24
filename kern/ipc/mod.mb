@@ -47,7 +47,7 @@ const SHORT_BUFFER_MAX: u32 = 200;
  *    maximum of long_src.len bytes will be copied to the recipiant.  long_src.addr
  *    is ignored if long_src.len is 0.  returns success (but with no copy) if pages
  *    are not mapped at the time of the copy.  returns ERR_ARGS if long_src.len is 
- *    not page aligned
+ *    not page aligned. Ignored if message is async.
  * - long_dest: specifies a buffer for a long reply from receiver.
  *    long_dest.len gets altered to be the final length of the message copied.  ignored if
  *     message is async or doesn't expect a reply
@@ -113,7 +113,6 @@ fn ipc_send(args: *ipc_args) -> i32 {
         }
     }
 
-
     // check to see if addresses all point to user addresses
     if ((!is_user_addr(args_kern.long_src.addr) && args_kern.long_src.len > 0) ||
             (!is_user_addr(args_kern.long_dest.addr)  && args_kern.long_dest.len > 0)  ||
@@ -155,6 +154,11 @@ fn ipc_send(args: *ipc_args) -> i32 {
     message_send.short_src.len = args_kern.short_src.len;
     message_send.options = args_kern.options;
 
+    if (option == SEND_ASYNC) {
+        message_send.long_src.len = 0;
+        message_send.long_dest.len = 0;
+    }
+
     let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
@@ -186,7 +190,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     // if we have no message and no error, this means the full transfer
     // occurred on the other side; clean up and return
-    if (recv_len == 0) {
+    if (dest_tcb == null) {
 
         /* receiver already transferred long message, so update length */
         args_kern.long_dest.len = message_send.long_dest.len;
@@ -338,7 +342,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     // if recv had an error, return with err
     if (err < 0) {
-        
+
         if (err == MB_ERR_OWNER) {
             return IPC_ERR_DEST;
         }
@@ -357,7 +361,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     // if we have no message and no error, this means the full transfer
     // occurred; clean up and return
-    if (recv_len == 0) {
+    if (dest_tcb == null) {
         // new length written into message (sender updates this length)
         args_kern.long_dest.len = message_send.long_dest.len;
         args_kern.short_dest.len = recv_len;

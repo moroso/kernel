@@ -69,7 +69,6 @@ fn main() -> i32 {
                 }
             }
 
-
             let status: i32;
             while(syslib::bide(&status) >= 0) {
                 if status < 0 {
