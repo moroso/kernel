@@ -8,17 +8,27 @@ mod syslib;
 const NUM_ITERS: u32 = 20;
 const NUM_THREADS: u32 = 50;
 
+/* checks the exit status of its children; if a child has exited with error,
+ * exits with error as well */
+fn child_check() {
+    let status: i32 = 0;
+    while (syslib::bide(&status) > 0) {
+        if status < 0 {
+            printf!("***ERRROR***\n");
+            syslib::abscond(-1);
+        }
+    }
+    if (status < 0) {
+        printf!("***ERRROR***\n");
+        syslib::abscond(-1);
+    }
+}
+
 fn main() -> i32 {
    
     let ret_1 = syslib::repl();
-    let status: i32;
     if (ret_1 != 0) {
-        while(syslib::bide(&status) >=0) {
-            if (status < 0) {
-                printf!("***FAILURE***\n");
-                syslib::abscond(-1);
-            }
-        }
+        child_check();
         printf!("***SUCCESS***\n");
         syslib::abscond(1);
     }

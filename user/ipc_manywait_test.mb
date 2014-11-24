@@ -11,6 +11,22 @@ const NUM_ITERS: u32 = 100;
 const NUM_THREADS: u32 = 50;
 const MAGIC_NUMBER: u32 = 72; // chosen for no reason
 
+/* checks the exit status of its children; if a child has exited with error,
+ * exits with error as well */
+fn child_check() {
+    let status: i32 = 0;
+    while (syslib::bide(&status) > 0) {
+        if status < 0 {
+            printf!("***ERRROR***\n");
+            syslib::abscond(-1);
+        }
+    }
+    if (status < 0) {
+        printf!("***ERRROR***\n");
+        syslib::abscond(-1);
+    }
+}
+
 fn main() -> i32 {
     let j: u32;
     let ret: i32;
@@ -19,15 +35,7 @@ fn main() -> i32 {
         if (ret == 0) {
             ret = syslib::repl();
             if (ret != 0) {
-                let status: i32 = 0;
-                while (syslib::bide(&status) > 0) {
-                    if status < 0 {
-                        syslib::abscond(-1);
-                    }
-                }
-                if (status < 0) {
-                    syslib::abscond(-1);
-                }
+                child_check(); 
                 syslib::abscond(0);
             }
             syslib::mailbox_new();
@@ -84,29 +92,11 @@ fn main() -> i32 {
                 i+=1;
             }
             assert!(i == NUM_ITERS);
-            let status: i32;
-            while(syslib::bide(&status) >= 0) {
-                if status < 0 {
-                    syslib::abscond(-1);
-                }
-            }
-            if (status < 0) {
-                syslib::abscond(-1);
-            }
+            child_check();
             syslib::abscond(0);
         }
     }
-    let status: i32 = 0;
-    while (syslib::bide(&status) > 0) {
-        if status < 0 {
-            printf!("***ERROR***\n");
-            syslib::abscond(-1);
-        }
-    }
-    if (status < 0) {
-        printf!("***ERROR***\n");
-        syslib::abscond(-1);
-    }
+    child_check(); 
     printf!("***SUCCESS***\n");
     syslib::abscond(0);
 
