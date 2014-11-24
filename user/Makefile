@@ -31,7 +31,7 @@ CFLAGS = -nostdinc \
 	-DMB_FREESTANDING
 INCLUDES = -Iinc
 
-LIB_OBJS=build/syscall_x86.o
+LIB_OBJS=build/syscall_x86.o build/thr_repl.o
 
 PROG_BINS := $(PROGS:%=$(BUILDDIR)/%)
 PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)

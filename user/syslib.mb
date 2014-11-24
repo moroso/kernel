@@ -22,10 +22,6 @@ fn repl() -> i32 {
     syscall_0(shared::syscall_consts::INT_REPL) as i32
 }
 
-fn thr_repl() -> i32 {
-    syscall_0(shared::syscall_consts::INT_THR_REPL) as i32
-}
-
 fn abscond(status: u32) {
     syscall_1(shared::syscall_consts::INT_ABSCOND, status);
 }
@@ -73,3 +69,4 @@ u32) -> i32 {
 fn mailbox_new() -> i32 {
     syscall_0(shared::syscall_consts::INT_MAILBOX_NEW) as i32
 }
+

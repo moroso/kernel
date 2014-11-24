@@ -32,12 +32,20 @@ fn thr_repl(parent_regs: *uregs) -> *tcb {
     thr_create(child_repl, parent_regs as *u8, sizeof(uregs))
 }
 
-fn thr_repl_handler(parent_regs: *uregs) -> i32 {
-    let new_tcb = thr_repl(parent_regs);
+fn thr_repl_handler() -> i32 {
+    let parent_ureg: *uregs = (get_tcb()->kstack_top as *uregs) - 1;
+    let new_tcb = thr_repl(parent_ureg);
     if (new_tcb != null) {
+
         new_tcb->proc = get_tcb()->proc;
         new_tcb->pid = get_tcb()->pid;
+        list_insert_head(&new_tcb->proc_link, &(get_tcb()->proc->peer_tcb_list));
+
         tcb_dir_add(new_tcb);
+
+        /* add new tcb to list of children */
+        schedule(new_tcb, QUEUE_BACK);
+
         return new_tcb->tid as i32;
     } 
     -1

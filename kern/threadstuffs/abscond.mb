@@ -36,7 +36,6 @@ fn abscond(status: u32)  {
 
     // if we are the only thread in the process, free our pcb
     if (list_is_singleton(&(proc->peer_tcb_list))) {
-
         set_exit_status(proc, status);
         let parent_proc: *proc = proc_lookup(proc->parent_pid);
         proc_destroy(proc);

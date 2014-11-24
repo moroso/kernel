@@ -14,12 +14,12 @@ fn child_check() {
     let status: i32 = 0;
     while (syslib::bide(&status) > 0) {
         if status < 0 {
-            printf!("***ERRROR***\n");
+            printf!("***ERROR***\n");
             syslib::abscond(-1);
         }
     }
     if (status < 0) {
-        printf!("***ERRROR***\n");
+        printf!("***ERROR***\n");
         syslib::abscond(-1);
     }
 }

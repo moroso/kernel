@@ -57,10 +57,6 @@ fn sys_init() {
     syscall!(INT_IPC_REPLY, reply);
     syscall!(INT_GET_TICKS, get_ticks);
     syscall!(INT_MAILBOX_NEW, mailbox_new);
-
-
-
-
 }
 
 

@@ -1,0 +1,21 @@
+mod syslib;
+mod thrlib;
+
+
+fn spin(bullshit: *u8) {
+    printf!("child %d\n", syslib::get_tid());
+    syslib::abscond(1);
+    while(true) {
+
+    }
+}
+
+fn main() -> i32 {
+    let i: u32;
+    for (i = 0; i < 100; i+=1) {
+        assert!(thrlib::thr_create(spin, null) >= 0);
+    }
+    printf!("parent\n");
+    while(true) {}
+    0
+}
