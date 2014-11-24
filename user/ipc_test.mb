@@ -6,8 +6,8 @@
 
 mod shared;
 mod syslib;
-const NUM_ITERS: u32 = 100;
-const NUM_THREADS: u32 = 100;
+const NUM_ITERS: u32 = 500;
+const NUM_THREADS: u32 = 50;
 
 /* checks the exit status of its children; if a child has exited with error,
  * exits with error as well */
@@ -15,12 +15,12 @@ fn child_check() {
     let status: i32 = 0;
     while (syslib::bide(&status) > 0) {
         if status < 0 {
-            printf!("***ERRROR***");
+            printf!("***ERROR***");
             syslib::abscond(-1);
         }
     }
     if (status < 0) {
-        printf!("***ERRROR***");
+        printf!("***ERROR***");
         syslib::abscond(-1);
     }
 }

@@ -162,6 +162,10 @@ fn rend_timeout_remove(timeout: u32) {
 fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *rend_node {
 
+    if (!rend->rend_active) {
+        return null
+    }
+
     let other_head: *list_head;
     let own_head: *list_head; 
 
@@ -274,10 +278,6 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     *err = my_node->err as i32;
     cond_preempt_enable(enable);
 
-    if (option == RECV) {
-        assert!(list_is_empty(own_head)); 
-    }
-
     assert!(!in_list(&my_node->timeout_link));
     null
 }
@@ -314,9 +314,6 @@ fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32)
 fn rend_destroy(rend: *rend, err: i32) {
     rend->rend_active = false;
 
-    /* we should be able to do this with preemption enabled because no more
-     * senders are going to try to send and we are the only one that receives */
-
     while(!list_is_empty(&rend->send_head) ) {
         let wakeup_node = list_head_entry!(&rend->send_head,
                 rend_node, rend_link);
@@ -324,7 +321,7 @@ fn rend_destroy(rend: *rend, err: i32) {
 
         rend_signal(null, 0, wakeup_node, err as i32);  
     }
-    
+
     while(!list_is_empty(&rend->recv_head) ) {
         let wakeup_node = list_head_entry!(&rend->recv_head,
                 rend_node, rend_link);
