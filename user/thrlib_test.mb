@@ -1,6 +1,24 @@
 mod syslib;
 mod thrlib;
 
+/* checks the exit status of its children; if a child has exited with error,
+ * exits with error as well */
+fn child_check() {
+    let status: i32 = 0;
+    let ret: i32;
+    while ((ret = syslib::bide(&status)) >= 0) {
+        printf!("RET %d\n", ret);
+        if status < 0 {
+            printf!("***ERROR***");
+            syslib::abscond(-1);
+        }
+    }
+
+    if (status < 0) {
+        printf!("***ERROR***");
+        syslib::abscond(-1);
+    }
+}
 
 fn spin(bullshit: *u8) {
     let args : syslib::shared::ipc_defs::ipc_args;
@@ -12,29 +30,23 @@ fn spin(bullshit: *u8) {
     args.timeout = 20;
     args.options = 4;
     printf!("child %d\n", syslib::get_tid());
-    printf!("recv returned %d\n", syslib::ipc_recv(&args));
+    printf!("send returned %d\n", syslib::ipc_send(&args));
     syslib::abscond(1);
 }
 
 fn main() -> i32 {
+    let ret = syslib::repl();
+    if (ret != 0) {
+        child_check();
+        printf!("SUCCESS\n");
+        syslib::abscond(1);
+    }
     let i: u32;
     let desc = syslib::mailbox_new();
     for (i = 0; i < 100; i+=1) {
         assert!(thrlib::thr_create(spin, null) >= 0);
     }
-    
-    let args : syslib::shared::ipc_defs::ipc_args;
-    args.dest_id = 0;
-    args.long_src.len = 0;
-    args.long_dest.len = 0;
-    args.short_src.len = 0;
-    args.long_dest.len = 0;
-    args.timeout = 20;
-    args.options = 4;
-    for (i = 0; i < 20; i+=1) {
-        printf!("send returned %d\n", syslib::ipc_send(&args));
-    }
-    printf!("parent\n");
+    syslib::abscond(1);
     while(true) {}
     0
 }

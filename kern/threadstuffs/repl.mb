@@ -39,7 +39,10 @@ fn thr_repl_handler() -> i32 {
 
         new_tcb->proc = get_tcb()->proc;
         new_tcb->pid = get_tcb()->pid;
+        kmut_lock(&(get_tcb()->proc->proc_mut));
         list_insert_head(&new_tcb->proc_link, &(get_tcb()->proc->peer_tcb_list));
+        kmut_unlock(&(get_tcb()->proc->proc_mut));
+
 
         tcb_dir_add(new_tcb);
 
