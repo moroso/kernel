@@ -7,7 +7,7 @@
 mod shared;
 mod syslib;
 const NUM_ITERS: u32 = 100;
-const NUM_THREADS: u32 = 50;
+const NUM_THREADS: u32 = 100;
 
 /* checks the exit status of its children; if a child has exited with error,
  * exits with error as well */

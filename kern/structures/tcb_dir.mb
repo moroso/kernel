@@ -6,6 +6,8 @@ use structures::tcb::*;
 use structures::schedule::*;
 use utils::buddy_alloc::*;
 
+const tcb_dir_debug: bool = false;
+
 struct ref_dir_t {
     dir_head: list_head,
     dir_lock: krw,
@@ -40,17 +42,19 @@ fn decrease_ref(tcb: *tcb) {
     assert!(ref_old > 0);
     if (ref_old == 1) {
         assert!(tcb->link.next == null && tcb->link.prev == null);
-        preempt_disable();
-        let tcb_node: *tcb = null;
-        let i: u32 = 0;
-        list_foreach_entry!(tcb_node, &run_queue.run_Q, tcb, link, { 
-                assert!(tcb_node != tcb);
-                i+=1;
+        if (tcb_dir_debug) {
+            preempt_disable();
+            let tcb_node: *tcb = null;
+            let i: u32 = 0;
+            list_foreach_entry!(tcb_node, &run_queue.run_Q, tcb, link, { 
+                    assert!(tcb_node != tcb);
+                    i+=1;
 
-                })
-        assert!(tcb != get_tcb());
-        preempt_enable();
-        //frame_free(tcb as *u8);
+                    })
+            assert!(tcb != get_tcb());
+            preempt_enable();
+        }
+        frame_free(tcb as *u8);
     }
 }
 
