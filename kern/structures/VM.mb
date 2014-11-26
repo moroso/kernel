@@ -70,6 +70,11 @@ const PAGE_SIZE_BIT: u32 = 1 << 7;
 // denotes whether a page is read-only because it's COW
 const COW_BIT: u32 = 1 << 9;
 
+/* error codes */
+// out of memory
+const VM_ERR_MEM: i32 = -5;
+// already allocated
+const VM_ERR_ALLOC: i32 = -6; 
 
 /* hosts a page directory and its associated locking */
 struct PD_t {
@@ -346,7 +351,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
             *page_table_addr = frame_alloc() as *u32;
             if (*page_table_addr == null) {
                 printf!("out of memory\n");
-                return -1;
+                return VM_ERR_MEM;
             }
             mos_memset((*page_table_addr as *u32), 0, PAGE_SIZE);
             *page_table_addr = ((*page_table_addr as u32) | READ_WRITE_BIT |
@@ -407,7 +412,8 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_user_addr(log_addr));
     let new_frame: *u8 = get_frame(KB);
     if (new_frame == null) {
-        return -3;
+        return VM_ERR_MEM;
+
     }
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
 
@@ -415,14 +421,10 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     // my finger on it
     mos_memset(new_frame, 0, PAGE_SIZE);
 
-    if (new_frame == null) {
-        printf!("out of memory\n");
-        return -1;
-    }
-
-    if (set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size) < 0) {
+    let ret: i32;
+    if ((ret = set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size)) < 0) {
         free_frame(new_frame, KB);
-        return -2;
+        return ret;
     }
     0
 }
@@ -470,8 +472,11 @@ fn PD_entries_destroy(entries: **u32) {
 // TODO locks, management of regions
 fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
     len-=1;
-    new_user_range(addr, ((addr as u32) + len) as *u8, &(get_tcb()->proc->PD), READ_WRITE_BIT,
-            size)
+    kmut_lock(&(get_tcb()->proc->PD.mut));
+    let ret = new_user_range(addr, ((addr as u32) + len) as *u8, &(get_tcb()->proc->PD), READ_WRITE_BIT,
+            size);
+    kmut_unlock(&(get_tcb()->proc->PD.mut));
+    ret
 
 }
 
@@ -482,6 +487,7 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     addr_end = get_aligned_addr(addr_end as *u32) as *u8;
     // TODO take lock so we can lookup
     let page_read: *u8;
+    let ret: i32;
 
     // if any pages are already allocated, return with error
     for (page_read = addr_start; page_read <= addr_end;
@@ -489,18 +495,18 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
 
         let frame_addr: **u8 = log_to_phys(page_read, PD);
         if (frame_addr != null && *frame_addr != null) {
-            return -2;
+            return VM_ERR_ALLOC;
         }
     }
 
     for (page_read = addr_start; page_read <= addr_end;
             page_read+=PAGE_SIZE) {
-        if (new_user_page(page_read, PD, flags, size) < 0) {
+        if ((ret = new_user_page(page_read, PD, flags, size)) < 0) {
             if (page_read != addr_start) {
                 free_user_range(addr_start, (addr_end as u32 - PAGE_SIZE) as *u8, PD);
             }
 
-            return -1;
+            return ret;
         }
 
     }
@@ -607,7 +613,7 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
  */
 fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, page_share: u32)
     -> i32 {
-        
+
         // lock PD with smaller address first, so we avoid deadlock
         assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
         let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
