@@ -4,7 +4,6 @@
  * "CHILD"
 */
 
-mod syslib;
 
 fn main() -> i32 {
     let child: i32 = syslib::repl();

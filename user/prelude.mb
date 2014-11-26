@@ -1,6 +1,12 @@
 mod printf;
 mod syslib;
+
+mod string;
 mod file;
+mod thrlib;
+mod mallot;
+mod shared;
+mod utils;
 
 fn print_char(x: i32) -> i32 {
     // TODO: printf! implemented by repeatedly calling this print_char

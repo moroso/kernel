@@ -1,14 +1,13 @@
-/*
+/* 
  * child_test: called by child in repl_perform_test.  Should just print "CHILD"
  * forever.
  *
 */
 
+
 fn main() -> i32 {
-    let i = 0;
-    while true {
-        printf!("CHILD! %d\n", i);
-        i += 1;
-    }
-    0
+		while(true) {
+				printf!("CHILD!\n");
+		}
+		0
 }

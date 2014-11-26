@@ -1,5 +1,4 @@
-mod shared;
-
+use prelude::shared;
 extern fn syscall_0(idx: u32) -> u32;
 extern fn syscall_1(idx: u32, arg1: u32) -> u32;
 extern fn syscall_2(idx: u32, arg1: u32, arg2: u32) -> u32;

@@ -4,8 +4,8 @@
  * Author: Amanda M. Watson
 */
 
-mod shared;
-mod syslib;
+use shared::ipc_defs::*;
+use syslib::*;
 const NUM_ITERS: u32 = 100;
 const NUM_THREADS: u32 = 50;
 
@@ -43,7 +43,7 @@ fn main() -> i32 {
             let dest_addr: *u8 = 0xdeaaa000 as *u8;
             let len_long = 4096;
             let short_message: u32 = -1;
-            let args: syslib::shared::ipc_defs::ipc_args;
+            let args: ipc_args;
             args.dest_id = mb_desc as u32;
             args.long_src.len = 0;
             args.long_dest.addr = dest_addr;
@@ -67,7 +67,7 @@ fn main() -> i32 {
                     *(src_addr as *u32) = syslib::get_tid();
                     args.long_src.len = len_long;
                     args.long_src.addr = src_addr;
-                    args.options = syslib::shared::ipc_defs::OPTION_ASYNC; 
+                    args.options = OPTION_ASYNC; 
                     short_message = syslib::get_tid();
                     let ticks_cur = syslib::get_ticks();
                     printf!("thread %d beginning wait\n", syslib::get_tid());
