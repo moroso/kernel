@@ -1,0 +1,37 @@
+mod shared;
+mod syslib;
+
+// TODO why won't it let me set the end of the heap as a constant?
+//const HEAP_END: *u8 = 0xffffe000 as *u8; 
+static heap_pointer: *u8 = 0x4001e000 as *u8;  
+
+/* */
+fn find_page() -> *u8 {
+
+    let heap_cur = heap_pointer;
+    let ret: i32;
+    while((heap_pointer-=shared::consts::PAGE_SIZE) != heap_cur) {
+        if (heap_pointer < shared::consts::USER_MEM_START as *u8) {
+            heap_pointer = 0xffffe000 as *u8; 
+        }    
+        if ((ret = syslib::new_pages(heap_pointer, shared::consts::PAGE_SIZE,
+                        1024)) >= 0) {
+            return heap_pointer;
+        }
+        // if we don't get a collision error, return immediately  
+        if (ret != -6) {
+            heap_pointer+=shared::consts::PAGE_SIZE;
+            return null;
+        }
+    }
+    null
+}
+
+
+fn mallot(size: u32) -> *u8 {
+    null
+}
+
+fn lib(element: *u8) {
+
+}
