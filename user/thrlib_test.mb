@@ -1,7 +1,5 @@
-mod syslib;
-mod thrlib;
-mod mallot;
-
+use syslib::*;
+use shared::ipc_defs::*;
 /* checks the exit status of its children; if a child has exited with error,
  * exits with error as well */
 fn child_check() {
@@ -23,7 +21,7 @@ fn child_check() {
 
 fn spin(bullshit: *u8) {
     let i = bullshit as u32;
-    let args : syslib::shared::ipc_defs::ipc_args;
+    let args : ipc_args;
     args.dest_id = 0;
     args.long_src.len = 0;
     args.long_dest.len = 0;

@@ -4,8 +4,8 @@
  * Author: Amanda M. Watson
 */
 
-mod shared;
-mod syslib;
+use shared::ipc_defs::*;
+use syslib::*;
 const NUM_ITERS: u32 = 100;
 const NUM_THREADS: u32 = 100;
 
@@ -43,7 +43,7 @@ fn main() -> i32 {
             assert!(mb_desc == 0);
 
             let short_message: u32 = -1;
-            let args: syslib::shared::ipc_defs::ipc_args;
+            let args: ipc_args;
             args.dest_id = mb_desc as u32;
             args.long_src.len = 0;
             args.long_dest.len = 0;
@@ -57,7 +57,7 @@ fn main() -> i32 {
             ret = syslib::repl();
             if (ret == 0) {
                 for (i = 0; i < NUM_ITERS; i+=1) {
-                    args.options = syslib::shared::ipc_defs::OPTION_ASYNC; 
+                    args.options = OPTION_ASYNC; 
                     short_message = i;
                     printf!("thread %d sending message %d\n", syslib::get_tid(),
                             i);

@@ -1,7 +1,7 @@
 //sends message to file server
-mod string;
-mod syslib;
-mod shared;
+use prelude::string::*;
+use prelude::syslib::*;
+use prelude::shared::*;
 const NAME_MAX: u32 = 400;
 const SERVER_ID: u32 = 5;
 
@@ -11,15 +11,15 @@ struct file_message {
 }
 
 fn create(name: *u8, buffer: *u8, buffer_len: u32) -> i32 {
-    if (string::strnlen(name, NAME_MAX + 1) > NAME_MAX) {
+    if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
         return -1;
     }
     // TODO sanitize name input
     let message: file_message;
     let status_buffer: u32[5];
-    let len = string::strncpy(&(message.name)[0], name, NAME_MAX);
+    let len = strncpy(&(message.name)[0], name, NAME_MAX);
     //assert!(len <= NAME_MAX); 
-    let args: shared::ipc_defs::ipc_args;
+    let args: ipc_defs::ipc_args;
     args.dest_id = SERVER_ID; 
     args.long_src.addr = buffer;
     // round up

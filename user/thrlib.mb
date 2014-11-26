@@ -1,5 +1,5 @@
-mod shared;
-mod syslib;
+use prelude::shared::consts*;
+use prelude::syslib::*;
 const STACK_SIZE: u32 = 2; // number of pages in new userstack
 
 extern fn repl_with_stack(stack: *u8, function: fn(*u8)->(), args: *u8) -> i32;
@@ -7,19 +7,19 @@ extern fn repl_with_stack(stack: *u8, function: fn(*u8)->(), args: *u8) -> i32;
 fn thr_create(function: fn(*u8)->(), args: *u8) -> i32 {
 
     /* find a stack range that hasn't yet been allocated */
-    let stack_start = shared::consts::USER_MEM_START as *u8;
-    while((stack_start + (STACK_SIZE * shared::consts::PAGE_SIZE)) <
-            shared::consts::USER_MEM_END as *u8) {
+    let stack_start = USER_MEM_START as *u8;
+    while((stack_start + (STACK_SIZE * PAGE_SIZE)) <
+            USER_MEM_END as *u8) {
 
         /* if an allocation succeeds, call this the new stack */
-        if (syslib::new_pages(stack_start, STACK_SIZE *
-                    shared::consts::PAGE_SIZE, 1024) >= 0) {
+        if (new_pages(stack_start, STACK_SIZE *
+                    PAGE_SIZE, 1024) >= 0) {
        
             // start stack at high address 
-            stack_start+=(shared::consts::PAGE_SIZE - (2 * sizeof(u32)));
+            stack_start+=(PAGE_SIZE - (2 * sizeof(u32)));
             return repl_with_stack(stack_start, function, args);
         }
-        stack_start+=shared::consts::PAGE_SIZE;
+        stack_start+=PAGE_SIZE;
     }   
     -1
 }

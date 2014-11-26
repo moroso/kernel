@@ -3,8 +3,8 @@
  * Author: Amanda M. Watson
 */
 
-mod shared;
-mod syslib;
+use shared::ipc_defs::*;
+use syslib::*;
 
 const MB_TABLE_SIZE: u32 = 64; // size of descriptor table
 
@@ -39,7 +39,7 @@ fn main() -> i32 {
             syslib::abscond(0);
         }
 
-        let args: syslib::shared::ipc_defs::ipc_args;
+        let args: ipc_args;
         args.long_src.len = 0;
         args.long_dest.len = 0;
         args.short_src.len = 0;
@@ -50,9 +50,9 @@ fn main() -> i32 {
         printf!("TEST 1: receiving on a mb in our table don't own\n"); 
         args.dest_id = parent_desc as u32;
         ret = syslib::ipc_recv(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                     syslib::shared::ipc_defs::IPC_ERR_DEST);
+                     IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         printf!("success!\n");
@@ -60,70 +60,70 @@ fn main() -> i32 {
         printf!("TEST 2: sending to a mb too big for the table\n"); 
         args.dest_id = MB_TABLE_SIZE * 3;
         ret = syslib::ipc_send(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         ret = syslib::ipc_recv(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         args.dest_id = MB_TABLE_SIZE+1;
         ret = syslib::ipc_send(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         ret = syslib::ipc_recv(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         args.dest_id = MB_TABLE_SIZE*10;
         ret = syslib::ipc_send(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         ret = syslib::ipc_recv(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         printf!("success!\n");
         printf!("TEST 3: sending to a mb too small for the table\n"); 
         args.dest_id = -1;
         ret = syslib::ipc_send(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         ret = syslib::ipc_recv(&args);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_DEST) {
+        if (ret != IPC_ERR_DEST) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_DEST);
+                    IPC_ERR_DEST);
             syslib::abscond(-1);
         }
         printf!("success!\n");
         printf!("TEST 4: passing an invalid pointer as args\n"); 
         ret = syslib::ipc_send(null);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_INTERNAL) {
+        if (ret != IPC_ERR_INTERNAL) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_INTERNAL);
+                    IPC_ERR_INTERNAL);
             syslib::abscond(-1);
         }
         ret = syslib::ipc_recv(null);
-        if (ret != syslib::shared::ipc_defs::IPC_ERR_INTERNAL) {
+        if (ret != IPC_ERR_INTERNAL) {
             printf!("ERROR send returned with %d (expected %d)\n", ret,
-                    syslib::shared::ipc_defs::IPC_ERR_INTERNAL);
+                    IPC_ERR_INTERNAL);
             syslib::abscond(-1);
         }
         printf!("success!\n");
