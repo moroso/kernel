@@ -11,3 +11,4 @@ const INT_NEW_PAGES: u32 = 11;
 const INT_IPC_REPLY: u32 = 12;
 const INT_GET_TICKS: u32 = 13;
 const INT_MAILBOX_NEW: u32 = 14;
+const INT_MAILBOX_FORWARD: u32 = 15;

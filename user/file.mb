@@ -11,11 +11,11 @@ const SERVER_ID: u32 = 5;
 
 struct file_message {
     name: u8[NAME_MAX],
+    request_type: u32,
     buffer_len: u32,
 }
 
-static file_server_active: bool = false;
-
+static file_server_active: bool = true;
 
 /*** server code ***/
 
@@ -34,11 +34,15 @@ fn run_server(mb_arg: *u8) {
     assert!(ipc_recv(&args) >= 0);
     if (status < 0) {
         printf!("err %d\n", get_tid());
+        file_server_active = false;
         abscond(-1);
     }
-
-    while(true) {}
-
+    printf!("running server\n");
+    while(file_server_active) {
+    
+    }
+    printf!("thread %d exiting server\n", get_tid());
+    abscond(0);
 }
 
 /* file_server_init: creates a file server with specified number of threads.
@@ -50,18 +54,21 @@ fn run_server(mb_arg: *u8) {
  * - num_threads: number of threads for new server.  All threads exit and server
  *   sends failure to desc if all threads cannot be created
  * - desc: a descriptor for the mailbox to which the server sends its status.
- *   On error, it sends an error code.  Otherwise, it sends the descriptor for the
- *   file server
+ *   Must be a valid descriptor for the invoking thread.
+ *   On error, it sends an error code.  Otherwise, it forwards a descriptor to
+ *   the mailbox and sends the descriptor in a short message, meaning the
+ *   server is ready to take requests
  *
  * Returns error if repl fails, 0 otherwise.  
  *
  * NOTE catching further errors requires sending a descriptor and waiting on
  * that mailbox for a status.
  * NOTE if a valid descriptor desc is given but no thread ever waits on desc,
- * server can fail to properly init (if async send fails)
-*/
-
+ * server can fail to properly init and be blocked forever (if async send fails)
+ */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
+    file_server_active = false;
+
     let status: i32 = 0;
     /* for sending a status to a descriptor */
     let args: ipc_args;
@@ -81,7 +88,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         /* file server creates own mailbox */
         let mb: i32 = -1;
         if ((mb = mailbox_new()) < 0) {
-            if (desc > 0) {
+            if (desc >= 0) {
                 // on error send, error code to descriptor 
                 status = -1;
                 ipc_send(&args);
@@ -105,9 +112,13 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         args.dest_id = mb as u32;
         args.options = OPTION_NO_REPLY;
 
+        if (status >= 0) {
+            file_server_active = true;
+        }
+
         // wake up child threads either with success (run server) or error
         // (abscond immediately)
-        // do this before the outside proc in case they attempt to wait on our
+        // do this before waking the proc waiting on desc in case they attempt to wait on our
         // mailbox and ruin everything 
         for (i = 0; i < num_threads; i+=1) {
             printf!("waking up thread %d\n", i);
@@ -115,16 +126,19 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         }
 
         // wake up thread waiting on given mailbox
-        if (desc > 0) {
-            args.dest_id = desc as u32;
-            args.options = OPTION_ASYNC;
-            if (status >= 0) {
-                status = mb;
-            }
-            // if async fails due to memory, send a synchronous message instead
-            if (ipc_send(&args) == IPC_ERR_INTERNAL) {
-                args.options = OPTION_NO_REPLY;
-                ipc_send(&args); 
+        if (desc >= 0) {
+            if (status < 0) {
+
+                args.options = OPTION_ASYNC;
+                // if async fails due to memory, send a synchronous message instead
+                if (ipc_send(&args) == IPC_ERR_INTERNAL) {
+                    args.options = OPTION_NO_REPLY;
+                    ipc_send(&args); 
+                }
+            } else {
+                if (mailbox_forward(mb as u32, desc as u32) < 0) {
+                    // TODO handle err
+                }
             }
         }
         printf!("exiting\n");

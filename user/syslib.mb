@@ -69,3 +69,29 @@ fn mailbox_new() -> i32 {
     syscall_0(shared::syscall_consts::INT_MAILBOX_NEW) as i32
 }
 
+// creates a new descriptor for mb_src in the proc receiving on mb_dest.  if creation is
+// successful, send a short async message to mb_dest with the new descriptor.
+fn mailbox_forward(mb_src: u32, mb_dest: u32) -> i32 {
+
+    let new_desc = syscall_2(shared::syscall_consts::INT_MAILBOX_FORWARD, mb_src
+            as u32, mb_dest as u32) as i32;
+
+    if (new_desc < 0) {
+        return new_desc;
+    }
+
+    // send descriptor to dest mailbox
+    let args: shared::ipc_defs::ipc_args;
+    args.dest_id = mb_dest;
+    args.long_src.len = 0;
+    args.short_src.len = sizeof(i32);
+    args.short_src.addr = &new_desc as *u8;
+    args.options = shared::ipc_defs::OPTION_ASYNC;
+    if (ipc_send(&args) == shared::ipc_defs::IPC_ERR_INTERNAL) {
+        // TODO delete descriptor in dest proc
+        return -7;
+    }
+    0
+}
+
+
