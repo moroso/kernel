@@ -47,11 +47,21 @@ fn run_server(mb_arg: *u8) {
     }
    
     printf!("thread %d running server\n", get_tid());
+
+    /*** active server code ***/
+    let message: file_message;
+    args.short_dest.len = sizeof(file_message);
+    args.short_dest.addr = &message as *u8;
     while(file_server_active) {
         if (ipc_recv(&args) >= 0) {
-            printf!("retrieved new status %d\n", status);
+            if (args.short_dest.len != sizeof(file_message)) {
+                printf!("success\n");
+            } else {
+                printf!("error\n");
+            }
             status = get_tid() as i32;
             ipc_reply(null, 0, &status as *u32, sizeof(i32));
+
         }     
     }
     printf!("thread %d exiting server\n", get_tid());
@@ -148,7 +158,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
             while(threads_dormant > 0) {
                 yield(-1);
             }
-            
+
             if (status < 0) {
 
                 args.options = OPTION_ASYNC;

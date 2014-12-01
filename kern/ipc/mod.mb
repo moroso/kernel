@@ -366,9 +366,10 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     if (dest_tcb == null) {
         // new length written into message (sender updates this length)
         args_kern.long_dest.len = message_send.long_dest.len;
-        args_kern.short_dest.len = recv_len;
+        args_kern.short_dest.len = args_kern.short_dest.len = min(args_kern.short_dest.len,
+                recv_len);
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
-                    min(recv_len, args_kern.short_dest.len)) <
+                    args_kern.short_dest.len) <
                 0) {
             return IPC_ERR_INTERNAL;
         }
@@ -395,9 +396,11 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             kmut_2unlock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
 
         }
+        args_kern.short_dest.len = min(args_kern.short_dest.len,
+                message_src->short_src.len);
         if (copy_to_user((args_kern.short_dest.addr),
                     message_src->short_src.addr as *u8,
-                    min(message_src->short_src.len, args_kern.short_dest.len)) <
+                    args_kern.short_dest.len) <
                 0) {
 
             mb_end_recv(IPC_ERR_INTERNAL);
@@ -409,6 +412,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             slub_free(message_src->short_src.addr as *u32,
                     message_src->short_src.len);
         } 
+
 
         mb_end_recv(0);
     }
