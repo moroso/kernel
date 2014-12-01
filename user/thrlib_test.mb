@@ -1,5 +1,6 @@
 use syslib::*;
 use shared::ipc_defs::*;
+use mallot::*;
 /* checks the exit status of its children; if a child has exited with error,
  * exits with error as well */
 fn child_check() {
@@ -20,6 +21,7 @@ fn child_check() {
 }
 
 fn spin(bullshit: *u8) {
+    
     let i = bullshit as u32;
     let args : ipc_args;
     args.dest_id = 0;
@@ -46,6 +48,22 @@ fn spin(bullshit: *u8) {
 }
 
 fn main() -> i32 {
+    mallot_init();
+    while(true) {
+        printf!("%p\n", mallot(50));
+    }
+    let prev = null;
+    let ret = null;
+    let i: u32;
+    while(true) {
+        ret = mallot(500 + i);
+        printf!("%p\n", ret);
+        if (prev != null) {
+            lib(prev, 50)
+        }
+        prev = ret;
+        i+=1;
+    }
     let j: u32 = 0;
     for (j = 0; j < 1000; j+=1) {    
         let ret = syslib::repl();
