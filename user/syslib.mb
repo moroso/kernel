@@ -94,4 +94,7 @@ fn mailbox_forward(mb_src: u32, mb_dest: u32) -> i32 {
     0
 }
 
-
+// no dumb syscall name this time.  Sorry to disappoint
+fn yield(tid: u32) -> i32 {
+    syscall_1(shared::syscall_consts::INT_YIELD, tid) as i32
+}

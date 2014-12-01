@@ -5,6 +5,7 @@ use prelude::shared::*;
 use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
+use prelude::utils::asm::*;
 
 const NAME_MAX: u32 = 400;
 const SERVER_ID: u32 = 5;
@@ -16,6 +17,7 @@ struct file_message {
 }
 
 static file_server_active: bool = true;
+static threads_dormant: u32 = 0; // number of threads needing wakeup
 
 /*** server code ***/
 
@@ -37,9 +39,19 @@ fn run_server(mb_arg: *u8) {
         file_server_active = false;
         abscond(-1);
     }
-    printf!("running server\n");
+    printf!("thread %d waiting for wakeup\n", get_tid());
+    atomic_add(&threads_dormant, -1);
+    assert!(threads_dormant >= 0);
+    while (threads_dormant > 0) {
+        yield(-1);
+    }
+      
+    printf!("thread %d running server\n", get_tid());
+    // TODO wait until all other threads have woken
     while(file_server_active) {
-    
+        if (ipc_recv(&args) >= 0) {
+            printf!("retrieved new status %d\n", status);
+        }     
     }
     printf!("thread %d exiting server\n", get_tid());
     abscond(0);
@@ -68,7 +80,6 @@ fn run_server(mb_arg: *u8) {
  */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     file_server_active = false;
-
     let status: i32 = 0;
     /* for sending a status to a descriptor */
     let args: ipc_args;
@@ -114,6 +125,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 
         if (status >= 0) {
             file_server_active = true;
+            atomic_add(&threads_dormant, num_threads);
         }
 
         // wake up child threads either with success (run server) or error
