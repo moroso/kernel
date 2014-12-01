@@ -48,10 +48,6 @@ fn spin(bullshit: *u8) {
 }
 
 fn main() -> i32 {
-    mallot_init();
-    while(true) {
-        printf!("%p\n", mallot(50));
-    }
     let prev = null;
     let ret = null;
     let i: u32;

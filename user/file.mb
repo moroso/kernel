@@ -2,6 +2,10 @@
 use prelude::string::*;
 use prelude::syslib::*;
 use prelude::shared::*;
+use prelude::thrlib::*;
+use prelude::rt_abort;
+use prelude::shared::ipc_defs::*;
+
 const NAME_MAX: u32 = 400;
 const SERVER_ID: u32 = 5;
 
@@ -10,6 +14,125 @@ struct file_message {
     buffer_len: u32,
 }
 
+static file_server_active: bool = false;
+
+
+/*** server code ***/
+
+fn run_server(mb_arg: *u8) {
+    let mb = mb_arg as i32;
+    assert!(mb >= 0);
+    let status: i32 = -1;
+
+    let args: ipc_args;
+    args.dest_id = mb as u32;
+    args.long_dest.len = 0;
+    args.short_dest.len = sizeof(i32);
+    args.short_dest.addr = &status as *u8; 
+    args.timeout = -1;
+   
+    assert!(ipc_recv(&args) >= 0);
+    if (status < 0) {
+        printf!("err %d\n", get_tid());
+        abscond(-1);
+    }
+
+    printf!("thread %d running server\n", get_tid());
+    while(true) {}
+
+}
+
+/* file_server_init: creates a file server with specified number of threads.
+ * spins up a new process with a mailbox; all threads execute server_run.  if a
+ * valid mailbox descriptor desc is specified, new server sends a message to the
+ * mailbox with its descriptor.  Returns with error if threads or mailbox fail
+ * to init
+ * - num_threads: number of threads for new server.  All threads exit and server
+ * sends failure to desc if all threads cannot be created
+ * - desc: a descriptor for the mailbox to which the server sends its status.
+ * On error, it sends an error code.  Otherwise, it sends the descriptor for the
+ * file server
+ * Returns error if repl fails, 0 otherwise.  
+ * NOTE catching further errors requires sending a descriptor and waiting on
+ * that mailbox for a status.
+*/
+
+fn file_server_init(num_threads: u32, desc: i32) -> i32 {
+    let status: i32 = 0;
+    /* for sending a status to a descriptor */
+    let args: ipc_args;
+    args.dest_id = desc as u32;
+    args.long_src.len = 0;
+    args.short_src.len = sizeof(i32);
+    args.short_src.addr = &status as *u8;
+    args.timeout = -1;
+    args.options = OPTION_ASYNC;
+
+    /* creating file server proc */
+    let ret = repl();
+    if (ret < 0) {
+        return -1;
+    }
+    if (ret == 0) {
+        /* file server creates own mailbox */
+        let mb: i32 = -1;
+        if ((mb = mailbox_new()) < 0) {
+            if (desc > 0) {
+                // on error send, error code to descriptor 
+                status = -1;
+                ipc_send(&args);
+            }
+            abscond(-1);
+        }
+        let i: u32;
+        // spin up the specified number of threads; quit early if thread
+        // creation fails
+        for (i = 0; i < num_threads; i+=1) {
+            printf!("creating thread %d\n", i);
+            if ((ret = thr_create(run_server, mb as *u8)) < 0) {
+                // TODO task_vanish or cond var
+                status = -2;
+                num_threads = i;
+                break; 
+            } 
+        }
+
+        // wake up thread waiting on given mailbox
+        if (desc > 0) {
+            if (status >= 0) {
+                status = mb;
+            }
+            if (ipc_send(&args) == IPC_ERR_INTERNAL) {
+                args.timeout = 1; // polling TODO elim timeout?
+                args.options = OPTION_NO_REPLY;
+                ipc_send(&args); 
+            }
+        }
+
+        assert!(mb >= 0);
+        args.dest_id = mb as u32;
+        args.options = OPTION_NO_REPLY;
+        args.timeout = -1; 
+        // wake up child threads either with success (run server) or error
+        // (abscond immediately)
+        for (i = 0; i < num_threads; i+=1) {
+            printf!("waking up thread %d\n", i);
+            assert!(ipc_send(&args) >= 0);
+        }
+        printf!("exiting\n");
+        abscond(status);
+
+        assert!(false); // no return
+    }
+
+    0
+}
+
+
+
+/*** client code ***/
+/* send a new file name and some data to start the new file.  returns with error
+ * if ipc fails, or if the file already exists */
 fn create(name: *u8, buffer: *u8, buffer_len: u32) -> i32 {
     if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
         return -1;
@@ -18,16 +141,12 @@ fn create(name: *u8, buffer: *u8, buffer_len: u32) -> i32 {
     let message: file_message;
     let status_buffer: u32[5];
     let len = strncpy(&(message.name)[0], name, NAME_MAX);
-    //assert!(len <= NAME_MAX); 
+    assert!(len <= NAME_MAX); 
     let args: ipc_defs::ipc_args;
     args.dest_id = SERVER_ID; 
     args.long_src.addr = buffer;
     // round up
-    if (len%4096 != 0) {
-        args.long_src.len = ((len/4096) + 1)*4096;
-    } else {
-        args.long_src.len = len;
-    }
+    args.long_src.len = len + (len%4096);
     args.short_src.addr = &message as *u8;
     args.short_src.len = sizeof(file_message);
     args.long_dest.len = 0;
