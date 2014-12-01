@@ -1,0 +1,31 @@
+use syslib::*;
+use shared::ipc_defs::*;
+use mallot::*;
+use file::*;
+
+/* checks the exit status of its children; if a child has exited with error,
+ * exits with error as well */
+fn child_check() {
+    let status: i32 = 0;
+    let ret: i32;
+    while ((ret = syslib::bide(&status)) >= 0) {
+        printf!("RET %d\n", ret);
+        if status < 0 {
+            printf!("***ERROR***");
+            syslib::abscond(-1);
+        }
+    }
+
+    if (status < 0) {
+        printf!("***ERROR***");
+        syslib::abscond(-1);
+    }
+}
+
+
+fn main() -> i32 {
+    printf!("file server init exited with status %d\n", file_server_init(4, -1));
+    while (true) {}
+    syslib::abscond(1);
+    0
+}
