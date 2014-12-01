@@ -1,0 +1,181 @@
+// Modeled after Linux's list.h
+// container_of is pretty necessary for
+// the whole scheme. The other macros are just convenient.
+use prelude::rt_abort;
+use prelude::utils::macro_util::*;
+
+struct list_node {
+    next: *list_node,
+    prev: *list_node
+}
+struct list_head {
+    node: list_node,
+}
+
+// chekcs if address is too low to be a valid pointer
+macro ptr_too_low!(ptr) {
+  (($ptr as *u8) <= (4096 as *u8))
+}
+
+macro list_entry!(ptr, ty, member) {
+    container_of!($ptr, $ty, $member)
+}
+
+// These functions should only be used if the results are known to be
+// well defined.
+macro list_head_entry_!(head, typ, link) {
+    container_of!(($head)->node.next, $typ, $link)
+}
+
+macro list_tail_entry_!(head, typ, link) {
+    container_of!(($head).node->prev, $typ, $link)
+}
+
+macro list_next_entry_!(node, typ, link) {
+    container_of!(($node)->$link.next, $typ, $link)
+}
+
+macro list_prev_entry_!(node, typ, link) {
+    container_of!(($node)->$link.prev, $typ, $link)
+}
+
+// Versions that return NULL when needed
+macro list_head_entry!(head, typ, link) {
+    if list_is_empty($head) {
+        null
+    } else {
+        list_head_entry_!($head, $typ, $link)
+    }
+}
+
+macro list_tail_entry!(head, typ, link) {
+    if list_is_empty($head) {
+        null
+    } else {
+        list_tail_entry_!($head, $typ, $link)
+    }
+}
+
+macro list_next_entry!(head, node, typ, link) {
+    if ($node)->$link.next == $head {
+        null
+    } else {
+        list_next_entry_!($node, $typ, $link)
+    }
+}
+
+macro list_prev_entry!(head, node, typ, link) {
+    if ($node)->$link.prev == $head {
+        null
+    } else {
+        list_prev_entry_!($node, $typ, $link)
+    }
+}
+
+// If we had typeof we could drop the typ argument.
+macro list_foreach_entry!(cur, head, typ, link, body) {
+    for ($cur = list_head_entry_!($head, $typ, $link);
+         &$cur->$link != &($head)->node;
+         $cur = list_next_entry_!($cur, $typ, $link)) {
+        $body
+    }
+}
+
+macro __LIST_HEAD_INIT!(name) {
+    list_node { next: &$name, prev: &$name }
+}
+macro LIST_HEAD_INIT!(name) {
+    list_head { node: __LIST_HEAD_INIT!($name.node) }
+}
+
+macro LIST_NODE!() {
+    list_node { next: null, prev: null }
+}
+
+
+fn __list_init_head(head: *list_node) {
+    head->next = head;
+    head->prev = head;
+}
+fn list_init_head(head: *list_head) { __list_init_head(&head->node) }
+
+fn list_init_node(head: *list_node) {
+    head->next = null;
+    head->prev = null;
+}
+
+fn __list_insert_between(n: *list_node, n1: *list_node, n2: *list_node) {
+    n->prev = n1;
+    n->next = n2;
+    n1->next = n;
+    n2->prev = n;
+
+    if (ptr_too_low!(n2->next)) {
+        printf!("%p %p\n", n2, n2->next); 
+    }
+    if (ptr_too_low!(n1->next)) {
+        printf!("%p %p\n", n1, n1->next); 
+    }
+    if (ptr_too_low!(n2->prev)) {
+        printf!("%p %p\n", n2, n2->prev); 
+    }
+    if (ptr_too_low!(n1->prev)) {
+        printf!("%p %p\n", n1, n1->prev); 
+    }
+
+
+    assert!(!(ptr_too_low!(n1)));
+    assert!(!(ptr_too_low!(n2)));
+    assert!(!(ptr_too_low!(n->next)));
+    assert!(!(ptr_too_low!(n->prev)));
+    assert!(!(ptr_too_low!(n1->next)));
+    assert!(!(ptr_too_low!(n1->prev)));
+    assert!(!(ptr_too_low!(n2->next)));
+    assert!(!(ptr_too_low!(n2->prev)));
+
+}
+
+fn list_insert_after(n_new: *list_node, n_old: *list_node) {
+    __list_insert_between(n_new, n_old, n_old->next);
+}
+fn list_insert_before(n_new: *list_node, n_old: *list_node) {
+    __list_insert_between(n_new, n_old->prev, n_old);
+}
+
+fn list_insert_head(node: *list_node, head: *list_head) {
+    list_insert_after(node, &head->node)
+}
+fn list_insert_tail(node: *list_node, head: *list_head) {
+    list_insert_before(node, &head->node)
+}
+
+fn in_list(node: *list_node) -> bool {
+    if (node->next == null) {
+        assert!(node->prev == null);
+        return false;
+    }
+    assert!(node->prev != null);
+    true
+}
+
+
+fn list_del(n: *list_node) {
+    assert!(!(ptr_too_low!(n)));
+    assert!(!(ptr_too_low!(n->next)));
+    assert!(!(ptr_too_low!(n->prev)));
+    n->next->prev = n->prev;
+    n->prev->next = n->next;
+    // To help catch bugs.
+    n->next = null as *list_node;
+    n->prev = null as *list_node;
+}
+
+fn __list_is_empty(n: *list_node) -> bool {
+    n->next == n
+}
+fn __list_is_singleton(n: *list_node) -> bool {
+    n->next == n->prev && n != n->next
+}
+fn list_is_empty(h: *list_head) -> bool { __list_is_empty(&h->node) }
+fn list_is_singleton(h: *list_head) -> bool { __list_is_singleton(&h->node) }
+

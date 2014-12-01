@@ -1,20 +1,64 @@
+/* mallot.mb:    
+ *
+ * Userspace slab allocator.  Based off of slab_alloc.mb in kernel.  Does not
+ * free slabs when done with them, does not allocate objects larger than a page.  
+ *
+ * You know that thing where a couple has their first child, and they love it and dote on
+ *  it and spend a lot of time making sure it's the best it can be?  And when
+ *  they have the second child, they don't bother to baby-proof the drawers and
+ *  make all the baby food by hand like they did with the previous one?  
+ *  And how by the third child, they really don't bother with any of that shit, 
+ *  and just let the child do whatever the fuck it wants, figuring it'll probably turn 
+ *  out ok?  This is sort of my feeling about our third memory allocator.  Except we 
+ *  didn't care that much about the first one to begin with.  This is the
+ *  extra-unloved memory allocator. 
+ *
+ * Author Amanda M. Watson
+*/
 use prelude::syslib::*;
 use prelude::shared::consts::*;
+use prelude::utils::list::*;
+use prelude::utils::stdlib::*;
+use prelude::rt_abort;
 
 // TODO why won't it let me set the end of the heap as a constant?
-//const HEAP_END: *u8 = 0xffffe000 as *u8; 
+static heap_end: *u8 = 0xffffe000 as *u8; 
 static heap_pointer: *u8 = 0x4001e000 as *u8;  
 
+const debug: bool = true;
+const SLAB_SIZE: u32 = PAGE_SIZE; 
+const UINT_SIZE: u32 = 4;
+const POWER_MIN: u32 = 2;
+const POWER_MAX: u32 = 9;
+
+
+struct slab_descriptor {
+    slab_low: *u32,
+    slab_link: list_node,
+}
+
+struct cache_head {
+size: u32,
+          slab: *u32,
+          link: list_node,
+          //mut: //kmut,
+          slab_list: list_head,
+}
+
+static head: list_head = LIST_HEAD_INIT!(head);
+static caches: *cache_head = null;
+
+
 /* finds an available page and allocates it */
-fn find_page() -> *u8 {
+fn find_page(num_pages: u32) -> *u8 {
 
     let heap_cur = heap_pointer;
     let ret: i32;
     while((heap_pointer-=PAGE_SIZE) != heap_cur) {
         if (heap_pointer < USER_MEM_START as *u8) {
-            heap_pointer = 0xffffe000 as *u8; 
+            heap_pointer = heap_end; 
         }    
-        if ((ret = new_pages(heap_pointer, PAGE_SIZE,
+        if ((ret = new_pages(heap_pointer, PAGE_SIZE * num_pages,
                         1024)) >= 0) {
             return heap_pointer;
         }
@@ -27,15 +71,166 @@ fn find_page() -> *u8 {
     null
 }
 
-struct mallot_node {
 
+fn slab_add(size: u32, cache: *cache_head) {
+    let slab: *u32 = find_page(1) as *u32;
+    if (slab == null) {
+        return ();
+    }
+
+    /* divide into elements */
+    let node_prev: *u32 = slab;
+    let i: u32;
+    for (i = size; i < (SLAB_SIZE); i+=size) {
+        let node: *u32 = ((node_prev as u32) + size) as *u32;
+        *node_prev = node as u32;
+        node_prev = node;
+    }
+    *node_prev = 0;
+    let node: *u32 = slab;
+    /* ensure that we have the correct number of elements and that they are each
+     * an offset of size away from each other */
+    i = 0;
+    while (node != null) {
+        assert!(!(*node - (node as u32) != size && *node != 0));
+
+        node = *node as *u32;
+        i+=1;
+    };
+
+    /* should divide evenly */
+    assert!(i == (SLAB_SIZE/size));
+    cache->slab = slab;
 
 }
 
-fn mallot(size: u32) -> *u8 {
-    null
+/* returns the index of the correct cache for the given size */
+fn find_cache(size: u32) -> i32 {
+    let power: u32;
+    for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
+        if (size <= (1 << power)) {
+            return (power - POWER_MIN) as i32;
+        }
+    }
+    -1
 }
 
-fn lib(element: *u8) {
+/* creates a cache with a single slab, full of size-sized elements
+ * We expect that size is a power of two
+ */
+fn cache_create(size: u32, cache: *cache_head) -> i32 {
+    cache->size = size;
+    list_init_head(&cache->slab_list);
+    //kmut_init(&cache->mut);
+    slab_add(size, cache);
+    if (cache->slab == null) {
+        return -1;
+    }
+    0
+}
+
+/* remove an element from the given cache.  if cache is empty, a new slab is
+ * allocated  */
+fn cache_remove (cache: *cache_head) -> *u32 {
+
+    //kmut_lock(&cache->mut);
+    if (cache->slab == null) {
+        slab_add(cache->size, cache);
+    }
+
+    let element: *u32 = cache->slab;
+    if (element != null) {
+        cache->slab = *element as *u32;
+
+    }
+    //kmut_unlock(&cache->mut);
+    element
+}
+
+fn is_in_cache(element: *u32, cache: *cache_head) -> bool {
+    let slab_node: *slab_descriptor = null;
+    let found: bool = false;
+    let i = 0;
+    list_foreach_entry!(slab_node, &(cache->slab_list), slab_descriptor,
+            slab_link, {
+           /* printf!("compare slab %p-%p to element %p\n", slab_node->slab_low,
+                ((slab_node->slab_low + SLAB_SIZE) as u32 -
+                 sizeof(slab_descriptor)) as *u8, element);*/
+            if (element >= slab_node->slab_low && element <=
+                ((((slab_node->slab_low  as *u8) +
+                   SLAB_SIZE) as u32) - sizeof(slab_descriptor)) as *u32) {
+            found = true;
+            break;
+            }i+=1;}); 
+    found
 
 }
+
+/* add element back into cache */
+fn cache_add (element: *u32, cache: *cache_head) {
+    /* TODO check memory bounds */
+    //kmut_lock(&cache->mut);
+    if (debug) {
+        let found = is_in_cache(element, cache);
+        if (!found) {
+
+            let power: u32; 
+            for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
+                if is_in_cache(element, &caches[power - POWER_MIN]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                printf!("element incorrectly sized\n");
+            } else {
+
+                printf!("not found\n");
+            }
+            assert!(false);
+        }
+    }
+
+    *element = cache->slab as u32;
+    cache->slab = element;
+    //kmut_unlock(&cache->mut);
+}
+
+fn mallot_init() {
+    // we are doing this sham of an allocation because we can't have a sized
+    // array as a global, due to the compiler's initialization requirement.
+    // Would like if fix.
+    caches = find_page(1) as *cache_head;
+    let i: u32;
+    for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
+        let cache = &caches[i - POWER_MIN];
+        cache_create(1 << i, cache);
+    }
+}
+
+/* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
+ * use find_page */
+fn mallot(size: u32) -> *u32 {
+
+    let cache_num: i32 = find_cache(size);
+    if (cache_num == -1) {
+        return null;
+    }
+    cache_remove(&(caches[cache_num as u32]))
+}
+
+fn lib(element: *u32, size: u32) {
+    return ();
+    mos_memset(element, 0xc, size);
+    if (size == 0) {
+        return ();
+    }
+
+    let cache_num: i32 = find_cache(size);
+    if (cache_num < 0) {
+        return ();
+    }
+    cache_add(element, &(caches[cache_num as u32]))
+}
+
+
