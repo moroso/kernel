@@ -354,3 +354,25 @@ fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
     0
 }
 
+fn yield(tid: u32) -> i32 {
+    let ret = -2;
+    if (tid != -1) {
+        let dest_tcb = tcb_lookup(tid);
+        if (dest_tcb == null || dest_tcb == get_tcb()) {
+            tcb_end_lookup(dest_tcb);
+            return -1;
+        }
+        let enable = scheduler_lock();
+        // if tcb is in run queue
+        if (dest_tcb->state == STATE_RUNNABLE) {
+            assert!(in_list(&dest_tcb->link));
+            list_del(&dest_tcb->link);
+            add_to_run_queue(dest_tcb, QUEUE_FRONT);
+            ret = 0;
+        }
+        scheduler_unlock(enable);
+        tcb_end_lookup(dest_tcb);
+    }
+    scheduler_update(-1);
+    ret
+}

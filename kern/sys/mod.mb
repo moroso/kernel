@@ -4,7 +4,7 @@ use shared::syscall_consts::*;
 use threadstuffs::repl::*;
 use threadstuffs::abscond::*;
 use threadstuffs::bide::*;
-use structures::schedule::get_tcb;
+use structures::schedule::{get_tcb, yield};
 use structures::tcb::*;
 use loader::perform::*;
 use ipc::*;
@@ -58,7 +58,7 @@ fn sys_init() {
     syscall!(INT_GET_TICKS, get_ticks);
     syscall!(INT_MAILBOX_NEW, mailbox_new);
     syscall!(INT_MAILBOX_FORWARD, mailbox_forward);
-
+    syscall!(INT_YIELD, yield);
 }
 
 
