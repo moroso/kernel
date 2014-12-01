@@ -45,12 +45,13 @@ fn run_server(mb_arg: *u8) {
     while (threads_dormant > 0) {
         yield(-1);
     }
-      
+   
     printf!("thread %d running server\n", get_tid());
-    // TODO wait until all other threads have woken
     while(file_server_active) {
         if (ipc_recv(&args) >= 0) {
             printf!("retrieved new status %d\n", status);
+            status = get_tid() as i32;
+            ipc_reply(null, 0, &status as *u32, sizeof(i32));
         }     
     }
     printf!("thread %d exiting server\n", get_tid());
@@ -124,8 +125,11 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         args.options = OPTION_NO_REPLY;
 
         if (status >= 0) {
-            file_server_active = true;
             atomic_add(&threads_dormant, num_threads);
+            // we set this before the server is truly active, but it's ok,
+            // because nothing will get sent to the mailbox until we end out the
+            // descriptor, which happens after the threads wake up
+            file_server_active = true;
         }
 
         // wake up child threads either with success (run server) or error
@@ -139,6 +143,12 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 
         // wake up thread waiting on given mailbox
         if (desc >= 0) {
+
+            // wait until server is fully active
+            while(threads_dormant > 0) {
+                yield(-1);
+            }
+            
             if (status < 0) {
 
                 args.options = OPTION_ASYNC;
