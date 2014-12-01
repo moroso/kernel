@@ -37,7 +37,6 @@ fn run_server(mb_arg: *u8) {
         abscond(-1);
     }
 
-    printf!("thread %d running server\n", get_tid());
     while(true) {}
 
 }
@@ -47,14 +46,19 @@ fn run_server(mb_arg: *u8) {
  * valid mailbox descriptor desc is specified, new server sends a message to the
  * mailbox with its descriptor.  Returns with error if threads or mailbox fail
  * to init
+ *
  * - num_threads: number of threads for new server.  All threads exit and server
- * sends failure to desc if all threads cannot be created
+ *   sends failure to desc if all threads cannot be created
  * - desc: a descriptor for the mailbox to which the server sends its status.
- * On error, it sends an error code.  Otherwise, it sends the descriptor for the
- * file server
+ *   On error, it sends an error code.  Otherwise, it sends the descriptor for the
+ *   file server
+ *
  * Returns error if repl fails, 0 otherwise.  
+ *
  * NOTE catching further errors requires sending a descriptor and waiting on
  * that mailbox for a status.
+ * NOTE if a valid descriptor desc is given but no thread ever waits on desc,
+ * server can fail to properly init (if async send fails)
 */
 
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
@@ -97,27 +101,31 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
             } 
         }
 
-        // wake up thread waiting on given mailbox
-        if (desc > 0) {
-            if (status >= 0) {
-                status = mb;
-            }
-            if (ipc_send(&args) == IPC_ERR_INTERNAL) {
-                args.timeout = 1; // polling TODO elim timeout?
-                args.options = OPTION_NO_REPLY;
-                ipc_send(&args); 
-            }
-        }
-
         assert!(mb >= 0);
         args.dest_id = mb as u32;
         args.options = OPTION_NO_REPLY;
-        args.timeout = -1; 
+
         // wake up child threads either with success (run server) or error
         // (abscond immediately)
+        // do this before the outside proc in case they attempt to wait on our
+        // mailbox and ruin everything 
         for (i = 0; i < num_threads; i+=1) {
             printf!("waking up thread %d\n", i);
             assert!(ipc_send(&args) >= 0);
+        }
+
+        // wake up thread waiting on given mailbox
+        if (desc > 0) {
+            args.dest_id = desc as u32;
+            args.options = OPTION_ASYNC;
+            if (status >= 0) {
+                status = mb;
+            }
+            // if async fails due to memory, send a synchronous message instead
+            if (ipc_send(&args) == IPC_ERR_INTERNAL) {
+                args.options = OPTION_NO_REPLY;
+                ipc_send(&args); 
+            }
         }
         printf!("exiting\n");
         abscond(status);
