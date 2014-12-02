@@ -2,6 +2,7 @@ use syslib::*;
 use shared::ipc_defs::*;
 use mallot::*;
 use file::*;
+use ipclib::*;
 
 /* checks the exit status of its children; if a child has exited with error,
  * exits with error as well */
@@ -29,6 +30,7 @@ fn main() -> i32 {
     printf!("file server init exited with status %d\n", file_server_init(5, mb));
     let fs_mb: i32 = -1;
     let args: ipc_args;
+    ipc_args_init(&args);
     args.dest_id = mb as u32;
     args.long_dest.len = 0;
     args.short_dest.len = sizeof(i32);

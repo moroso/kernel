@@ -175,7 +175,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
                     ipc_send(&args); 
                 }
             } else {
-                if (mailbox_forward(mb as u32, desc as u32) < 0) {
+                if (mailbox_forward(mb as u32, desc as u32, OPTION_ASYNC) < 0) {
                     // TODO handle err
                 }
             }
