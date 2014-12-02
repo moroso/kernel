@@ -21,7 +21,12 @@ static threads_dormant: u32 = 0; // number of threads needing wakeup
 
 /*** server code ***/
 
+/* code that each of the servers run, which processes requests.  We assume our
+ * clients are trustworthy enough to give us clean messages (but we don't need
+ * to trust */
 fn run_server(mb_arg: *u8) {
+
+    /*** setup ***/
     let mb = mb_arg as i32;
     assert!(mb >= 0);
     let status: i32 = -1;
@@ -41,10 +46,10 @@ fn run_server(mb_arg: *u8) {
     }
     printf!("thread %d waiting for wakeup\n", get_tid());
     atomic_add(&threads_dormant, -1);
-    assert!(threads_dormant >= 0);
     while (threads_dormant > 0) {
         yield(-1);
     }
+    assert!(threads_dormant >= 0);
    
     printf!("thread %d running server\n", get_tid());
 
@@ -54,12 +59,14 @@ fn run_server(mb_arg: *u8) {
     args.short_dest.addr = &message as *u8;
     while(file_server_active) {
         if (ipc_recv(&args) >= 0) {
+            // if message does no look like one, return an error
             if (args.short_dest.len != sizeof(file_message)) {
-                printf!("success\n");
+                status = -1;
             } else {
+
+                status = get_tid() as i32;
                 printf!("error\n");
             }
-            status = get_tid() as i32;
             ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
         }     
@@ -181,7 +188,6 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 
     0
 }
-
 
 
 /*** client code ***/

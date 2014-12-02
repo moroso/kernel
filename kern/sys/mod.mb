@@ -9,7 +9,7 @@ use structures::tcb::*;
 use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
-use structures::mailbox::{mailbox_new, mailbox_forward};
+use structures::mailbox::{mailbox_new, mailbox_forward, mailbox_remove};
 
 extern fn enable_interrupts();
 
@@ -59,6 +59,7 @@ fn sys_init() {
     syscall!(INT_MAILBOX_NEW, mailbox_new);
     syscall!(INT_MAILBOX_FORWARD, mailbox_forward);
     syscall!(INT_YIELD, yield);
+    syscall!(INT_MAILBOX_REMOVE, mailbox_remove);
 }
 
 

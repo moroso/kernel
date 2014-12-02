@@ -131,6 +131,9 @@ fn main() -> i32 {
         child_check(); 
         syslib::abscond(0);
     }
+
+		// TODO truncation 
+
     child_check(); 
 
     printf!("Everything I want to do is illegal :(\n");
