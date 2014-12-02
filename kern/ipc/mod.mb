@@ -1,7 +1,6 @@
 /* ipc/mod.mb
  * Contains implementation of ipc request primitives, send, recv and reply 
  * 
- * TODO return to sender how many bytes were copied?
  * Author: Amanda M. Watson
 */
 
