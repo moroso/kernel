@@ -38,18 +38,18 @@ fn main() -> i32 {
     printf!("mailbox: %d\n", fs_mb);
     
     let i: u32 = 0;
-    let response: i32 = -1;
+    let response: file_message;
     args.options = 0;
     args.dest_id = fs_mb as u32; 
     args.short_src.len = sizeof(u32);
     args.short_src.addr = &i as *u8;
-    args.short_dest.len = sizeof(i32);
+    args.short_dest.len = sizeof(file_message);
     args.short_dest.addr = &response as *u8;
     args.long_src.len = 0;
 
     for (i = 0; i < 1000; i+=1) {
         ipc_send(&args);
-        printf!("response %d\n", response);
+        printf!("response %d\n", args.short_dest.len);
     }
     syslib::abscond(1);
     0

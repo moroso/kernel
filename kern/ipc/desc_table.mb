@@ -76,6 +76,16 @@ fn mb_table_add(table: *mb_desc_table, mb: *mailbox_t) -> i32 {
     -1
 }
 
+fn mb_table_remove(table: *mb_desc_table, desc: u32) {
+    if (desc >= MB_TABLE_SIZE || desc < 0) {
+        return ();
+    }
+    kmut_lock(&table->mut); 
+    table->desc_table[desc] = null;    
+    kmut_unlock(&table->mut); 
+}
+
+
 // desc ref counts on all mailboxes in descriptor table.  free any that no
 // longer have a reference
 // NOTE if the only way references can be added is by repls and forwarding, we
