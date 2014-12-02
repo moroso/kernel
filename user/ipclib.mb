@@ -32,4 +32,8 @@ fn ipc_args_init(args: *ipc_args) {
 				args->options = IPC_OPTION_DEFAULT;
 }
 
+fn ipc_send_short() -> i32 {
+
+}
+
 
