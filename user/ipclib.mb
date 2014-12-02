@@ -1,0 +1,35 @@
+/* Some wrappers for ipc 
+ *
+ */
+
+use prelude::syslib::*;
+use prelude::shared::ipc_defs::*;
+
+/* TODO again with the not being able to make things const -- what is up with that? */
+static IPC_NO_ID: u32 = -1 as u32;
+static IPC_NO_LEN: u32 = 0;
+static IPC_NO_ADDR: *u8 = null;
+static IPC_NO_DESC: i32 = -1; 
+static IPC_NO_TIMEOUT: u32 = -1 as u32;
+static IPC_OPTION_DEFAULT: u32 = 0;
+
+// sets all args to default values 
+// message fields sent with default values will not have information read from
+// or written to them
+fn ipc_args_init(args: *ipc_args) {
+				args->dest_id = IPC_NO_ID;
+				args->long_src.len = IPC_NO_LEN;
+				args->long_src.addr = IPC_NO_ADDR;
+				args->long_dest.len = IPC_NO_LEN;
+				args->long_dest.addr = IPC_NO_ADDR;
+				args->short_src.len = IPC_NO_LEN;
+				args->short_src.addr = IPC_NO_ADDR;
+				args->short_dest.len = IPC_NO_LEN;
+				args->short_dest.addr = IPC_NO_ADDR;
+				args->desc_src = IPC_NO_DESC;
+				args->desc_dest = IPC_NO_DESC;
+				args->timeout = IPC_NO_TIMEOUT;
+				args->options = IPC_OPTION_DEFAULT;
+}
+
+

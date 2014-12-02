@@ -8,11 +8,15 @@ struct buffer_t {
 }
 
 struct ipc_args {
+    // TODO change to i32
     dest_id: u32,
     long_src: buffer_t,
     long_dest: buffer_t, 
     short_src: buffer_t,
     short_dest: buffer_t,
+    desc_src: i32,
+    desc_dest: i32,
+    // TODO change to i32
     timeout: u32,
     options: u32,
 }

@@ -324,7 +324,10 @@ fn mb_destroy(mb: *mailbox_t) {
     slub_free(mb as *u32, sizeof(mailbox_t));
 }
 
-/* removes entry for mailbox descriptor */
+/* removes entry for mailbox descriptor 
+ * NOTE probably should be called something else, since it removes a descriptor,
+ * not a mailbox
+ */
 fn mailbox_remove(desc: u32) {
     mb_table_remove(&(get_tcb()->proc->mb_desc), desc);
 }

@@ -121,7 +121,9 @@ fn yield(tid: u32) -> i32 {
     syscall_1(shared::syscall_consts::INT_YIELD, tid) as i32
 }
 
-/* removes mailbox descriptor */
+/* removes mailbox descriptor
+ *  NOTE should be called something different, as it does not remove a mailbox
+  */
 fn mailbox_remove(desc: u32) {
     syscall_1(shared::syscall_consts::INT_MAILBOX_REMOVE, desc);
 }
