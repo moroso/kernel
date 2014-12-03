@@ -237,7 +237,6 @@ fn ipc_send(args: *ipc_args) -> i32 {
             }
             kmut_2unlock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
             message_dest->long_dest.len = transfer_len;
-            args.long_src.len = transfer_len;
         } 
 
         /*** transfer short message and wake up receiver ***/
