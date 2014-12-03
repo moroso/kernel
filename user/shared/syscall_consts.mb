@@ -13,3 +13,4 @@ const INT_GET_TICKS: u32 = 13;
 const INT_MAILBOX_NEW: u32 = 14;
 const INT_YIELD: u32 = 16;
 const INT_MAILBOX_REMOVE: u32 = 17;
+const INT_REMOVE_PAGES: u32 = 18;

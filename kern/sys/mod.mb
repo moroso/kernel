@@ -59,6 +59,7 @@ fn sys_init() {
     syscall!(INT_MAILBOX_NEW, mailbox_new);
     syscall!(INT_YIELD, yield);
     syscall!(INT_MAILBOX_REMOVE, mailbox_remove);
+    syscall!(INT_REMOVE_PAGES, remove_pages);
 }
 
 

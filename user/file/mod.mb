@@ -265,3 +265,9 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
 
     response as i32
 }
+
+fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
+        u32, timeout : i32) -> i32 {
+
+    0
+}
