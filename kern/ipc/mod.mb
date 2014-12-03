@@ -35,6 +35,7 @@ struct message_node {
     mailbox_src: *mailbox_t,
     /* descriptor sent from destination */
     desc_dest: i32,
+    /* used by the sender to denote their option */
     options: u32,
     err: u32,
 }
@@ -221,6 +222,9 @@ fn ipc_send(args: *ipc_args) -> i32 {
          * the short message (this includes in the error cases)
          */
         let message_dest: *message_node = message_recv as *message_node;
+
+        message_dest->options = args_kern.options;
+
         if (mailbox_fwd != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
@@ -285,8 +289,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
  * - timeout: how many clock cycles a message should wait for receipt
  *    until it expires.  message is unable to timeout while being modified by
  *    ipc_send.  a timeout of -1 means the message does not expire
- * - option specifies whether long message is shared.  Sending options are
- *    ignored
+ * - option retrieves senders sending preferences 
  *
  * If the sender is already waiting, the invoking thread will
  * perform the transfer and wake up the sender; else, the sender performs
@@ -378,6 +381,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     // occurred; clean up and return
     if (dest_tcb == null) {
         // new length written into message (sender updates this length)
+        args_kern.options = message_send.options;
         args_kern.desc_dest = message_send.desc_dest;
         args_kern.long_dest.len = message_send.long_dest.len;
         args_kern.short_dest.len = args_kern.short_dest.len = min(args_kern.short_dest.len,
@@ -390,7 +394,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     } else {
         /* otherwise, we perform the transfer ourselves */
         let message_src: *message_node = message_recv as *message_node;
-
+        args_kern.options = message_src->options;
         if (message_src->mailbox_src != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
