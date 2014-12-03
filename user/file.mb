@@ -6,6 +6,7 @@ use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
 use prelude::utils::asm::*;
+use prelude::ipclib::*;
 
 const NAME_MAX: u32 = 400;
 const SERVER_ID: u32 = 5;
@@ -101,6 +102,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     let status: i32 = 0;
     /* for sending a status to a descriptor */
     let args: ipc_args;
+    ipc_args_init(&args);
     args.dest_id = desc as u32;
     args.long_src.len = 0;
     args.short_src.len = sizeof(i32);
@@ -155,7 +157,11 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         // mailbox and ruin everything 
         for (i = 0; i < num_threads; i+=1) {
             printf!("waking up thread %d\n", i);
-            assert!(ipc_send(&args) >= 0);
+            let ret = ipc_send(&args);
+            if (ret < 0) {
+                printf!("%d\n", ret);
+            }
+            assert!(ret >= 0);
         }
 
         // wake up thread waiting on given mailbox
@@ -175,7 +181,8 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
                     ipc_send(&args); 
                 }
             } else {
-                if (mailbox_forward(mb as u32, desc as u32, OPTION_ASYNC) < 0) {
+                if (ipc_forward_mb(desc as u32, mb as u32, null, null,
+                            true, -1) < 0) {
                     // TODO handle err
                 }
             }

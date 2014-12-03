@@ -26,11 +26,11 @@ fn child_check() {
 
 fn main() -> i32 {
     let mb = mailbox_new();
+    printf!("MB %d\n", mb);
     assert!(mb >= 0);
     printf!("file server init exited with status %d\n", file_server_init(5, mb));
-    let fs_mb: u32 = -1;
-    let mb_len: u32 = sizeof(u32);
-    ipc_recv_all(mb as u32, null, null, &fs_mb as *u8, &mb_len, null, -1, null);
+    let fs_mb: i32 = -1;
+    ipc_recv_all(mb as u32, null, null, null, null, &fs_mb, -1, null);
     printf!("mailbox: %d\n", fs_mb);
 
     let i: u32 = 0;

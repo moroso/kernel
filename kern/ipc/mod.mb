@@ -31,6 +31,10 @@ struct message_node {
     long_src: buffer_t,
     long_dest: buffer_t, 
     short_src: buffer_t,
+    /* mailbox being sent to destination */
+    mailbox_src: *mailbox_t,
+    /* descriptor sent from destination */
+    desc_dest: i32,
     options: u32,
     err: u32,
 }
@@ -98,6 +102,9 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }
 
     let shared: u32 = args_kern.options&OPTION_SHARE;
+    /* the mailbox being forwarded to the destination */
+    let mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
+            u32);
 
     /* if the message is short and needs a reply (meaning we're asleep until the
      * receiver copies us to userspace), place a manageable short message on the
@@ -150,7 +157,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     if dest_mb == null {
         return IPC_ERR_DEST;
-    }
+    } 
 
     /*** create message that relays ipc info to receiver ***/
     let message_send: message_node;
@@ -159,6 +166,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     message_send.short_src.addr = short_message as *u8;
     message_send.short_src.len = args_kern.short_src.len;
     message_send.options = args_kern.options; 
+    message_send.mailbox_src = mailbox_fwd; 
 
     let message_recv: *u8;
     let recv_len: u32;
@@ -213,6 +221,11 @@ fn ipc_send(args: *ipc_args) -> i32 {
          * the short message (this includes in the error cases)
          */
         let message_dest: *message_node = message_recv as *message_node;
+        if (mailbox_fwd != null) {
+            let proc_dest = dest_tcb->proc;
+            assert!(proc_dest != null);
+            message_dest->desc_dest = desc_table::mb_table_add(&proc_dest->mb_desc, mailbox_fwd);
+        }
         if (message_dest->long_dest.len > 0) {
 
             assert!(dest_tcb != null);
@@ -365,6 +378,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     // occurred; clean up and return
     if (dest_tcb == null) {
         // new length written into message (sender updates this length)
+        args_kern.desc_dest = message_send.desc_dest;
         args_kern.long_dest.len = message_send.long_dest.len;
         args_kern.short_dest.len = args_kern.short_dest.len = min(args_kern.short_dest.len,
                 recv_len);
@@ -376,6 +390,16 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     } else {
         /* otherwise, we perform the transfer ourselves */
         let message_src: *message_node = message_recv as *message_node;
+
+        if (message_src->mailbox_src != null) {
+            let proc_dest = dest_tcb->proc;
+            assert!(proc_dest != null);
+            args_kern.desc_dest =
+                desc_table::mb_table_add(&(get_tcb()->proc->mb_desc),
+                        message_src->mailbox_src);
+        }
+
+
         let transfer_len = min!(message_src->long_src.len, args_kern.long_dest.len);
         if (transfer_len > 0) {
             assert!(send_option != SEND_ASYNC);
