@@ -481,7 +481,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
  *   if long_len is 0.  
  * - message_short: address of short message to send to receiver. 
  * - short_len: maximum length of short message.  message_short is ignored if short_len
- * is 0.
+ *   is 0.
  *
  * Returns 0 on success, negative error code of failure.  
  *
@@ -526,24 +526,10 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
 
     let message_src: *message_node = last_send->message as *message_node;
 
+    let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, &(last_send->tcb->proc->PD),
+            message_src->long_dest.addr, message_src->long_dest.len, 0);
 
-    if (message_src->long_dest.len > 0) {
-
-        let transfer_len = min!(message_src->long_dest.len, long_len);
-        kmut_2lock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
-        let page: u32;
-        for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
-            if (page_transfer(message_long + page,
-                        message_src->long_dest.addr + page,
-                        &(get_tcb()->proc->PD),
-                        &(last_send->tcb->proc->PD), 0) < 0) {
-                transfer_len = max(0, page - PAGE_SIZE);
-                break;
-            }
-        }
-        kmut_2unlock(&(get_tcb()->proc->PD.mut), &(last_send->tcb->proc->PD.mut));
-
-    }
+    message_src->long_dest.len = transfer_len;
 
     let message_kernel = null;
     if (short_len > 0) {

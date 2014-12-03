@@ -17,6 +17,7 @@ struct file_message {
     name: u8[NAME_MAX],
     request_type: u32,
     buffer_len: u32,
+    file_offset: u32,
 }
 
 // number of pages file buffer can store
@@ -46,7 +47,7 @@ fn run_server(mb_arg: *u8) {
     let mb = mb_arg as i32;
     assert!(mb >= 0);
     let status: i32 = -1; 
-   
+
     assert!(ipc_recv_i32(mb as u32, &status, -1, null) >= 0);
     if (status < 0) {
         printf!("err %d\n", get_tid());
@@ -59,7 +60,7 @@ fn run_server(mb_arg: *u8) {
         yield(-1);
     }
     assert!(threads_dormant >= 0);
-  
+
     atomic_add(&threads_active, 1); 
     printf!("thread %d running server\n", get_tid());
 
@@ -224,6 +225,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 
 
 /*** client code ***/
+
 /* send a new file name and some data to start the new file.  returns with error
  * if ipc fails, or if the file already exists */
 fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i32) -> i32 {
@@ -248,7 +250,7 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
             sizeof(file_message), null, null, &response as *u8, &response_size, timeout, true);
 
-    if (ret < 0 || response_size < sizeof(u32)) {
+    if (ret < 0 || (response_size < sizeof(u32))) {
         return ret;
     }
 
