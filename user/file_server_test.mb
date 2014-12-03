@@ -33,14 +33,16 @@ fn main() -> i32 {
     ipc_recv_all(mb as u32, null, null, null, null, &fs_mb, -1, null);
     printf!("mailbox: %d\n", fs_mb);
 
-    let i: u32 = 0;
-    let response: file_message;
-    let response_size = sizeof(file_message);
-
+    let request: file_message;
+    let request_size = sizeof(file_message);
+    let response: u32 = -1;
+    let response_size: u32 = sizeof(u32);
+    let i: u32;
     for (i = 0; i < 1000; i+=1) {
-        ipc_send_short(fs_mb as u32, &i as *u8, sizeof(u32), &response as *u8,
-                &response_size, false, -1);
-        printf!("received %d of length %d\n", *(&response as *u32), response_size);
+        let new_file = find_pages(1);
+        assert!(new_file != null);
+        printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
+                    new_file, 4096, -1));
     }
     syslib::abscond(1);
     0

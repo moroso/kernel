@@ -7,6 +7,8 @@ use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
 use prelude::utils::asm::*;
 use prelude::ipclib::*;
+use prelude::shared::consts::PAGE_SIZE;
+use prelude::mallot::*;
 
 const NAME_MAX: u32 = 400;
 const SERVER_ID: u32 = 5;
@@ -16,6 +18,18 @@ struct file_message {
     request_type: u32,
     buffer_len: u32,
 }
+
+// number of pages file buffer can store
+static FILE_BUFFER_PAGES: u32 = 3;
+// number of bytes in buffer
+static FILE_BUFFER_MAX: u32 = 3 * PAGE_SIZE;
+
+/* file system request types */
+const FILE_CREATE: u32 = 0;
+const FILE_APPEND: u32 = 1;
+const FILE_DELETE: u32 = 2;
+const FILE_READ: u32 = 3;
+const FILE_WRITE: u32 = 4;
 
 static file_server_active: bool = true;
 static threads_dormant: u32 = 0; // number of threads needing wakeup
@@ -30,16 +44,9 @@ fn run_server(mb_arg: *u8) {
     /*** setup ***/
     let mb = mb_arg as i32;
     assert!(mb >= 0);
-    let status: i32 = -1;
-
-    let args: ipc_args;
-    args.dest_id = mb as u32;
-    args.long_dest.len = 0;
-    args.short_dest.len = sizeof(i32);
-    args.short_dest.addr = &status as *u8; 
-    args.timeout = -1;
+    let status: i32 = -1; 
    
-    assert!(ipc_recv(&args) >= 0);
+    assert!(ipc_recv_i32(mb as u32, &status, -1, null) >= 0);
     if (status < 0) {
         printf!("err %d\n", get_tid());
         file_server_active = false;
@@ -55,18 +62,32 @@ fn run_server(mb_arg: *u8) {
     printf!("thread %d running server\n", get_tid());
 
     /*** active server code ***/
-    let message: file_message;
-    args.short_dest.len = sizeof(file_message);
-    args.short_dest.addr = &message as *u8;
+
+    let request_message: file_message;
+    let request_size: u32 = sizeof(file_message);
+    // used for storing files
+    let file_buffer: *u8 = find_pages(FILE_BUFFER_PAGES);
+    let file_buffer_len: u32;
+
+    // if there isn't enough OS mem or address space to allocate a buffer, this
+    // thread is probably the least of our problems.  Lets just exit
+    // TODO facility for keeping track of number of active threads
+    if (file_buffer == null) {
+        abscond(-1);
+    }
+
     while(file_server_active) {
-        if (ipc_recv(&args) >= 0) {
-            // if message does no look like one, return an error
-            if (args.short_dest.len != sizeof(file_message)) {
+        // reset the buffer length to its max
+        file_buffer_len = FILE_BUFFER_MAX;
+
+        if (ipc_recv_long(mb as u32, file_buffer, &file_buffer_len, &request_message as *u8,
+                    &request_size, -1, null) >= 0) {
+            // in theory, a proxy server is sanitizing things, but
+            // if message does not look like a request, return an error
+            if (request_size != sizeof(file_message)) {
                 status = -1;
             } else {
-
-                status = get_tid() as i32;
-                printf!("error\n");
+                status = file_buffer_len as i32;
             }
             ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
@@ -110,7 +131,8 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     args.timeout = -1;
     args.options = OPTION_ASYNC;
 
-    /* creating file server proc */
+    /* creating file server proc (ensures file server has its own descriptors
+     * and address space) */
     let ret = repl();
     if (ret < 0) {
         return -1;
@@ -200,25 +222,31 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 /*** client code ***/
 /* send a new file name and some data to start the new file.  returns with error
  * if ipc fails, or if the file already exists */
-fn create(name: *u8, buffer: *u8, buffer_len: u32) -> i32 {
+fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i32) -> i32 {
     if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
         return -1;
     }
     // TODO sanitize name input
     let message: file_message;
-    let status_buffer: u32[5];
+    message.request_type = FILE_CREATE;
     let len = strncpy(&(message.name)[0], name, NAME_MAX);
     assert!(len <= NAME_MAX); 
-    let args: ipc_defs::ipc_args;
-    args.dest_id = SERVER_ID; 
-    args.long_src.addr = buffer;
-    // round up
-    args.long_src.len = len + (len%4096);
-    args.short_src.addr = &message as *u8;
-    args.short_src.len = sizeof(file_message);
-    args.long_dest.len = 0;
-    args.short_dest.addr = &status_buffer[0] as *u8;
-    args.short_dest.len = sizeof(u32) * 5;
+    message.buffer_len = buffer_len;
+    let response: u32;
+    let response_size: u32 = sizeof(u32);
 
-    0
+    /* round up long message so it's a multiple of a page.  we only copy in
+     * buffer_len bytes */
+    let long_message_len = buffer_len;
+    if (buffer_len%PAGE_SIZE != 0) {
+        long_message_len = buffer_len + (PAGE_SIZE - buffer_len%PAGE_SIZE);   
+    } 
+    let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
+            sizeof(file_message), null, null, &response as *u8, &response_size, timeout, true);
+
+    if (ret < 0 || response_size < sizeof(u32)) {
+        return ret;
+    }
+
+    response as i32
 }

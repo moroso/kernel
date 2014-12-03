@@ -32,6 +32,54 @@ fn ipc_args_init(args: *ipc_args) {
     args->options = IPC_OPTION_DEFAULT;
 }
 
+
+fn ipc_send_long(mb: u32, long_src: *u8, long_src_len: u32, short_src: *u8,
+        short_src_len: u32, long_dest: *u8, long_dest_len: *u32, short_dest:
+        *u8, short_dest_len: *u32, timeout: i32, shared: bool) -> i32 {
+
+    let args: ipc_args;
+    ipc_args_init(&args);
+    args.dest_id = mb;
+    args.long_src.addr = long_src;
+    args.long_src.len = long_src_len;
+    args.short_src.addr = short_src;
+    args.short_src.len = short_src_len;
+    args.options = OPTION_NO_REPLY;
+
+    if (long_dest_len != null) {
+        args.long_dest.addr = long_dest;
+        args.long_dest.len = *long_dest_len;
+        if (*long_dest_len != 0) {
+            args.options = IPC_OPTION_DEFAULT;
+        }
+    }
+    if (short_dest_len != null) {
+        args.short_dest.addr = short_dest;
+        args.short_dest.len = *short_dest_len;
+        if (*short_dest_len != 0) {
+            args.options = IPC_OPTION_DEFAULT;
+        }
+
+    }
+
+    args.timeout = timeout as u32;
+    
+    if (shared) {
+        args.options|=OPTION_SHARE;
+    }
+    let ret = ipc_send(&args);
+    
+    if (ret >= 0) {
+        if (long_dest_len != null) {
+            *long_dest_len = args.long_dest.len;
+        }
+        if (short_dest_len != null) {
+            *short_dest_len = args.short_dest.len;
+        }
+    }
+    ret
+}
+
 fn ipc_send_short(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len: *u32,
         async: bool, timeout: i32) -> i32 {
 
@@ -92,6 +140,18 @@ fn ipc_forward_mb(mb: u32, desc: u32, dest_addr: *u8, dest_len: *u32, async: boo
         }
     }
     ret
+}
+
+fn ipc_recv_i32(mb: u32, dest_i32: *i32, timeout: i32, reply_needed: *bool) -> i32 {
+    let resp_max: u32 = sizeof(u32);
+    ipc_recv_all(mb, null, null, dest_i32 as *u8, &resp_max, null, timeout,
+            reply_needed)
+}
+
+fn ipc_recv_long(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_len: *u32, 
+        timeout: i32, reply_needed: *bool) -> i32 {
+    ipc_recv_all(mb, long_addr, long_len, short_addr, short_len, null, -1,
+            reply_needed)
 }
 
 fn ipc_recv_all(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_len: *u32,
