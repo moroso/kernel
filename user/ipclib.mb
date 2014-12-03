@@ -35,7 +35,6 @@ fn ipc_args_init(args: *ipc_args) {
 fn ipc_send_short(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len: *u32,
         async: bool, timeout: i32) -> i32 {
 
-
     let args: ipc_args;
     ipc_args_init(&args);
     args.dest_id = mb;
@@ -62,6 +61,12 @@ fn ipc_send_short(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len
     }
 
     ret
+}
+
+fn ipc_send_i32(mb: u32, src_i32: *i32, dest_addr: *u8, dest_len: *u32, async:
+        bool, timeout: i32) -> i32 {
+    ipc_send_short(mb, src_i32 as *u8, sizeof(i32), dest_addr, dest_len, async,
+            timeout)
 }
 
 fn ipc_forward_mb(mb: u32, desc: u32, dest_addr: *u8, dest_len: *u32, async: bool,
@@ -115,7 +120,13 @@ fn ipc_recv_all(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_
             *desc = args.desc_dest;
         }
         if (reply_needed != null) {
-            // TODO options for reply_needed
+            if (args.options&OPTION_ASYNC == 0 &&
+                    args.options&OPTION_NO_REPLY == 0) {
+
+                *reply_needed = false;
+            } else {
+                *reply_needed = true;
+            }
         }
     }
 
