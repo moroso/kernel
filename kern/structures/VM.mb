@@ -472,11 +472,15 @@ fn PD_entries_destroy(entries: **u32) {
 // TODO locks, management of regions
 fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
     len-=1;
-    if (((addr as u32) + len) < addr as u32) {
-        return -1
+    let addr_start = addr;
+    let addr_end = (addr + len) as *u8;
+    if (!(is_user_addr(addr_start) && is_user_addr(addr_end))) {
+        return -1;
     }
+
+
     kmut_lock(&(get_tcb()->proc->PD.mut));
-    let ret = new_user_range(addr, ((addr as u32) + len) as *u8, &(get_tcb()->proc->PD), READ_WRITE_BIT,
+    let ret = new_user_range(addr_start, addr_end, &(get_tcb()->proc->PD), READ_WRITE_BIT,
             size);
     kmut_unlock(&(get_tcb()->proc->PD.mut));
     ret

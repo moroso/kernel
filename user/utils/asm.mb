@@ -1,1 +1,1 @@
-extern fn atomic_add(val: *u32, inc_val: u32);
+extern fn atomic_add(val: *u32, inc_val: u32) -> i32;

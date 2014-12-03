@@ -9,12 +9,12 @@ use prelude::utils::asm::*;
 use prelude::ipclib::*;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
+mod file_system;
 
-const NAME_MAX: u32 = 400;
 const SERVER_ID: u32 = 5;
 
 struct file_message {
-    name: u8[NAME_MAX],
+    name: u8[file_system::NAME_MAX],
     request_type: u32,
     buffer_len: u32,
     file_offset: u32,
@@ -61,8 +61,8 @@ fn run_server(mb_arg: *u8) {
     }
     assert!(threads_dormant >= 0);
 
-    atomic_add(&threads_active, 1); 
     printf!("thread %d running server\n", get_tid());
+    atomic_add(&threads_active, 1); 
 
     /*** active server code ***/
 
@@ -92,7 +92,15 @@ fn run_server(mb_arg: *u8) {
             if (request_size != sizeof(file_message)) {
                 status = -1;
             } else {
-                status = file_buffer_len as i32;
+                if (request_message.request_type == FILE_CREATE) {
+                    let name = &request_message.name[0]; 
+                    status = file_system::fs_file_new(&request_message.name[0],
+                            file_buffer,
+                            file_buffer_len); 
+                } else if (request_message.request_type == FILE_READ) {
+
+                }
+
             }
             ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
@@ -229,15 +237,16 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 /* send a new file name and some data to start the new file.  returns with error
  * if ipc fails, or if the file already exists */
 fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i32) -> i32 {
-    if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
+    if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
         return -1;
     }
     // TODO sanitize name input
     let message: file_message;
     message.request_type = FILE_CREATE;
-    let len = strncpy(&(message.name)[0], name, NAME_MAX);
-    assert!(len <= NAME_MAX); 
+    let len = strncpy(&(message.name)[0], name, file_system::NAME_MAX);
+    assert!(len <= file_system::NAME_MAX); 
     message.buffer_len = buffer_len;
+    message.file_offset = 0;
     let response: u32;
     let response_size: u32 = sizeof(u32);
 
