@@ -10,7 +10,6 @@ fn child_check() {
     let status: i32 = 0;
     let ret: i32;
     while ((ret = syslib::bide(&status)) >= 0) {
-        printf!("RET %d\n", ret);
         if status < 0 {
             printf!("***ERROR***");
             syslib::abscond(-1);
@@ -26,6 +25,7 @@ fn child_check() {
 
 fn main() -> i32 {
     let mb = mailbox_new();
+    mallot_init();
     printf!("MB %d\n", mb);
     assert!(mb >= 0);
     printf!("file server init exited with status %d\n", file_server_init(5, mb));
@@ -38,11 +38,12 @@ fn main() -> i32 {
     let response: u32 = -1;
     let response_size: u32 = sizeof(u32);
     let i: u32;
+    
+    let new_file = find_pages(1);
+    printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
+                new_file, 4096, -1));
     for (i = 0; i < 1000; i+=1) {
-        let new_file = find_pages(1);
-        assert!(new_file != null);
-        printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
-                    new_file, 4096, -1));
+
     }
     syslib::abscond(1);
     0

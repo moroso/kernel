@@ -48,6 +48,9 @@ fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
         addr_dest: *u8, len_dest: u32, shared: u32) -> u32 {
     /*** transfer long message ***/
     let transfer_len = min!(len_src, len_dest);
+    if (transfer_len == 0) {
+        return 0;
+    }
     kmut_2lock(&(PD_src->mut), &(PD_dest->mut));
 
     let page: u32;
@@ -166,7 +169,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     /* ensures short message is smaller than page */
     if (args_kern.short_src.len > PAGE_SIZE) {
-        
+
         return IPC_ERR_ARGS;
     }
 
@@ -438,7 +441,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             kmut_2unlock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
 
         }
-        
+
         args_kern.short_dest.len = min(args_kern.short_dest.len,
                 message_src->short_src.len);
         args_kern.long_dest.len = transfer_len;
@@ -526,9 +529,9 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
 
     let message_src: *message_node = last_send->message as *message_node;
 
+    /* long message transfer */
     let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, &(last_send->tcb->proc->PD),
             message_src->long_dest.addr, message_src->long_dest.len, 0);
-
     message_src->long_dest.len = transfer_len;
 
     let message_kernel = null;
