@@ -28,30 +28,19 @@ fn main() -> i32 {
     let mb = mailbox_new();
     assert!(mb >= 0);
     printf!("file server init exited with status %d\n", file_server_init(5, mb));
-    let fs_mb: i32 = -1;
-    let args: ipc_args;
-    ipc_args_init(&args);
-    args.dest_id = mb as u32;
-    args.long_dest.len = 0;
-    args.short_dest.len = sizeof(i32);
-    args.short_dest.addr = &fs_mb as *u8;
-    args.timeout = -1;
-    ipc_recv(&args);
+    let fs_mb: u32 = -1;
+    let mb_len: u32 = sizeof(u32);
+    ipc_recv_all(mb as u32, null, null, &fs_mb as *u8, &mb_len, null, -1, null);
     printf!("mailbox: %d\n", fs_mb);
-    
+
     let i: u32 = 0;
     let response: file_message;
-    args.options = 0;
-    args.dest_id = fs_mb as u32; 
-    args.short_src.len = sizeof(u32);
-    args.short_src.addr = &i as *u8;
-    args.short_dest.len = sizeof(file_message);
-    args.short_dest.addr = &response as *u8;
-    args.long_src.len = 0;
+    let response_size = sizeof(file_message);
 
     for (i = 0; i < 1000; i+=1) {
-        ipc_send(&args);
-        printf!("response %d\n", args.short_dest.len);
+        ipc_send_short(fs_mb as u32, &i as *u8, sizeof(u32), &response as *u8,
+                &response_size, false, -1);
+        printf!("received %d of length %d\n", *(&response as *u32), response_size);
     }
     syslib::abscond(1);
     0
