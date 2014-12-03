@@ -63,33 +63,7 @@ fn mailbox_new() -> i32 {
     let ret: i32 = mb_init(mb, get_tcb()->proc);
     ret
 }
-/* mailbox_forward: creates a mailbox descriptor for the mailbox pointed to by
- * desc_src (in the invoking proc) in the proc that owns desc_dest. Invoking
- * proc must have entries for both descriptors.  
- *
- * - desc_src: the mailbox being added to the dest descriptor table.  invoking
- *   proc does not need to own this mailbox, but should be able to look it up in
- *   the table.  
- * - desc_dest: the descriptor to the mailbox where the descriptor is being
- *   sent.  Since all receivers belong to the same proc, the new descriptor is
- *   added to the owner's table
- * 
- * Returns 0 on success, a negative error code otherwise.  Returns err if either
- * descriptor lookup fails, or if adding to the dest table fails.
-*/
-fn mailbox_forward(desc_src: u32, desc_dest: u32) -> i32 {
-    let mb_src = mb_desc_lookup(desc_src);
-    let mb_dest = mb_desc_lookup(desc_dest);
-    if (mb_dest == null) {
-        return MB_ERR_DEST;
-    } 
-    if (mb_src == null) {
-        return MB_ERR_OWNER;
-    }
-    let proc_dest = mb_dest->owner;
-    assert!(proc_dest != null);
-    mb_table_add(&proc_dest->mb_desc, mb_src)  
-}
+
 
 /* create mailbox, add own proc as owner, add to desc table.
  * returns error if there is no room to add the descriptor
