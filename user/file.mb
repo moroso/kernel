@@ -33,6 +33,7 @@ const FILE_WRITE: u32 = 4;
 
 static file_server_active: bool = true;
 static threads_dormant: u32 = 0; // number of threads needing wakeup
+static threads_active: u32 = 0; // number of active threads in server
 
 /*** server code ***/
 
@@ -58,7 +59,8 @@ fn run_server(mb_arg: *u8) {
         yield(-1);
     }
     assert!(threads_dormant >= 0);
-   
+  
+    atomic_add(&threads_active, 1); 
     printf!("thread %d running server\n", get_tid());
 
     /*** active server code ***/
@@ -71,8 +73,10 @@ fn run_server(mb_arg: *u8) {
 
     // if there isn't enough OS mem or address space to allocate a buffer, this
     // thread is probably the least of our problems.  Lets just exit
-    // TODO facility for keeping track of number of active threads
+    // TODO there should probably be some sort of protocol in case the server is
+    // active but there are no active threads 
     if (file_buffer == null) {
+        atomic_add(&threads_active, -1); 
         abscond(-1);
     }
 
