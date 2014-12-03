@@ -11,7 +11,7 @@ use locks::mutex::*;
 use locks::cond::*;
 use consts::STATE_DEAD;
 use structures::schedule::*;
-use structures::VM::{is_user_addr, page_transfer, log_to_phys, is_addr_aligned};
+use structures::VM::{PD_t, is_user_addr, page_transfer, log_to_phys, is_addr_aligned};
 use locks::rendezvous::*;
 use consts::*;
 use utils::stdlib::*;
@@ -42,6 +42,29 @@ struct message_node {
 
 // size of buffer we're willing to put on the stack for short messages
 const SHORT_BUFFER_MAX: u32 = 200;
+
+/* places long message in destination PD, returns length transferred */
+fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
+        addr_dest: *u8, len_dest: u32, shared: u32) -> u32 {
+    /*** transfer long message ***/
+    let transfer_len = min!(len_src, len_dest);
+    kmut_2lock(&(PD_src->mut), &(PD_dest->mut));
+
+    let page: u32;
+    for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+        if (page_transfer(addr_src + page,
+                    addr_dest + page,
+                    PD_src,
+                    PD_dest, shared) < 0) {
+            transfer_len = max(0, page - PAGE_SIZE);
+            break;
+        }
+    }
+    kmut_2unlock(&(PD_src->mut), &(PD_dest->mut));
+
+    transfer_len
+}
+
 
 /* ipc_send: sends a long and/or short message to an active recipiant
  * arguments are passed in the form of the 'args' struct: 
@@ -79,9 +102,9 @@ const SHORT_BUFFER_MAX: u32 = 200;
  * args are altered to denote how much was copied to the specified buffers.
  * Note that message transfers might still be successful, even if a negative
  * error code is returned
-*/
+ */
 fn ipc_send(args: *ipc_args) -> i32 {
-    
+
     /* copying arguments into the kernel */   
     let args_kern: ipc_args;
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
@@ -143,6 +166,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     /* ensures short message is smaller than page */
     if (args_kern.short_src.len > PAGE_SIZE) {
+        
         return IPC_ERR_ARGS;
     }
 
@@ -239,20 +263,11 @@ fn ipc_send(args: *ipc_args) -> i32 {
             assert!(proc_recv != null);
 
             /*** transfer long message ***/
-            let transfer_len = min!(args_kern.long_src.len, message_dest->long_dest.len);
-            kmut_2lock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
+            let transfer_len = transfer_long(&(get_tcb()->proc->PD),
+                    args_kern.long_src.addr, args_kern.long_src.len, &(proc_recv->PD),
+                    message_dest->long_dest.addr,
+                    message_dest->long_dest.len, shared);
 
-            let page: u32;
-            for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
-                if (page_transfer(args_kern.long_src.addr + page,
-                            message_dest->long_dest.addr + page,
-                            &(get_tcb()->proc->PD),
-                            &(proc_recv->PD), shared) < 0) {
-                    transfer_len = max(0, page - PAGE_SIZE);
-                    break;
-                }
-            }
-            kmut_2unlock(&(get_tcb()->proc->PD.mut), &(proc_recv->PD.mut));
             message_dest->long_dest.len = transfer_len;
         } 
 
@@ -420,12 +435,14 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     break;
                 }
             }
-            args_kern.long_dest.len = transfer_len;
             kmut_2unlock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
 
         }
+        
         args_kern.short_dest.len = min(args_kern.short_dest.len,
                 message_src->short_src.len);
+        args_kern.long_dest.len = transfer_len;
+
         if (copy_to_user((args_kern.short_dest.addr),
                     message_src->short_src.addr as *u8,
                     args_kern.short_dest.len) <

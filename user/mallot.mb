@@ -50,7 +50,7 @@ static caches: *cache_head = null;
 
 
 /* finds an available page and allocates it */
-fn find_page(num_pages: u32) -> *u8 {
+fn find_pages(num_pages: u32) -> *u8 {
 
     let heap_cur = heap_pointer;
     let ret: i32;
@@ -73,7 +73,7 @@ fn find_page(num_pages: u32) -> *u8 {
 
 
 fn slab_add(size: u32, cache: *cache_head) {
-    let slab: *u32 = find_page(1) as *u32;
+    let slab: *u32 = find_pages(1) as *u32;
     if (slab == null) {
         return ();
     }
@@ -200,7 +200,7 @@ fn mallot_init() {
     // we are doing this sham of an allocation because we can't have a sized
     // array as a global, due to the compiler's initialization requirement.
     // Would like if fix.
-    caches = find_page(1) as *cache_head;
+    caches = find_pages(1) as *cache_head;
     let i: u32;
     for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
         let cache = &caches[i - POWER_MIN];
@@ -209,7 +209,7 @@ fn mallot_init() {
 }
 
 /* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
- * use find_page */
+ * use find_pages */
 fn mallot(size: u32) -> *u32 {
 
     let cache_num: i32 = find_cache(size);
