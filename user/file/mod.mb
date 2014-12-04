@@ -102,6 +102,7 @@ fn run_server(mb_arg: *u8) {
                 }
 
             }
+            remove_pages(file_buffer, file_buffer_len);
             ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
         }     

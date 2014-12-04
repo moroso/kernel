@@ -40,10 +40,10 @@ fn main() -> i32 {
     let i: u32;
     
     let new_file = find_pages(1);
-    printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
-                new_file, 4096, -1));
+    
     for (i = 0; i < 1000; i+=1) {
-
+        printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
+                    new_file, 4096, -1));
     }
     syslib::abscond(1);
     0
