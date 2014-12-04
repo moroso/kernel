@@ -25,7 +25,7 @@ use prelude::rt_abort;
 static heap_end: *u8 = 0xffffe000 as *u8; 
 static heap_pointer: *u8 = 0x4001e000 as *u8;  
 
-const debug: bool = true;
+const debug: bool = false;
 const SLAB_SIZE: u32 = PAGE_SIZE; 
 const UINT_SIZE: u32 = 4;
 const POWER_MIN: u32 = 2;
@@ -220,7 +220,6 @@ fn mallot(size: u32) -> *u32 {
 }
 
 fn lib(element: *u32, size: u32) {
-    return ();
     mos_memset(element, 0xc, size);
     if (size == 0) {
         return ();

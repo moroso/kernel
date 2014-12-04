@@ -431,7 +431,7 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
 
 fn remove_pages(addr: *u8, len: u32) {
     let addr_start = addr;
-    let addr_end = addr + len;
+    let addr_end = addr + len - 1;
     if (addr_start >= addr_end) {
       return ();
     }
