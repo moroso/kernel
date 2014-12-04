@@ -91,19 +91,31 @@ fn run_server(mb_arg: *u8) {
             // if message does not look like a request, return an error
             if (request_size != sizeof(file_message)) {
                 status = -1;
+                ipc_reply(null, 0, &status as *u32, sizeof(i32));
+
             } else {
                 if (request_message.request_type == FILE_CREATE) {
                     let name = &request_message.name[0]; 
                     status = file_system::fs_file_new(&request_message.name[0],
                             file_buffer,
                             file_buffer_len); 
+                    remove_pages(file_buffer, file_buffer_len);
+                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
                 } else if (request_message.request_type == FILE_READ) {
+                    status = file_system::fs_read(&request_message, file_buffer);
+                    remove_pages(file_buffer, file_buffer_len);
+                    if (status < 0) {
+                        ipc_reply(null, 0, &status as *u32, sizeof(i32));
+                    } else {
+                        ipc_reply(null, 0, &request_message as *u32,
+                                sizeof(file_message));
+
+                    }
 
                 }
 
             }
-            remove_pages(file_buffer, file_buffer_len);
-            ipc_reply(null, 0, &status as *u32, sizeof(i32));
+
 
         }     
     }
@@ -270,5 +282,36 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
 fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
         u32, timeout : i32) -> i32 {
 
-    0
+    if (buffer_len == null) {
+        return -2;
+    }
+    if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
+        return -1;
+    }
+    // TODO sanitize name input
+    let message: file_message;
+    let message_size = sizeof(file_message);
+    message.request_type = FILE_READ;
+    let len = strncpy(&(message.name)[0], name, file_system::NAME_MAX);
+    assert!(len <= file_system::NAME_MAX); 
+    message.buffer_len = *buffer_len;
+    message.file_offset = offset;
+
+    /* round up long message so it's a multiple of a page.  we only copy in
+     * buffer_len bytes */
+    let long_message_len = *buffer_len;
+    if (*buffer_len%PAGE_SIZE != 0) {
+        long_message_len = *buffer_len + (PAGE_SIZE - *buffer_len%PAGE_SIZE);   
+    } 
+    let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
+            sizeof(file_message), null, null, &message as *u8, 
+            &message_size, timeout, true);
+
+    if (message_size == sizeof(i32)) {
+        return *(&message as *i32);
+    } 
+
+    *buffer_len = message.buffer_len;
+
+    ret
 }
