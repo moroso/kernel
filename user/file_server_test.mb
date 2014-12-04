@@ -3,6 +3,7 @@ use shared::ipc_defs::*;
 use mallot::*;
 use file::*;
 use ipclib::*;
+use string::*;
 
 /* checks the exit status of its children; if a child has exited with error,
  * exits with error as well */
@@ -40,10 +41,18 @@ fn main() -> i32 {
     let i: u32;
     
     let new_file = find_pages(1);
-    
-    for (i = 0; i < 1000; i+=1) {
-        printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
+    let message: *u8 = "once upon a time";
+    strncpy(new_file, message, strnlen(message, 1000));
+    let size: u32 = 4096;
+    printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
                     new_file, 4096, -1));
+    message = "aaaaaaaaaaaaaaaaaaaaaaa";
+    strncpy(new_file, message, strnlen(message, 1000));
+
+    for (i = 0; i < 1000; i+=1) {
+        printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
+                    new_file, &size, 0, -1));
+        printf!("STRING %s\n", new_file);
     }
     syslib::abscond(1);
     0
