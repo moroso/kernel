@@ -98,7 +98,7 @@ fn run_server(mb_arg: *u8) {
                     let name = &request_message.name[0]; 
                     status = file_system::fs_file_new(&request_message.name[0],
                             file_buffer,
-                            file_buffer_len); 
+                            request_message.buffer_len); 
                     remove_pages(file_buffer, file_buffer_len);
                     ipc_reply(null, 0, &status as *u32, sizeof(i32));
                 } else if (request_message.request_type == FILE_READ) {
@@ -111,6 +111,11 @@ fn run_server(mb_arg: *u8) {
                                 sizeof(file_message));
 
                     }
+
+                } else if (request_message.request_type == FILE_WRITE) {
+                    status = file_system::fs_write(&request_message.name[0],
+                            file_buffer, request_message.buffer_len);
+                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
                 }
 
@@ -253,6 +258,9 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
         return -1;
     }
+    if (buffer_len > FILE_BUFFER_MAX) {
+        return -2;
+    }
     // TODO sanitize name input
     let message: file_message;
     message.request_type = FILE_CREATE;
@@ -313,5 +321,40 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
 
     *buffer_len = message.buffer_len;
 
+    ret
+}
+
+// NOTE this is actually an append; we don't use offset
+fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
+        u32, timeout: i32) -> i32 {
+    
+    
+    if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
+        return -1;
+    }
+    // TODO sanitize name input
+    let message: file_message;
+    message.request_type = FILE_WRITE;
+    let len = strncpy(&(message.name)[0], name, file_system::NAME_MAX);
+    assert!(len <= file_system::NAME_MAX); 
+    message.buffer_len = buffer_len;
+    message.file_offset = offset;
+
+    let response: u32;
+    let response_size = sizeof(u32);
+
+    /* round up long message so it's a multiple of a page.  we only copy in
+     * buffer_len bytes */
+    let long_message_len = buffer_len;
+    if (buffer_len%PAGE_SIZE != 0) {
+        long_message_len = buffer_len + (PAGE_SIZE - buffer_len%PAGE_SIZE);   
+    } 
+    let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
+            sizeof(file_message), null, null, &response as *u8, 
+            &response_size, timeout, true);
+
+    if (ret >= 0) {
+        return response as i32
+    }
     ret
 }
