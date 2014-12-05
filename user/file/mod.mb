@@ -175,13 +175,14 @@ fn run_server(mb_arg: *u8) {
 }
 
 /* file_server_init: creates a file server with specified number of threads.
- * spins up a new process with a mailbox; all threads execute server_run.  if a
+ * spins up a new process with a mailbox; original thread performs init on
+ * server and threads before exiting.  All other threads execute server_run.  if a
  * valid mailbox descriptor desc is specified, new server sends a message to the
  * mailbox with its descriptor.  Returns with error if threads or mailbox fail
  * to init
  *
  * - num_threads: number of threads for new server.  All threads exit and server
- *   sends failure to desc if all threads cannot be created
+ *   sends failure to desc if all threads cannot be created.  Note that 
  * - desc: a descriptor for the mailbox to which the server sends its status.
  *   Must be a valid descriptor for the invoking thread.
  *   On error, it sends an error code.  Otherwise, it forwards a descriptor to
@@ -196,15 +197,6 @@ fn run_server(mb_arg: *u8) {
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     file_server_active = false;
     let status: i32 = 0;
-    /* for sending a status to a descriptor */
-    let args: ipc_args;
-    ipc_args_init(&args);
-    args.dest_id = desc as u32;
-    args.long_src.len = 0;
-    args.short_src.len = sizeof(i32);
-    args.short_src.addr = &status as *u8;
-    args.timeout = -1;
-    args.options = OPTION_ASYNC;
 
     /* creating file server proc (ensures file server has its own descriptors
      * and address space) */
@@ -212,6 +204,8 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     if (ret < 0) {
         return -1;
     }
+
+    /* if repl returns 0, we are the new file server process */
     if (ret == 0) {
         /* file server creates own mailbox */
         let mb: i32 = -1;
@@ -219,7 +213,11 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
             if (desc >= 0) {
                 // on error send, error code to descriptor 
                 status = -1;
-                ipc_send(&args);
+                if (ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
+                            null, true, -1) == IPC_ERR_INTERNAL) {
+                    ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
+                            null, false, -1);
+                }  
             }
             abscond(-1);
         }
@@ -279,7 +277,7 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
                 }
             } else {
                 if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, null,
-                            true, -1)) < 0) {
+                                true, -1)) < 0) {
                     if (ret == IPC_ERR_INTERNAL) {
                         // if the sender isn't waiting, we're blocked forever.
                         // This is probably better than timing out and leaving
@@ -303,15 +301,45 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
 
 /*** client code ***/
 
-/* send a new file name and some data to start the new file.  returns with error
- * if ipc fails, or if the file already exists */
+/* file_create: create a new file in the file system.  If a buffer is included,
+ * the contents of the buffer comprise the body of the new file.
+ *
+ * - fs_desc: the mailbox descriptor for the invoking process.  Returns with
+ *   failure if the descriptor is invalid
+ * - name: the name of the new file.  Returns with error if name includes
+ *   invalid characters, exceeds the maximum name length, or there already exists
+ *   a file with the same name.
+ * - buffer: contents of the new file.  Returns with error if buffer is not
+ *   page_aligned.  Ignored if buffer length 
+ *   is zero
+ * - buffer_len: length of content in buffer (can be smaller than the size of
+ *   the buffer itself).  Note that this value will be rounded up to the nearest
+ *   page, and this page will be temporarily shared with the server.  Returns with
+ *   error if rounded-up length exceeds maximum buffer size for a server thread. 
+ * - timeout: number of cycles to wait for a server reply before timing out.  a
+ *   value of -1 denotes an infinite wait.    
+ *
+ *   Returns 0 if file was successfully created and file contents added, a
+ *   negative value on error.
+ * */
 fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i32) -> i32 {
+
     if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
         return -1;
     }
-    if (buffer_len > FILE_BUFFER_MAX) {
+
+    /* round up long message so it's a multiple of a page.  we only copy in
+     * buffer_len bytes */
+    let long_message_len = buffer_len;
+
+    if (buffer_len%PAGE_SIZE != 0) {
+        long_message_len = buffer_len + (PAGE_SIZE - buffer_len%PAGE_SIZE);   
+    } 
+
+    if (long_message_len > FILE_BUFFER_MAX) {
         return -2;
     }
+
     // TODO sanitize name input
     let message: file_message;
     message.request_type = FILE_CREATE;
@@ -322,12 +350,7 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     let response: u32;
     let response_size: u32 = sizeof(u32);
 
-    /* round up long message so it's a multiple of a page.  we only copy in
-     * buffer_len bytes */
-    let long_message_len = buffer_len;
-    if (buffer_len%PAGE_SIZE != 0) {
-        long_message_len = buffer_len + (PAGE_SIZE - buffer_len%PAGE_SIZE);   
-    } 
+
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
             sizeof(file_message), null, null, &response as *u8, &response_size, timeout, true);
 
