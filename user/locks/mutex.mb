@@ -21,13 +21,13 @@ fn mut_init(mut: *mut_t) {
 }
 
 fn mut_lock(mut: *mut_t) {
-
+  
     while (xchg(&mut->locked, 1) == 1) {
         yield(-1);
     }
-
 }
 
 fn mut_unlock(mut: *mut_t) {
+
     mut->locked = 0;    
 }
