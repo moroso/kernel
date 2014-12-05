@@ -1,0 +1,1 @@
+extern fn xchg(orig: *u32, val: u32) -> u32;

@@ -1,0 +1,27 @@
+/* mutex.mb: Some basic yield mutexes.  They mutex things
+ *
+ * Author Amanda M. Watson
+*/
+
+use prelude::syslib::*;
+use prelude::locks::mut_asm::*;
+
+struct mut_t {
+    locked: u32,
+}
+
+fn mut_init(mut: *mut_t) {
+    mut->locked = 0; 
+}
+
+fn mut_lock(mut: *mut_t) {
+    
+    while (xchg(&mut->locked, 1) == 1) {
+        yield(-1);
+    }
+
+}
+
+fn mut_unlock(mut: *mut_t) {
+    mut->locked = 0;    
+}
