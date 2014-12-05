@@ -105,6 +105,7 @@ fn fs_end_lookup(node: *file_node) {
     dec_fs_ref(node);
 }
 
+// truncates reads to where file ends
 fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     let node = fs_lookup(&message->name[0]);
     if (node == null){
@@ -112,13 +113,14 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     } 
     
     mut_lock(&node->mut);
-
-    let transfer_len = min(message->buffer_len, node->file_len
+    
+    let transfer_len = min(message->buffer_len, node->file_end
             - message->file_offset);
+ 
 
     mos_memcpy(buffer, node->file_data + message->file_offset, transfer_len);
     message->buffer_len = transfer_len;
-    
+
     mut_unlock(&node->mut);
     fs_end_lookup(node);
     0
@@ -131,6 +133,12 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         return -1;
     } 
     mut_lock(&node->mut);
+
+    if (offset > node->file_end) {
+        mut_unlock(&node->mut);
+        fs_end_lookup(node);
+        return -3
+    }
 
     if (buffer_len > (node->file_len + offset)) {
         // round up to page
@@ -152,7 +160,7 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         node->file_data = new_buffer;
     }
     assert!(node->file_len >= (buffer_len + offset));
-    
+
     mos_memcpy((node->file_data + offset), buffer, buffer_len);
     node->file_end = max((buffer_len + offset), node->file_end);
 

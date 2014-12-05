@@ -50,20 +50,68 @@ fn main() -> i32 {
     strncpy(new_file, message, strnlen(message, 1000));
     let size: u32 = 14;
     printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
-                    new_file, 7, -1));
+                new_file, 7, -1));
     message = "BETTER STRING";
     strncpy(new_file, message, strnlen(message, 1000));
-    for (i = 0; i < 1000; i+=1) {
+    if (get_tid()%2 == 0) {
+        for (i = 0; i < 1000; i+=1) {
 
-        printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
-                    size, (4*i)+3, -1));
+            printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
+                        size, (4*i)+3, -1));
+        }
+        size = 14;
+        for (i = 0; i < 100; i+=1) {
+            printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
+                        new_file, &size, i, -1));
+            printf!("STRING %s\n", (new_file));
+        }
+    } else {
+        for (i = 0; i < 100; i+=1) {
+            printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
+                        new_file, &size, i, -1));
+            printf!("STRING %s\n", (new_file));
+        }
+
+        for (i = 0; i < 1000; i+=1) {
+
+            printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
+                        size, (4*i)+3, -1));
+        }
     }
+
+    message = "things";
+    strncpy(new_file, message, strnlen(message, 1000));
     size = 14;
-    for (i = 0; i < 100; i+=1) {
-        printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
-                    new_file, &size, i, -1));
-        printf!("STRING %s\n", (new_file));
+    printf!("create returned %d\n", file_create(fs_mb as u32, "goodbye",
+                new_file, 7, -1));
+    message = "BETTER THINGS";
+    strncpy(new_file, message, strnlen(message, 1000));
+    if (get_tid()%2 != 0) {
+        for (i = 0; i < 1000; i+=1) {
+            if (i%2 == 0) {
+                printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
+                            size, (4*i)+3, -1));
+            } else {
+                printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
+                            new_file, &size, i, -1));
+                printf!("STRING %s\n", (new_file));
+            }
+        }
+    } else {
+        for (i = 0; i < 1000; i+=1) {
+            if (i%2 != 0) {
+                printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
+                            size, (4*i)+3, -1));
+            } else {
+                printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
+                            new_file, &size, i, -1));
+                printf!("STRING %s\n", (new_file));
+            }
+        }
+
     }
+
+
     syslib::abscond(1);
     0
 }
