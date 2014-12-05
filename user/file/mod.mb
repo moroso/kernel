@@ -12,6 +12,10 @@
  * TODO server threads should probably be elastic (respond to frequency of
  * requests)
  *
+ * Bug: nasty security vuln/general correctness issue.  clients timeout when reads/writes are being
+ * performed on shared buffer, they have no way of knowing when server is done
+ * reading/writing to them.
+ *
  * Author Amanda M. Watson
  * */
 
@@ -205,95 +209,96 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         return -1;
     }
 
-    /* if repl returns 0, we are the new file server process */
-    if (ret == 0) {
-        /* file server creates own mailbox */
-        let mb: i32 = -1;
-        if ((mb = mailbox_new()) < 0) {
-            if (desc >= 0) {
-                // on error send, error code to descriptor 
-                status = -1;
-                if (ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
-                            null, true, -1) == IPC_ERR_INTERNAL) {
-                    ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
-                            null, false, -1);
-                }  
-            }
-            abscond(-1);
-        }
-        let i: u32;
-        // spin up the specified number of threads; quit early if thread
-        // creation fails
-        for (i = 0; i < num_threads; i+=1) {
-            printf!("creating thread %d\n", i);
-            if ((ret = thr_create(run_server, mb as *u8)) < 0) {
-                // TODO task_vanish or cond var
-                status = -2;
-                num_threads = i;
-                break; 
-            } 
-        }
-
-        assert!(mb >= 0);
-        args.dest_id = mb as u32;
-        args.options = OPTION_NO_REPLY;
-
-        if (status >= 0) {
-            atomic_add(&threads_dormant, num_threads);
-            // we set this before the server is truly active, but it's ok,
-            // because nothing will get sent to the mailbox until we end out the
-            // descriptor, which happens after the threads wake up
-            file_server_active = true;
-        }
-
-        // wake up child threads either with success (run server) or error
-        // (abscond immediately)
-        // do this before waking the proc waiting on desc in case they attempt to wait on our
-        // mailbox and ruin everything 
-        for (i = 0; i < num_threads; i+=1) {
-            printf!("waking up thread %d\n", i);
-            let ret = ipc_send(&args);
-            if (ret < 0) {
-                printf!("%d\n", ret);
-            }
-            assert!(ret >= 0);
-        }
-
-        // wake up thread waiting on given mailbox
-        if (desc >= 0) {
-
-            // wait until server is fully active
-            while(threads_dormant > 0) {
-                yield(-1);
-            }
-
-            if (status < 0) {
-
-                args.options = OPTION_ASYNC;
-                // if async fails due to memory, send a synchronous message instead
-                if (ipc_send(&args) == IPC_ERR_INTERNAL) {
-                    args.options = OPTION_NO_REPLY;
-                    ipc_send(&args); 
-                }
-            } else {
-                if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, null,
-                                true, -1)) < 0) {
-                    if (ret == IPC_ERR_INTERNAL) {
-                        // if the sender isn't waiting, we're blocked forever.
-                        // This is probably better than timing out and leaving
-                        // the sender potentially blocked
-                        ipc_forward_mb(desc as u32, mb as u32, null, null,
-                                false, -1);
-                    }
-                    abscond(status);
-                }
-            }
-        }
-        printf!("exiting\n");
-        abscond(status);
-
-        assert!(false); // no return
+    // parent successfully repled.  Return succes (further errors come over ipc)
+    if (ret != 0) {
+        return 0;
     }
+
+    /* if repl returns 0, we are the new file server process */
+    /* file server creates own mailbox */
+    let mb: i32 = -1;
+    if ((mb = mailbox_new()) < 0) {
+        if (desc >= 0) {
+            // on error send, error code to descriptor 
+            status = -1;
+            if (ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
+                        null, true, -1) == IPC_ERR_INTERNAL) {
+                ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
+                        null, false, -1);
+            }  
+        }
+        abscond(-1);
+    }
+    let i: u32;
+    // spin up the specified number of threads; quit early if thread
+    // creation fails
+    for (i = 0; i < num_threads; i+=1) {
+        printf!("creating thread %d\n", i);
+        if ((ret = thr_create(run_server, mb as *u8)) < 0) {
+            // TODO task_vanish or cond var
+            status = -2;
+            num_threads = i;
+            break; 
+        } 
+    }
+
+    assert!(mb >= 0);
+
+    if (status >= 0) {
+        atomic_add(&threads_dormant, num_threads);
+        // we set this before the server is truly active, but it's ok,
+        // because nothing will get sent to the mailbox until we end out the
+        // descriptor, which happens after the threads wake up
+        file_server_active = true;
+    }
+
+    // wake up child threads either with success (run server) or error
+    // (abscond immediately)
+    // do this before waking the proc waiting on desc in case they attempt to wait on our
+    // mailbox and ruin everything 
+    for (i = 0; i < num_threads; i+=1) {
+        printf!("waking up thread %d\n", i);
+        let ret = ipc_send(&args);
+        if (ret < 0) {
+            printf!("%d\n", ret);
+        }
+        assert!(ret >= 0);
+    }
+
+    // wake up thread waiting on given mailbox
+    if (desc >= 0) {
+
+        // wait until server is fully active
+        while(threads_dormant > 0) {
+            yield(-1);
+        }
+
+        if (status < 0) {
+
+            args.options = OPTION_ASYNC;
+            // if async fails due to memory, send a synchronous message instead
+            if (ipc_send(&args) == IPC_ERR_INTERNAL) {
+                args.options = OPTION_NO_REPLY;
+                ipc_send(&args); 
+            }
+        } else {
+            if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, null,
+                            true, -1)) < 0) {
+                if (ret == IPC_ERR_INTERNAL) {
+                    // if the sender isn't waiting, we're blocked forever.
+                    // This is probably better than timing out and leaving
+                    // the sender potentially blocked
+                    ipc_forward_mb(desc as u32, mb as u32, null, null,
+                            false, -1);
+                }
+                abscond(status);
+            }
+        }
+    }
+    printf!("exiting\n");
+    abscond(status);
+
+    assert!(false); // no return
 
     0
 }
@@ -361,6 +366,32 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     response as i32
 }
 
+/* file_read: reads from specified file into buffer
+ *
+ * - fs_desc: mailbox descriptor for file server.  Returns with error if
+ *   descriptor is invalid for invoking thread
+ * - name: name of file being read from.  Returns with error if name exceeds
+ *   NAME_MAX, contains invalid characters, or refers to a file that does not
+ *   exist in the file system
+ * - buffer: buffer to which server writes file's content. Returns error if buffer 
+ *   is not page-aligned 
+ * - buffer_len: length of buffer contents being read from file (does not have
+ *   to correspond to length. Rounded up to page, which
+ *   is shared with server. Returns error if
+ *   rounded up length exceeds server buffer length
+ * - offset: byte offset into the existing file at which read should begin.
+ *   Returns with error if offset exceeds exiting file length.
+ * - timeout: number of cycles to wait for server to reply. 
+ *   NOTE that, if timeout occurs between the time the server receives the request 
+ *   and finishes it, the server will still copy the memory at the buffer location, 
+ *   even if it changes on the client side. This could be a correctness problem
+ *   if, say, the client times out, and then tries to use the buffer that is
+ *   still being shared/written to  
+ *
+ *   returns 0 if write if successful, negative error code on failure
+
+ *
+ * */
 fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
         u32, timeout : i32) -> i32 {
 
@@ -398,8 +429,31 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
     ret
 }
 
-/* 
- * Requires buffer be page-aligned
+/* file_write: write buffer to specified file at the given offset into the
+ * existing file.  
+ *
+ * - fs_dest: mailbox descriptor for file server.  Returns with error if
+ *   descriptor is invalid for invoking thread
+ * - name: name of file being written to.  Returns with error if name exceeds
+ *   NAME_MAX, contains invalid characters, or refers to a file that does not
+ *   exist in the file system 
+ * - buffer: contains content being written to file. Returns error if buffer 
+ *   is not page-aligned 
+ * - buffer_len: length of buffer contents being written to file (does not have
+ *   to correspond to length. Rounded up to page, which
+ *   is shared with server. Returns error if
+ *   rounded up length exceeds server buffer length
+ * - offset: byte offset into the existing file at which write should begin.
+ *   Returns with error if offset exceeds exiting file length.
+ * - timeout: number of cycles to wait for server to reply. 
+ *   NOTE that, if timeout occurs between the time the server receives the request 
+ *   and finishes it, the server will still copy the memory at the buffer location, 
+ *   even if it changes on the client side.  This could present a vulnerability
+ *   if, say, the client writes sensitive information to the buffer before the
+ *   copy to the filesystem, and a malicious process then reads from the
+ *   file.
+ *
+ *   returns 0 if write if successful, negative error code on failure
  * */
 fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
         u32, timeout: i32) -> i32 {
