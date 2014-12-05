@@ -6,6 +6,12 @@
 use prelude::syslib::*;
 use prelude::locks::mut_asm::*;
 
+macro MUTEX_INIT!(name) {
+    ::prelude::locks::mutex::mut_t {
+        locked: 0, 
+    }
+}
+
 struct mut_t {
     locked: u32,
 }
@@ -15,7 +21,7 @@ fn mut_init(mut: *mut_t) {
 }
 
 fn mut_lock(mut: *mut_t) {
-    
+
     while (xchg(&mut->locked, 1) == 1) {
         yield(-1);
     }
