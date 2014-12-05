@@ -91,7 +91,7 @@ fn ipc_send_short(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len
     args.timeout = timeout as u32;
     if (async) {
         args.options = OPTION_ASYNC;
-    } else if (dest_len != null && *dest_len == 0) {
+    } else if (dest_len == null || *dest_len == 0) {
         /* if no dest is specified, there's no reason to expect a reply */
         args.options = OPTION_NO_REPLY;
     } else {
