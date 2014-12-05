@@ -1,4 +1,20 @@
-//sends message to file server
+/* file.mb client and server interfaces for the file server.  The file server is
+ * multithreaded and services requests to add, read from and edit entries in the
+ * userland file system.
+ *
+ * clients communicate to servers over ipc.  when data is read from or written
+ * to a file, it must be in a page-aligned buffer.  This buffer is temporarily
+ * mapped into the server's address space for transfer, then unmapped before
+ * wakeup
+ *
+ * All requests made to the server are synchronous, but can specify timeouts.
+ *
+ * TODO server threads should probably be elastic (respond to frequency of
+ * requests)
+ *
+ * Author Amanda M. Watson
+ * */
+
 use prelude::string::*;
 use prelude::syslib::*;
 use prelude::shared::*;
@@ -11,34 +27,60 @@ use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 mod file_system;
 
+/* file system request types */
+const FILE_CREATE: u32 = 0; // create new file
+const FILE_APPEND: u32 = 1; // append to end of file
+const FILE_DELETE: u32 = 2; // delete file 
+const FILE_READ: u32 = 3; // read from file
+const FILE_WRITE: u32 = 4; // write to file
+
+/* DON'T BE A JERK, COMPILER */
+static file_server_active: bool = true; 
+static threads_dormant: u32 = 0; // number of threads needing wakeup
+static threads_active: u32 = 0; // number of active threads in server
+
+/* sent to the server alongside buffer to provide information about the file and
+ * request */
 struct file_message {
+    // file name
     name: u8[file_system::NAME_MAX],
+    // create, read, write, etc
     request_type: u32,
+    // length of data in buffer (may differ from length of buffer sent)
     buffer_len: u32,
+    // offset into the current file at which the buffer should be located 
+    // (for reads and writes)
     file_offset: u32,
 }
 
-// number of pages file buffer can store
+// number of pages each server thread allocates to store file data 
 static FILE_BUFFER_PAGES: u32 = 3;
 // number of bytes in buffer
 static FILE_BUFFER_MAX: u32 = 3 * PAGE_SIZE;
 
-/* file system request types */
-const FILE_CREATE: u32 = 0;
-const FILE_APPEND: u32 = 1;
-const FILE_DELETE: u32 = 2;
-const FILE_READ: u32 = 3;
-const FILE_WRITE: u32 = 4;
-
-static file_server_active: bool = true;
-static threads_dormant: u32 = 0; // number of threads needing wakeup
-static threads_active: u32 = 0; // number of active threads in server
-
 /*** server code ***/
 
-/* code that each of the servers run, which processes requests.  We assume our
- * clients are trustworthy enough to give us clean messages (but we don't need
- * to trust */
+/* run_server: called as the starting function for server threads: check whether
+ * server received errors during init, block until all other server threads have
+ * woken up and begin to service requests.  all threads wait on the same
+ * mailbox 
+ *
+ * client's file buffers are temporarily mapped into a fixed-sized server 
+ * buffer, which is allocated during setup.  
+ *
+ * thread does not return from run_server; it will abscond if it receives an
+ * init error, it is unable to allocate its buffer, or the server at some point
+ * becomes inactive (NOTE this feature is not yet implemented).
+ *
+ * - mb_arg: the descriptor for the server mailbox, cast to a *u8.
+ *
+ * Does not return
+ *
+ * Note that the setup stage requires blocking on a global variable.  This is
+ * both dangerous and unprofessional, and should probably be swapped out with
+ * something like a cond-var or (or, more correctly, a task-vanish) when
+ * possible.
+ * */
 fn run_server(mb_arg: *u8) {
 
     /*** setup ***/
@@ -52,6 +94,7 @@ fn run_server(mb_arg: *u8) {
         file_server_active = false;
         abscond(-1);
     }
+
     printf!("thread %d waiting for wakeup\n", get_tid());
     atomic_add(&threads_dormant, -1);
     while (threads_dormant > 0) {
@@ -62,11 +105,12 @@ fn run_server(mb_arg: *u8) {
     printf!("thread %d running server\n", get_tid());
     atomic_add(&threads_active, 1); 
 
-    /*** active server code ***/
 
+    /* reads in client request */
     let request_message: file_message;
     let request_size: u32 = sizeof(file_message);
-    // used for storing files
+
+    /* reads in file buffer */
     let file_buffer: *u8 = find_pages(FILE_BUFFER_PAGES);
     let file_buffer_len: u32;
 
@@ -79,9 +123,11 @@ fn run_server(mb_arg: *u8) {
         abscond(-1);
     }
 
+    /*** active server code ***/
     while(file_server_active) {
-        // reset the buffer length to its max
+        // reset the buffer lengths to their maxes
         file_buffer_len = FILE_BUFFER_MAX;
+        request_size = sizeof(file_message);
 
         if (ipc_recv_long(mb as u32, file_buffer, &file_buffer_len, &request_message as *u8,
                     &request_size, -1, null) >= 0) {
@@ -144,8 +190,6 @@ fn run_server(mb_arg: *u8) {
  *
  * Returns error if repl fails, 0 otherwise.  
  *
- * NOTE catching further errors requires sending a descriptor and waiting on
- * that mailbox for a status.
  * NOTE if a valid descriptor desc is given but no thread ever waits on desc,
  * server can fail to properly init and be blocked forever (if async send fails)
  */
@@ -234,9 +278,16 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
                     ipc_send(&args); 
                 }
             } else {
-                if (ipc_forward_mb(desc as u32, mb as u32, null, null,
-                            true, -1) < 0) {
-                    // TODO handle err
+                if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, null,
+                            true, -1)) < 0) {
+                    if (ret == IPC_ERR_INTERNAL) {
+                        // if the sender isn't waiting, we're blocked forever.
+                        // This is probably better than timing out and leaving
+                        // the sender potentially blocked
+                        ipc_forward_mb(desc as u32, mb as u32, null, null,
+                                false, -1);
+                    }
+                    abscond(status);
                 }
             }
         }
@@ -324,6 +375,9 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
     ret
 }
 
+/* 
+ * Requires buffer be page-aligned
+ * */
 fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
         u32, timeout: i32) -> i32 {
 
