@@ -1,0 +1,185 @@
+/* file_system.mb
+ *
+ * The place where files actually get stored
+ * TODO locks.  RW locks make the most sense, but that requires a whole lot of
+ * other things first
+ * @author Amanda M. Watson
+ * */
+
+use prelude::utils::list::*; 
+use prelude::mallot::*;
+use prelude::string::*;
+use prelude::shared::consts::*;
+use prelude::utils::asm::*;
+use prelude::utils::stdlib::*;
+use prelude::file::*;
+use prelude::syslib::*;
+use prelude::rt_abort;
+use prelude::locks::mutex::*;
+
+
+const NAME_MAX: u32 = 400;
+
+static fs: list_head = LIST_HEAD_INIT!(fs);
+static fs_lock: mut_t = MUTEX_INIT!(fs_lock);
+
+// contains file info
+struct file_node {
+    name: u8[NAME_MAX],
+    // size of buffer holding file
+    file_len: u32,
+    // byte after end of file 
+    file_end: u32,
+    file_data: *u8,
+    fs_link: list_node,
+    ref_count: u32,
+    mut: mut_t,
+}
+
+fn inc_fs_ref(node: *file_node) {
+    atomic_add(&node->ref_count, 1);
+}
+
+fn dec_fs_ref(node: *file_node) {
+    let old_ref = atomic_add(&node->ref_count, -1);
+    if (old_ref == 1) {
+        // TODO ensure we have the FS lock
+        if (in_list(&node->fs_link)) {
+            list_del(&node->fs_link);
+        }
+        remove_pages(node->file_data, node->file_len);
+        lib(node as *u32, sizeof(file_node));
+    }
+}
+
+fn file_node_create(name: *u8, buffer: *u8, buffer_len: u32) -> *file_node {
+
+    let new_node = mallot(sizeof(file_node)) as *file_node;
+
+    if (new_node == null) {
+        return null;
+    }
+   
+    mut_init(&new_node->mut); 
+    strncpy(&(new_node->name)[0], name, NAME_MAX);
+
+    new_node->file_end = buffer_len;
+    // round up to a multiple of a page
+    if (buffer_len%PAGE_SIZE != 0) {
+        buffer_len = buffer_len + (PAGE_SIZE - PAGE_SIZE%buffer_len);
+    }
+    let fs_buffer = find_pages(buffer_len/PAGE_SIZE);
+    if (fs_buffer == null) {
+        lib(new_node as *u32, sizeof(file_node));
+        return null;
+    }
+    new_node->file_data = fs_buffer;
+    // TODO what do if user gives us a bogus length?
+    mos_memcpy(new_node->file_data, buffer, new_node->file_end); 
+    new_node->file_len = buffer_len;
+    new_node->ref_count = 1;
+    list_init_node(&new_node->fs_link);
+    
+    new_node
+}
+
+fn fs_lookup(name: *u8) -> *file_node {
+    // TODO locks
+    let node: *file_node = null;
+    mut_lock(&fs_lock);
+    list_foreach_entry!(node, &fs, file_node, fs_link, {
+              if (strcmp(name, &(node->name)[0]) == 0) {
+                  inc_fs_ref(node);    
+                  mut_unlock(&fs_lock);
+                  return node;
+              }
+            });
+    
+    mut_unlock(&fs_lock);
+    null
+} 
+
+fn fs_end_lookup(node: *file_node) {
+    dec_fs_ref(node);
+}
+
+fn fs_read(message: *file_message, buffer: *u8) -> i32 {
+    let node = fs_lookup(&message->name[0]);
+    if (node == null){
+        return -1;
+    } 
+    
+    mut_lock(&node->mut);
+
+    let transfer_len = min(message->buffer_len, node->file_len
+            - message->file_offset);
+    mos_memcpy(buffer, node->file_data + message->file_offset, transfer_len);
+    message->buffer_len = transfer_len;
+    
+    mut_unlock(&node->mut);
+    fs_end_lookup(node);
+    0
+}
+
+/* write to file at given offset */
+fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
+    let node = fs_lookup(name);
+    if (node == null){
+        return -1;
+    } 
+    mut_lock(&node->mut);
+
+    if (buffer_len > (node->file_len + offset)) {
+        // round up to page
+        let new_file_len = (buffer_len + offset);
+        if ((buffer_len + offset)%PAGE_SIZE != 0) {
+            new_file_len = (buffer_len + offset) + (PAGE_SIZE -
+                    PAGE_SIZE%(buffer_len + offset));
+        }
+        let new_buffer = find_pages(new_file_len/PAGE_SIZE);
+        mos_memcpy(new_buffer, node->file_data, node->file_end);
+        remove_pages(node->file_data, node->file_len);
+        node->file_len = new_file_len;
+        node->file_data = new_buffer;
+    }
+    assert!(node->file_len >= (buffer_len + offset));
+    mos_memcpy((node->file_data + offset), buffer, buffer_len);
+    node->file_end = max((buffer_len + offset), node->file_end);
+
+    mut_unlock(&node->mut);
+    fs_end_lookup(node);
+
+    0
+}
+
+fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
+
+    let new_file: *file_node = file_node_create(name, data, data_len);
+    if (new_file == null) {
+        return -2;
+    }
+    
+    let node: *file_node = null;
+    mut_lock(&fs_lock);
+    list_foreach_entry!(node, &fs, file_node, fs_link, {
+            if (strcmp(name, &(node->name)[0]) == 0) {
+            dec_fs_ref(new_file);
+            mut_unlock(&fs_lock);
+
+            return -1;
+            }
+            if (node->name[0] > name[0]) {
+            list_insert_before(&new_file->fs_link, &node->fs_link);
+            mut_unlock(&fs_lock);
+
+            return 0;
+            }
+            });
+
+    list_insert_tail(&new_file->fs_link, &fs);
+    mut_unlock(&fs_lock);
+
+    0
+
+}
+
