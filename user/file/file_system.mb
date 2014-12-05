@@ -3,7 +3,7 @@
  * The place where files actually get stored
  * TODO RW locks make the most sense, but that requires a whole lot of
  * other things first
- * @author Amanda M. Watson
+ * Author Amanda M. Watson
  * */
 
 use prelude::utils::list::*; 
