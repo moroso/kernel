@@ -33,13 +33,18 @@ fn main() -> i32 {
     let fs_mb: i32 = -1;
     ipc_recv_all(mb as u32, null, null, null, null, &fs_mb, -1, null);
     printf!("mailbox: %d\n", fs_mb);
-
+    
     let request: file_message;
     let request_size = sizeof(file_message);
     let response: u32 = -1;
     let response_size: u32 = sizeof(u32);
     let i: u32;
-    
+    for (i = 0; i < 3; i+=1) {
+        let ret = repl();
+        if (ret == 0) {
+            break;
+        }
+    }
     let new_file = find_pages(2);
     let message: *u8 = "string";
     strncpy(new_file, message, strnlen(message, 1000));

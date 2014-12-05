@@ -37,7 +37,7 @@ struct file_node {
 }
 
 fn inc_fs_ref(node: *file_node) {
-    atomic_add(&node->ref_count, 1);
+    let old_ref = atomic_add(&node->ref_count, 1);
 }
 
 fn dec_fs_ref(node: *file_node) {
@@ -65,9 +65,11 @@ fn file_node_create(name: *u8, buffer: *u8, buffer_len: u32) -> *file_node {
 
     new_node->file_end = buffer_len;
     // round up to a multiple of a page
+    
     if (buffer_len%PAGE_SIZE != 0) {
-        buffer_len = buffer_len + (PAGE_SIZE - PAGE_SIZE%buffer_len);
+        buffer_len = buffer_len + (PAGE_SIZE - (buffer_len%PAGE_SIZE));
     }
+
     let fs_buffer = find_pages(buffer_len/PAGE_SIZE);
     if (fs_buffer == null) {
         lib(new_node as *u32, sizeof(file_node));
@@ -113,6 +115,7 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
 
     let transfer_len = min(message->buffer_len, node->file_len
             - message->file_offset);
+
     mos_memcpy(buffer, node->file_data + message->file_offset, transfer_len);
     message->buffer_len = transfer_len;
     
@@ -134,15 +137,22 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         let new_file_len = (buffer_len + offset);
         if ((buffer_len + offset)%PAGE_SIZE != 0) {
             new_file_len = (buffer_len + offset) + (PAGE_SIZE -
-                    PAGE_SIZE%(buffer_len + offset));
+                    (buffer_len + offset)%PAGE_SIZE);
         }
         let new_buffer = find_pages(new_file_len/PAGE_SIZE);
+        if (new_buffer) == null {
+            mut_unlock(&node->mut);
+            fs_end_lookup(node);
+            return -2;
+        }
+
         mos_memcpy(new_buffer, node->file_data, node->file_end);
         remove_pages(node->file_data, node->file_len);
         node->file_len = new_file_len;
         node->file_data = new_buffer;
     }
     assert!(node->file_len >= (buffer_len + offset));
+    
     mos_memcpy((node->file_data + offset), buffer, buffer_len);
     node->file_end = max((buffer_len + offset), node->file_end);
 
@@ -158,7 +168,7 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
     if (new_file == null) {
         return -2;
     }
-    
+
     let node: *file_node = null;
     mut_lock(&fs_lock);
     list_foreach_entry!(node, &fs, file_node, fs_link, {
