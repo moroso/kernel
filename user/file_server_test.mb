@@ -43,17 +43,21 @@ fn main() -> i32 {
     let new_file = find_pages(2);
     let message: *u8 = "string";
     strncpy(new_file, message, strnlen(message, 1000));
-    let size: u32 = 4096;
+    let size: u32 = 14;
     printf!("create returned %d\n", file_create(fs_mb as u32, "hello",
                     new_file, 7, -1));
-    message = "THIS IS NOT THE STRING YOU ARE LOOKING FOR";
+    message = "BETTER STRING";
     strncpy(new_file, message, strnlen(message, 1000));
-    printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
-                size, 3, -1));
-    for (i = 0; i < 10; i+=1) {
+    for (i = 0; i < 1000; i+=1) {
+
+        printf!("write returned %d\n", file_write(fs_mb as u32, "hello", new_file,
+                    size, 3, -1));
+    }
+    size+=3;
+    for (i = 0; i < 100; i+=1) {
         printf!("read returned %d\n", file_read(fs_mb as u32, "hello",
                     new_file, &size, 0, -1));
-        printf!("STRING %s\n", (new_file + 7));
+        printf!("STRING %s\n", (new_file));
     }
     syslib::abscond(1);
     0

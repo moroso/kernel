@@ -114,7 +114,9 @@ fn run_server(mb_arg: *u8) {
 
                 } else if (request_message.request_type == FILE_WRITE) {
                     status = file_system::fs_write(&request_message.name[0],
-                            file_buffer, request_message.buffer_len);
+                            file_buffer, request_message.buffer_len,
+                            request_message.file_offset);
+                    remove_pages(file_buffer, file_buffer_len);
                     ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
                 }
@@ -327,8 +329,8 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
 // NOTE this is actually an append; we don't use offset
 fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
         u32, timeout: i32) -> i32 {
-    
-    
+
+
     if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
         return -1;
     }
