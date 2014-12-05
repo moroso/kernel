@@ -1,0 +1,5 @@
+const INT_MAX: u32 = 0xffffffff;
+const USER_MEM_START: u32 = 1024 * 1024 * 1024;
+const USER_MEM_END: u32 = INT_MAX;
+const PAGE_SIZE: u32 = 4096;
+

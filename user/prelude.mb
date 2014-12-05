@@ -1,5 +1,6 @@
 mod printf;
 mod syslib;
+mod locks;
 
 mod string;
 mod file;

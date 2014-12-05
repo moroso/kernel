@@ -11,8 +11,6 @@ use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 mod file_system;
 
-const SERVER_ID: u32 = 5;
-
 struct file_message {
     name: u8[file_system::NAME_MAX],
     request_type: u32,
@@ -326,7 +324,6 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
     ret
 }
 
-// NOTE this is actually an append; we don't use offset
 fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
         u32, timeout: i32) -> i32 {
 
