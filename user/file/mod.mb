@@ -94,7 +94,7 @@ fn run_server(mb_arg: *u8) {
 
     assert!(ipc_recv_i32(mb as u32, &status, -1, null) >= 0);
     if (status < 0) {
-        printf!("err %d\n", get_tid());
+        printf!("err %d (%d)\n", get_tid(), status);
         file_server_active = false;
         abscond(-1);
     }
@@ -200,7 +200,7 @@ fn run_server(mb_arg: *u8) {
  */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     file_server_active = false;
-    let status: i32 = 0;
+    let status: i32 = 0; 
 
     /* creating file server proc (ensures file server has its own descriptors
      * and address space) */
@@ -209,96 +209,91 @@ fn file_server_init(num_threads: u32, desc: i32) -> i32 {
         return -1;
     }
 
-    // parent successfully repled.  Return succes (further errors come over ipc)
-    if (ret != 0) {
-        return 0;
-    }
-
     /* if repl returns 0, we are the new file server process */
-    /* file server creates own mailbox */
-    let mb: i32 = -1;
-    if ((mb = mailbox_new()) < 0) {
+    if (ret == 0) {
+        /* file server creates own mailbox */
+        let mb: i32 = -1;
+        if ((mb = mailbox_new()) < 0) {
+            if (desc >= 0) {
+                // on error send, error code to descriptor 
+                status = -1;
+                if (ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
+                            null, true, -1) == IPC_ERR_INTERNAL) {
+                    ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
+                            null, false, -1);
+                }  
+            }
+            abscond(-1);
+        }
+        let i: u32;
+        // spin up the specified number of threads; quit early if thread
+        // creation fails
+        for (i = 0; i < num_threads; i+=1) {
+            printf!("creating thread %d\n", i);
+            if ((ret = thr_create(run_server, mb as *u8)) < 0) {
+                // TODO task_vanish or cond var
+                status = -2;
+                num_threads = i;
+                break; 
+            } 
+        }
+
+        assert!(mb >= 0);
+
+        if (status >= 0) {
+            atomic_add(&threads_dormant, num_threads);
+            // we set this before the server is truly active, but it's ok,
+            // because nothing will get sent to the mailbox until we end out the
+            // descriptor, which happens after the threads wake up
+            file_server_active = true;
+        }
+
+        // wake up child threads either with success (run server) or error
+        // (abscond immediately)
+        // do this before waking the proc waiting on desc in case they attempt to wait on our
+        // mailbox and ruin everything 
+        for (i = 0; i < num_threads; i+=1) {
+            printf!("waking up thread %d with status %d\n", i, status);
+            let ret = ipc_send_i32(mb as u32, &status, null, null, false, -1);
+            if (ret < 0) {
+                printf!("%d\n", ret);
+            }
+            assert!(ret >= 0);
+        }
+
+        // wake up thread waiting on given mailbox
         if (desc >= 0) {
-            // on error send, error code to descriptor 
-            status = -1;
-            if (ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
-                        null, true, -1) == IPC_ERR_INTERNAL) {
-                ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
-                        null, false, -1);
-            }  
-        }
-        abscond(-1);
-    }
-    let i: u32;
-    // spin up the specified number of threads; quit early if thread
-    // creation fails
-    for (i = 0; i < num_threads; i+=1) {
-        printf!("creating thread %d\n", i);
-        if ((ret = thr_create(run_server, mb as *u8)) < 0) {
-            // TODO task_vanish or cond var
-            status = -2;
-            num_threads = i;
-            break; 
-        } 
-    }
 
-    assert!(mb >= 0);
-
-    if (status >= 0) {
-        atomic_add(&threads_dormant, num_threads);
-        // we set this before the server is truly active, but it's ok,
-        // because nothing will get sent to the mailbox until we end out the
-        // descriptor, which happens after the threads wake up
-        file_server_active = true;
-    }
-
-    // wake up child threads either with success (run server) or error
-    // (abscond immediately)
-    // do this before waking the proc waiting on desc in case they attempt to wait on our
-    // mailbox and ruin everything 
-    for (i = 0; i < num_threads; i+=1) {
-        printf!("waking up thread %d\n", i);
-        let ret = ipc_send(&args);
-        if (ret < 0) {
-            printf!("%d\n", ret);
-        }
-        assert!(ret >= 0);
-    }
-
-    // wake up thread waiting on given mailbox
-    if (desc >= 0) {
-
-        // wait until server is fully active
-        while(threads_dormant > 0) {
-            yield(-1);
-        }
-
-        if (status < 0) {
-
-            args.options = OPTION_ASYNC;
-            // if async fails due to memory, send a synchronous message instead
-            if (ipc_send(&args) == IPC_ERR_INTERNAL) {
-                args.options = OPTION_NO_REPLY;
-                ipc_send(&args); 
+            // wait until server is fully active
+            while(threads_dormant > 0) {
+                yield(-1);
             }
-        } else {
-            if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, null,
-                            true, -1)) < 0) {
-                if (ret == IPC_ERR_INTERNAL) {
-                    // if the sender isn't waiting, we're blocked forever.
-                    // This is probably better than timing out and leaving
-                    // the sender potentially blocked
-                    ipc_forward_mb(desc as u32, mb as u32, null, null,
-                            false, -1);
+
+            if (status < 0) {
+                
+                // if async fails due to memory, send a synchronous message instead
+                if (ipc_send_i32(mb as u32, &status, null, null, true, -1) == IPC_ERR_INTERNAL) {
+                    ipc_send_i32(mb as u32, &status, null, null, false, -1);
                 }
-                abscond(status);
+            } else {
+                if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, null,
+                                true, -1)) < 0) {
+                    if (ret == IPC_ERR_INTERNAL) {
+                        // if the sender isn't waiting, we're blocked forever.
+                        // This is probably better than timing out and leaving
+                        // the sender potentially blocked
+                        ipc_forward_mb(desc as u32, mb as u32, null, null,
+                                false, -1);
+                    }
+                    abscond(status);
+                }
             }
         }
-    }
-    printf!("exiting\n");
-    abscond(status);
+        printf!("exiting\n");
+        abscond(status);
 
-    assert!(false); // no return
+        assert!(false); // no return
+    }
 
     0
 }
@@ -389,7 +384,6 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
  *   still being shared/written to  
  *
  *   returns 0 if write if successful, negative error code on failure
-
  *
  * */
 fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
