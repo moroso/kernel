@@ -129,7 +129,7 @@ fn ipc_forward_mb(mb: u32, desc: u32, dest_addr: *u8, dest_len: *u32, async: boo
     }
     if (async) {
         args.options = OPTION_ASYNC;
-    } else if (dest_len != null && *dest_len == 0) {
+    } else if (dest_len == null || *dest_len == 0) {
         args.options = OPTION_NO_REPLY;
     }
     args.timeout = timeout as u32;
