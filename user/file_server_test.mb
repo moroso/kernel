@@ -6,8 +6,13 @@ use ipclib::*;
 use string::*;
 use name::*;
 
+const NUM_THREADS: u32 = 10;
 
 fn main() -> i32 {
+
+    let string_list = ["One Step Forward\n", "Two Steps Back\n", "Spin Once\n",
+        "Spin Twice\n", "Jump Around\n", "Twist!\n"];
+    let list_len = 6;
 
     mallot_init();
     let mb = mailbox_new();
@@ -16,7 +21,44 @@ fn main() -> i32 {
         printf!("error\n");
         abscond(-1);
     } 
-    printf!("ready\n"); 
+    printf!("mb %d fs_mb %d\n", mb, fs_mb);
+    mailbox_remove(mb as u32);
+
+    let i: u32;
+    let ret: i32;
+    for (i = 0; i < NUM_THREADS; i+=1) {
+        if ((ret = repl()) == 0) {
+            break;
+        } 
+        if (ret < 0) {
+            printf!("error\n");
+            abscond(-1);
+        }
+    }
+
+    // let's just test and see that it works
+    let file = find_pages(1);
+    let file_pointer = file;
+    for (i = 0; i < 3; i+=1) {
+        let ind = (i + get_tid())%list_len;
+        let string_len = strnlen(string_list[ind], 100);
+        strncpy(file_pointer, string_list[ind], string_len);
+        file_pointer+=string_len;
+    }
+    let file_name = "dance #x";
+
+    let file_name_length = strnlen(file_name, 100);
+    file_name[7] = file[(get_tid()%10)] as u8;
+
+    if ((ret = file_create(fs_mb as u32, file_name, file, strnlen(file, 1000),
+                    -1)) >=
+            0) {
+
+        printf!("NAME: %s CONTENT: %s\n", file_name, file);
+    }
+
+    //mailbox_remove(fs_mb as u32);
+
 
     abscond(1);
     0

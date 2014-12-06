@@ -184,6 +184,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     let dest_mb = desc_table::mb_desc_lookup(args_kern.dest_id);
 
     if dest_mb == null {
+        printf!("failed to find %d\n", dest_mb);
         return IPC_ERR_DEST;
     } 
 
