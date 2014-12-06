@@ -12,7 +12,7 @@ fn main() -> i32 {
     mallot_init();
     let mb = mailbox_new();
     let fs_mb: i32;
-    if ((fs_mb = file_server_init(5, mb as u32)) < 0) {
+    if ((fs_mb = file_server_init(5, mb)) < 0) {
         printf!("error\n");
         abscond(-1);
     } 
