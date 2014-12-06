@@ -39,8 +39,10 @@ fn mb_desc_init(table: *mb_desc_table, parent_proc: *proc) {
         for (i = 0; i < MB_TABLE_SIZE; i+=1) {
             child_table->desc_table[i] = null;
             if (parent_table->desc_table[i] != null) {
-                assert!(mb_table_add(child_table, parent_table->desc_table[i])
-                        >= 0);
+
+                let mb = parent_table->desc_table[i]; 
+                (child_table->desc_table)[i] = mb;
+                atomic_add(&mb->ref_count, 1);
             } 
         }
         kmut_unlock(&parent_table->mut);
@@ -61,6 +63,8 @@ fn mb_desc_lookup(id: u32) -> *mailbox_t {
     kmut_unlock(&table->mut);
     mb
 }
+
+
 
 // add mailbox to descriptor table, return descriptor.  returns failure if all
 // descriptor slots are taken

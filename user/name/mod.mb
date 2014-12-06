@@ -193,3 +193,23 @@ fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
 
 
 }
+
+fn server_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
+    if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
+        return -1;
+    }
+
+    let request: name_request;
+    request.request_type = NAME_REGISTER;
+    strncpy(&(request.name)[0], name, NAME_MAX);
+    let status: i32 = -2;
+    let status_size: u32 = sizeof(i32);
+    let ret = ipc_forward_mb(name_desc, desc, &request as *u8, sizeof(name_request),
+            &status as *u8, &status_size, false, timeout);
+
+    if (ret >= 0 && status_size == sizeof(u32)) {
+        return status;
+    }
+
+    ret
+}

@@ -30,6 +30,7 @@ use prelude::ipclib::*;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 use prelude::server::*;
+use prelude::name::*;
 mod file_system;
 
 /* file system request types */
@@ -185,8 +186,12 @@ fn run_server(mb_arg: *u8) {
  * server can fail to properly init and be blocked forever (if async send fails)
  */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
-    server_init(&file_server_active, num_threads, run_server,
-            desc)
+    let new_desc = server_init(&file_server_active, num_threads, run_server,
+            desc);
+
+   // TODO what do if server registration fails? kill server, maybe 
+   server_register(NAME_SERVER, "file server", new_desc as u32, -1); 
+   new_desc
 }
 
 
