@@ -377,6 +377,7 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
 
     if (ret >= 0) {
         return response as i32
-    }
+     }
+
     ret
 }
