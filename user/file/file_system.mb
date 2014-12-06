@@ -86,7 +86,6 @@ fn file_node_create(name: *u8, buffer: *u8, buffer_len: u32) -> *file_node {
 }
 
 fn fs_lookup(name: *u8) -> *file_node {
-    // TODO locks
     let node: *file_node = null;
     mut_lock(&fs_lock);
     list_foreach_entry!(node, &fs, file_node, fs_link, {
