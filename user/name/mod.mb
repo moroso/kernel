@@ -15,6 +15,7 @@ use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
 use prelude::utils::asm::*;
 use prelude::server::*;
+use prelude::shared::ipc_defs::IPC_ERR_MIN;
 
 const NAME_MAX: u32 = 64;
 // id of name server
@@ -34,6 +35,15 @@ struct name_request {
 /*** request types ***/
 const NAME_REGISTER: u32 = 0;
 const NAME_REQUEST: u32 = 1;
+
+/*** errors (start past ipc err min so we don't confuse the two) ***/
+static NAME_ERR_MEM: i32 = IPC_ERR_MIN - 1;
+static NAME_ERR_ARGS: i32 = IPC_ERR_MIN - 2;
+static NAME_ERR_NOT_FOUND: i32 = IPC_ERR_MIN - 4;
+static NAME_ERR_DUP: i32 = IPC_ERR_MIN - 4;
+
+
+
 
 // list of server descs 
 static server_list: list_head = LIST_HEAD_INIT!(server_list);
@@ -74,7 +84,7 @@ fn server_lookup(name: *u8) -> *server_node {
 fn request_desc(name: *u8) -> i32 {
     let node = server_lookup(name);
     if (node == null) {
-        return -1;
+        return NAME_ERR_NOT_FOUND;
     } 
     let desc = node->desc;
     desc as i32 
@@ -86,7 +96,7 @@ fn server_list_insert(new_node: *server_node) -> i32 {
     list_foreach_entry!(node, &server_list, server_node, link, {
             if (strcmp(&(new_node->name)[0], &(node->name)[0]) == 0) {
             mut_unlock(&server_lock);
-            return -1;
+            return NAME_ERR_DUP;
             }
             if (node->name[0] > new_node->name[0]) {
             list_insert_before(&new_node->link, &node->link);
@@ -153,7 +163,7 @@ fn name_server_init(num_threads: u32, return_desc: i32) -> i32 {
 
 fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
     if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
-        return -1;
+        return NAME_ERR_ARGS;
     }
 
     let request: name_request;
@@ -174,7 +184,7 @@ fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
 
 fn server_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
     if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
-        return -1;
+        return NAME_ERR_ARGS;
     }
 
     let request: name_request;
