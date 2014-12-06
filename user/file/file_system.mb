@@ -16,7 +16,13 @@ use prelude::file::*;
 use prelude::syslib::*;
 use prelude::rt_abort;
 use prelude::locks::mutex::*;
+use prelude::shared::ipc_defs::IPC_ERR_MIN;
 
+/* file system errors -- offset against ipc */
+static FS_ERR_MEM: i32 = (IPC_ERR_MIN - 1);
+static FS_ERR_NOT_FOUND: i32 = (IPC_ERR_MIN - 2);
+static FS_ERR_OOB: i32 = (IPC_ERR_MIN - 3);
+static FS_ERR_DUP: i32 = (IPC_ERR_MIN - 4);
 
 const NAME_MAX: u32 = 400;
 
@@ -90,7 +96,7 @@ fn fs_lookup(name: *u8) -> *file_node {
 fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     let node = fs_lookup(&message->name[0]);
     if (node == null) {
-        return -1;
+        return FS_ERR_MEM;
     } 
 
     mut_lock(&node->mut);
@@ -110,13 +116,13 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
 fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
     let node = fs_lookup(name);
     if (node == null){
-        return -1;
+        return FS_ERR_NOT_FOUND;
     } 
     mut_lock(&node->mut);
 
     if (offset > node->file_end) {
         mut_unlock(&node->mut);
-        return -3
+        return FS_ERR_OOB;
     }
 
     if (buffer_len > (node->file_len + offset)) {
@@ -129,7 +135,7 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         let new_buffer = find_pages(new_file_len/PAGE_SIZE);
         if (new_buffer) == null {
             mut_unlock(&node->mut);
-            return -2;
+            return FS_ERR_MEM;
         }
 
         mos_memcpy(new_buffer, node->file_data, node->file_end);
@@ -151,7 +157,7 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
 
     let new_file: *file_node = file_node_create(name, data, data_len);
     if (new_file == null) {
-        return -2;
+        return FS_ERR_MEM;
     }
 
     let node: *file_node = null;
@@ -160,7 +166,7 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
             if (strcmp(name, &(node->name)[0]) == 0) {
             mut_unlock(&fs_lock);
 
-            return -1;
+            return FS_ERR_DUP;
             }
             if (node->name[0] > name[0]) {
             list_insert_before(&new_file->fs_link, &node->fs_link);

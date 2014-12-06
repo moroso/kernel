@@ -44,4 +44,7 @@ const IPC_ERR_DEAD: i32 = -6;
 // mailbox failed to transfer
 const IPC_ERR_MB: i32 = -7;
 
+// min ipc err -- server errors should be past this max
+const IPC_ERR_MIN: i32 = -7;
+
 
