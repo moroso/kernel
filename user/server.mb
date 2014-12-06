@@ -9,16 +9,19 @@ use prelude::ipclib::*;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 
-fn server_thread_exit(threads_active: *u32, server_active: *bool, err: i32) {
-    atomic_add(threads_active, -1); 
+static threads_dormant: u32 = 0; // number of threads needing wakeup
+static threads_active: u32 = 0; // number of active threads in server
+
+
+fn server_thread_exit(server_active: *bool, err: i32) {
+    atomic_add(&threads_active, -1); 
     if (err < 0) {
         *server_active = false;
     }
     abscond(err);
 }
 
-fn server_thread_init(threads_dormant: *u32, threads_active: *u32, mb: u32, ) ->
-i32 {
+fn server_thread_init(mb: u32) -> i32 {
 
     let status: i32 = -1; 
     assert!(ipc_recv_i32(mb as u32, &status, -1, null) >= 0);
@@ -28,32 +31,22 @@ i32 {
     }
 
     printf!("thread %d waiting for wakeup\n", get_tid());
-    atomic_add(threads_dormant, -1);
-    while (*threads_dormant > 0) {
+    atomic_add(&threads_dormant, -1);
+    while (threads_dormant > 0) {
         yield(-1);
     }
-    assert!(*threads_dormant >= 0);
+    assert!(threads_dormant >= 0);
 
     printf!("thread %d running server\n", get_tid());
-    atomic_add(threads_active, 1); 
+    atomic_add(&threads_active, 1); 
     0
 }
 
-fn server_init(threads_dormant: *u32, server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
+fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
         desc: u32) -> i32 {
+    
     let status: i32 = 0; 
 
-    /* creating file server proc (ensures file server has its own descriptors
-     * and address space) */
-    let ret = repl();
-    if (ret < 0) {
-        return -1;
-    }
-
-    /* if repl returns 0, we are the new file server process */
-    if (ret != 0) {
-        return 0;
-    }
     /* file server creates own mailbox */
     let mb: i32 = -1;
     if ((mb = mailbox_new()) < 0) {
@@ -65,6 +58,7 @@ fn server_init(threads_dormant: *u32, server_active: *bool, num_threads: u32, ru
         }
         abscond(-1);
     }
+    let ret: i32;
     let i: u32;
     // spin up the specified number of threads; quit early if thread
     // creation fails
@@ -81,7 +75,7 @@ fn server_init(threads_dormant: *u32, server_active: *bool, num_threads: u32, ru
     assert!(mb >= 0);
 
     if (status >= 0) {
-        atomic_add(threads_dormant, num_threads);
+        atomic_add(&threads_dormant, num_threads);
         // we set this before the server is truly active, but it's ok,
         // because nothing will get sent to the mailbox until we end out the
         // descriptor, which happens after the threads wake up
@@ -105,7 +99,7 @@ fn server_init(threads_dormant: *u32, server_active: *bool, num_threads: u32, ru
     if (desc >= 0) {
 
         // wait until server is fully active
-        while(*threads_dormant > 0) {
+        while(threads_dormant > 0) {
             yield(-1);
         }
 
