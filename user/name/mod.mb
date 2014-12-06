@@ -68,6 +68,35 @@ fn dec_server_ref(node: *server_node) {
     }
 }
 
+fn server_lookup(name: *u8) -> *server_node {
+    let node: *server_node = null;
+    mut_lock(&server_lock);
+    list_foreach_entry!(node, &server_list, server_node, link, {
+            if (strcmp(name, &(node->name)[0]) == 0) {
+            inc_server_ref(node);    
+            mut_unlock(&server_lock);
+            return node;
+            }
+            });
+
+    mut_unlock(&server_lock);
+    null
+}
+
+fn server_end_lookup(node: *server_node) {
+    dec_server_ref(node);
+}
+
+fn request_desc(name: *u8) -> i32 {
+    let node = server_lookup(name);
+    if (node == null) {
+        return -1;
+    } 
+    let desc = node->desc;
+    server_end_lookup(node);
+    desc as i32 
+}
+
 fn server_list_insert(new_node: *server_node) -> i32 {
     mut_lock(&server_lock);
     let node: *server_node = null;
@@ -137,9 +166,11 @@ fn run_name_server(mb_arg: *u8) {
                         ipc_reply(null, 0, &status as *u32, sizeof(i32));
                     }
 
+                    ipc_reply(null, 0, null, 0);
+                } else if (request.request_type == NAME_REQUEST) {
+                    let return_desc = request_desc(&(request.name)[0]);
+                    
                 }
-
-                ipc_reply(null, 0, null, 0);
             }
         } 
 
