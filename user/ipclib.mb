@@ -200,4 +200,7 @@ fn ipc_recv_all(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_
     ret
 }
 
-
+fn ipc_reply(long_addr: *u8, long_len: u32, short_addr: *u32, short_len: u32) ->
+i32 {
+    ipc_reply_full(long_addr, long_len, short_addr, short_len, -1)
+}

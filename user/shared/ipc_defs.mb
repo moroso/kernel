@@ -41,5 +41,7 @@ const IPC_ERR_REPLY: i32 = -4;
 const IPC_ERR_TIMEOUT: i32 = -5;
 // other thread died during our invocation
 const IPC_ERR_DEAD: i32 = -6;
+// mailbox failed to transfer
+const IPC_ERR_MB: i32 = -7;
 
 
