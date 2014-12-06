@@ -32,24 +32,7 @@ struct file_node {
     file_end: u32,
     file_data: *u8,
     fs_link: list_node,
-    ref_count: u32,
     mut: mut_t,
-}
-
-fn inc_fs_ref(node: *file_node) {
-    let old_ref = atomic_add(&node->ref_count, 1);
-}
-
-fn dec_fs_ref(node: *file_node) {
-    let old_ref = atomic_add(&node->ref_count, -1);
-    if (old_ref == 1) {
-        // TODO ensure we have the FS lock
-        if (in_list(&node->fs_link)) {
-            list_del(&node->fs_link);
-        }
-        remove_pages(node->file_data, node->file_len);
-        lib(node as *u32, sizeof(file_node));
-    }
 }
 
 fn file_node_create(name: *u8, buffer: *u8, buffer_len: u32) -> *file_node {
@@ -59,13 +42,13 @@ fn file_node_create(name: *u8, buffer: *u8, buffer_len: u32) -> *file_node {
     if (new_node == null) {
         return null;
     }
-   
+
     mut_init(&new_node->mut); 
     strncpy(&(new_node->name)[0], name, NAME_MAX);
 
     new_node->file_end = buffer_len;
     // round up to a multiple of a page
-    
+
     if (buffer_len%PAGE_SIZE != 0) {
         buffer_len = buffer_len + (PAGE_SIZE - (buffer_len%PAGE_SIZE));
     }
@@ -79,39 +62,33 @@ fn file_node_create(name: *u8, buffer: *u8, buffer_len: u32) -> *file_node {
     // TODO what do if user gives us a bogus length?
     mos_memcpy(new_node->file_data, buffer, new_node->file_end); 
     new_node->file_len = buffer_len;
-    new_node->ref_count = 1;
     list_init_node(&new_node->fs_link);
-    
+
     new_node
 }
 
 fn fs_lookup(name: *u8) -> *file_node {
     let node: *file_node = null;
     mut_lock(&fs_lock);
+    let i: u32 = 0;
     list_foreach_entry!(node, &fs, file_node, fs_link, {
-              if (strcmp(name, &(node->name)[0]) == 0) {
-                  inc_fs_ref(node);    
-                  mut_unlock(&fs_lock);
-                  return node;
-              }
-              if (name[0] < node->name[0]) {
-              break;
-              }
+            if (strcmp(name, &(node->name)[0]) == 0) {
+            mut_unlock(&fs_lock);
+            return node;
+            }
+            i+=1;
 
-              });
+            });
 
     mut_unlock(&fs_lock);
     null
 } 
 
-fn fs_end_lookup(node: *file_node) {
-    dec_fs_ref(node);
-}
 
 // truncates reads to where file ends
 fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     let node = fs_lookup(&message->name[0]);
-    if (node == null){
+    if (node == null) {
         return -1;
     } 
 
@@ -125,7 +102,6 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     message->buffer_len = transfer_len;
 
     mut_unlock(&node->mut);
-    fs_end_lookup(node);
     0
 }
 
@@ -139,7 +115,6 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
 
     if (offset > node->file_end) {
         mut_unlock(&node->mut);
-        fs_end_lookup(node);
         return -3
     }
 
@@ -153,7 +128,6 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         let new_buffer = find_pages(new_file_len/PAGE_SIZE);
         if (new_buffer) == null {
             mut_unlock(&node->mut);
-            fs_end_lookup(node);
             return -2;
         }
 
@@ -168,7 +142,6 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
     node->file_end = max((buffer_len + offset), node->file_end);
 
     mut_unlock(&node->mut);
-    fs_end_lookup(node);
 
     0
 }
@@ -184,7 +157,6 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
     mut_lock(&fs_lock);
     list_foreach_entry!(node, &fs, file_node, fs_link, {
             if (strcmp(name, &(node->name)[0]) == 0) {
-            dec_fs_ref(new_file);
             mut_unlock(&fs_lock);
 
             return -1;

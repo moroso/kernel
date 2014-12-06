@@ -23,7 +23,6 @@ const NAME_SERVER: u32 = 0;
 struct server_node {
     name: u8[NAME_MAX],
     desc: u32, 
-    ref_count: u32,
     link: list_node,
 }
 
@@ -51,28 +50,15 @@ fn new_server_node(name: *u8, desc: u32) -> *server_node {
     strncpy(&(new_node->name)[0], name, NAME_MAX);
     new_node->desc = desc;
     list_init_node(&new_node->link);
-    new_node->ref_count = 1;
-
     new_node
 }
 
-fn inc_server_ref(node: *server_node) {
-    atomic_add(&node->ref_count, 1);
-}
-
-fn dec_server_ref(node: *server_node) {
-    let old_ref = atomic_add(&node->ref_count, -1);
-    if (old_ref == 1) {
-        lib(node as *u32, sizeof(server_node));
-    }
-}
 
 fn server_lookup(name: *u8) -> *server_node {
     let node: *server_node = null;
     mut_lock(&server_lock);
     list_foreach_entry!(node, &server_list, server_node, link, {
             if (strcmp(name, &(node->name)[0]) == 0) {
-            inc_server_ref(node);    
             mut_unlock(&server_lock);
             return node;
             }
@@ -85,17 +71,12 @@ fn server_lookup(name: *u8) -> *server_node {
     null
 }
 
-fn server_end_lookup(node: *server_node) {
-    dec_server_ref(node);
-}
-
 fn request_desc(name: *u8) -> i32 {
     let node = server_lookup(name);
     if (node == null) {
         return -1;
     } 
     let desc = node->desc;
-    server_end_lookup(node);
     desc as i32 
 }
 
@@ -150,9 +131,6 @@ fn run_name_server(mb_arg: *u8) {
                             u32);
                     if (new_node == null || server_list_insert(new_node) < 0) {
                         status = -1;
-                        if (new_node != null) {
-                            dec_server_ref(new_node);
-                        }
                         ipc_reply(null, 0, &status as *u32, sizeof(i32));
                     }
 
