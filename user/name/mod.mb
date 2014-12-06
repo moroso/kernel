@@ -28,7 +28,12 @@ struct server_node {
 
 struct name_request {
     name: u8[NAME_MAX],
+    request_type: u32,
 }
+
+/*** request types ***/
+const NAME_REGISTER: u32 = 0;
+const NAME_REQUEST: u32 = 1;
 
 // list of server descs 
 static server_list: list_head = LIST_HEAD_INIT!(server_list);
@@ -120,20 +125,22 @@ fn run_name_server(mb_arg: *u8) {
                 ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
             } else {
-                printf!("MESSAGE RECEIVED: %s\n", &request.name[0]);
-                let new_node = new_server_node(&request.name[0], client_desc as
-                        u32);
-                if (new_node == null || server_list_insert(new_node) < 0) {
-                    status = -1;
-                    if (new_node != null) {
-                       // dec_server_ref(new_node);
+                if (request.request_type == NAME_REGISTER) {
+                    printf!("MESSAGE RECEIVED: %s\n", &request.name[0]);
+                    let new_node = new_server_node(&request.name[0], client_desc as
+                            u32);
+                    if (new_node == null || server_list_insert(new_node) < 0) {
+                        status = -1;
+                        if (new_node != null) {
+                            dec_server_ref(new_node);
+                        }
+                        ipc_reply(null, 0, &status as *u32, sizeof(i32));
                     }
-                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
+
                 }
 
+                ipc_reply(null, 0, null, 0);
             }
-
-            ipc_reply(null, 0, null, 0);
         } 
 
     }
@@ -237,6 +244,7 @@ fn name_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
     }
 
     let request: name_request;
+    request.request_type = NAME_REGISTER;
     strncpy(&(request.name)[0], name, NAME_MAX);
     let status: i32 = -2;
     let status_size: u32 = sizeof(i32);
