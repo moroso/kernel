@@ -26,8 +26,9 @@ fn child_check() {
 
 
 fn main() -> i32 {
-    let mb = mailbox_new();
+
     mallot_init();
+    let mb = mailbox_new();
     printf!("MB %d\n", mb);
     assert!(mb >= 0);
     printf!("file server init exited with status %d\n", file_server_init(5, mb));

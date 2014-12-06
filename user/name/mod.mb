@@ -13,6 +13,7 @@ use prelude::ipclib::*;
 use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
+use prelude::utils::asm::*;
 
 const NAME_MAX: u32 = 64;
 // id of name server
@@ -21,6 +22,7 @@ const NAME_SERVER: u32 = 0;
 struct server_node {
     name: u8[NAME_MAX],
     desc: u32, 
+    ref_count: u32,
     link: list_node,
 }
 
@@ -45,9 +47,43 @@ fn new_server_node(name: *u8, desc: u32) -> *server_node {
    strncpy(&(new_node->name)[0], name, NAME_MAX);
    new_node->desc = desc;
    list_init_node(&new_node->link);
+   new_node->ref_count = 1;
 
     new_node
 }
+
+fn inc_server_ref(node: *server_node) {
+    atomic_add(&node->ref_count, 1);
+}
+
+fn dec_server_ref(node: *server_node) {
+    let old_ref = atomic_add(&node->ref_count, -1);
+    if (old_ref == 1) {
+        lib(node as *u32, sizeof(server_node));
+    }
+}
+
+fn server_list_insert(new_node: *server_node) -> i32 {
+    mut_lock(&server_lock);
+    let node: *server_node = null;
+    list_foreach_entry!(node, &server_list, server_node, link, {
+            if (strcmp(&(new_node->name)[0], &(node->name)[0]) == 0) {
+            mut_unlock(&server_lock);
+            return -1;
+            }
+            if (node->name[0] > new_node->name[0]) {
+            list_insert_before(&new_node->link, &node->link);
+            mut_unlock(&server_lock);
+
+            return 0;
+            }
+            });
+
+    list_insert_tail(&new_node->link, &server_list);
+    mut_unlock(&server_lock);
+
+    0
+} 
 
 fn run_name_server(mb_arg: *u8) {
     /*** setup ***/
@@ -85,7 +121,15 @@ fn run_name_server(mb_arg: *u8) {
 
             } else {
                 printf!("MESSAGE RECEIVED: %s\n", &request.name[0]);
-                
+                let new_node = new_server_node(&request.name[0], client_desc as
+                        u32);
+                if (new_node == null || server_list_insert(new_node) < 0) {
+                    status = -1;
+                    if (new_node != null) {
+                       // dec_server_ref(new_node);
+                    }
+                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
+                }
 
             }
 
@@ -194,7 +238,7 @@ fn name_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
 
     let request: name_request;
     strncpy(&(request.name)[0], name, NAME_MAX);
-    let status: i32 = 0;
+    let status: i32 = -2;
     let status_size: u32 = sizeof(i32);
 
     let ret = ipc_forward_mb(name_desc, desc, &request as *u8, sizeof(name_request),

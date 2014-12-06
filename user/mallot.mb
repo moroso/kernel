@@ -20,6 +20,7 @@ use prelude::shared::consts::*;
 use prelude::utils::list::*;
 use prelude::utils::stdlib::*;
 use prelude::rt_abort;
+use prelude::locks::mutex::*;
 
 // TODO why won't it let me set the end of the heap as a constant?
 static heap_end: *u8 = 0xffffe000 as *u8; 
@@ -41,7 +42,7 @@ struct cache_head {
 size: u32,
           slab: *u32,
           link: list_node,
-          //mut: //kmut,
+          mut: mut_t,
           slab_list: list_head,
 }
 
@@ -121,7 +122,7 @@ fn find_cache(size: u32) -> i32 {
 fn cache_create(size: u32, cache: *cache_head) -> i32 {
     cache->size = size;
     list_init_head(&cache->slab_list);
-    //kmut_init(&cache->mut);
+    mut_init(&cache->mut);
     slab_add(size, cache);
     if (cache->slab == null) {
         return -1;
@@ -132,8 +133,8 @@ fn cache_create(size: u32, cache: *cache_head) -> i32 {
 /* remove an element from the given cache.  if cache is empty, a new slab is
  * allocated  */
 fn cache_remove (cache: *cache_head) -> *u32 {
-
-    //kmut_lock(&cache->mut);
+    
+    mut_lock(&cache->mut);
     if (cache->slab == null) {
         slab_add(cache->size, cache);
     }
@@ -143,7 +144,7 @@ fn cache_remove (cache: *cache_head) -> *u32 {
         cache->slab = *element as *u32;
 
     }
-    //kmut_unlock(&cache->mut);
+    mut_unlock(&cache->mut);
     element
 }
 
@@ -169,7 +170,7 @@ fn is_in_cache(element: *u32, cache: *cache_head) -> bool {
 /* add element back into cache */
 fn cache_add (element: *u32, cache: *cache_head) {
     /* TODO check memory bounds */
-    //kmut_lock(&cache->mut);
+    mut_lock(&cache->mut);
     if (debug) {
         let found = is_in_cache(element, cache);
         if (!found) {
@@ -193,7 +194,7 @@ fn cache_add (element: *u32, cache: *cache_head) {
 
     *element = cache->slab as u32;
     cache->slab = element;
-    //kmut_unlock(&cache->mut);
+    mut_unlock(&cache->mut);
 }
 
 fn mallot_init() {
