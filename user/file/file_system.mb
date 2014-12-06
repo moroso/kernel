@@ -94,8 +94,12 @@ fn fs_lookup(name: *u8) -> *file_node {
                   mut_unlock(&fs_lock);
                   return node;
               }
-            });
-    
+              if (name[0] < node->name[0]) {
+              break;
+              }
+
+              });
+
     mut_unlock(&fs_lock);
     null
 } 
@@ -110,12 +114,12 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     if (node == null){
         return -1;
     } 
-    
+
     mut_lock(&node->mut);
-    
+
     let transfer_len = min(message->buffer_len, node->file_end
             - message->file_offset);
- 
+
 
     mos_memcpy(buffer, node->file_data + message->file_offset, transfer_len);
     message->buffer_len = transfer_len;

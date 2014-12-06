@@ -49,10 +49,10 @@ fn new_server_node(name: *u8, desc: u32) -> *server_node {
         return null;
     }
 
-   strncpy(&(new_node->name)[0], name, NAME_MAX);
-   new_node->desc = desc;
-   list_init_node(&new_node->link);
-   new_node->ref_count = 1;
+    strncpy(&(new_node->name)[0], name, NAME_MAX);
+    new_node->desc = desc;
+    list_init_node(&new_node->link);
+    new_node->ref_count = 1;
 
     new_node
 }
@@ -76,6 +76,9 @@ fn server_lookup(name: *u8) -> *server_node {
             inc_server_ref(node);    
             mut_unlock(&server_lock);
             return node;
+            }
+            if (name[0] < node->name[0]) {
+                break;
             }
             });
 

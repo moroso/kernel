@@ -31,7 +31,8 @@ fn main() -> i32 {
     let mb = mailbox_new();
     printf!("MB %d\n", mb);
     assert!(mb >= 0);
-    printf!("file server init exited with status %d\n", file_server_init(5, mb));
+    printf!("file server init exited with status %d\n", file_server_init(5, mb
+                as u32));
     let fs_mb: i32 = -1;
     ipc_recv_all(mb as u32, null, null, null, null, &fs_mb, -1, null);
     printf!("mailbox: %d\n", fs_mb);
@@ -40,11 +41,21 @@ fn main() -> i32 {
         printf!("error registering file server\n");
         abscond(-1);
     } 
-  
-    mailbox_remove(fs_mb as u32);
 
-    if (server_request(NAME_SERVER, "file server", &fs_mb, -1) < 0) {
-        abscond(-1);
+    let j: u32;
+    for (j = 0; j < 20; j+=1) { 
+        let ret2 = repl();
+        if (ret2 == 0) {
+            break;
+        }
+    }
+
+    for (j = 0; j < 1000; j+=1) { 
+        mailbox_remove(fs_mb as u32);
+
+        if (server_request(NAME_SERVER, "file server", &fs_mb, -1) < 0) {
+            abscond(-1);
+        }
     }
     let request: file_message;
     let request_size = sizeof(file_message);

@@ -77,7 +77,7 @@ extern static user_copy_handler: exception_record;
 fn page_fault_handler(regs: *uregs) {
     // If this happened at the try address userspace copy, then return
     // to the catch address.
-    if regs->cs == consts::USER_CS && regs->eip == user_copy_handler.try {
+    if regs->cs == consts::KERNEL_CS && regs->eip == user_copy_handler.try {
         regs->eip = user_copy_handler.catch;
         return ();
     }
