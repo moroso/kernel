@@ -2,9 +2,12 @@ use file::*;
 use name::*;
 use syslib::*;
 use ipclib::*;
+use mallot::*;
 
 
 fn main() -> i32 {
+
+    mallot_init();
     let mb = mailbox_new();
     if (name_server_init(5, mb as u32) < 0) {
         printf!("error\n");
