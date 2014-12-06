@@ -17,16 +17,6 @@ use prelude::mallot::*;
 static threads_dormant: u32 = 0; // number of threads needing wakeup
 static threads_active: u32 = 0; // number of active threads in server
 
-
-fn server_create(prog_name: *u8, num_threads: u32, return_desc: u32) -> i32 {
-    let ret = repl();
-    if (ret == 0) {
-        perform(prog_name, ["5", "0"]);
-        abscond(-1);
-    }
-    ret
-}
-
 fn server_thread_exit(server_active: *bool, err: i32) {
     atomic_add(&threads_active, -1); 
     if (err < 0) {
@@ -59,6 +49,17 @@ fn server_thread_init(mb: u32) -> i32 {
 fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
         desc: u32) -> i32 {
 
+    let ret = repl();
+    if (ret < 0) {
+        return -1;
+    }
+    if (ret != 0) {
+        let new_mb: i32;
+        if (ipc_recv_mb(desc, &new_mb, null, null, -1, null) < 0) {
+            return -2;
+        }
+        return new_mb;
+    }
     let status: i32 = 0; 
 
     /* file server creates own mailbox */
@@ -72,7 +73,6 @@ fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(),
         }
         abscond(-1);
     }
-    let ret: i32;
     let i: u32;
     // spin up the specified number of threads; quit early if thread
     // creation fails
