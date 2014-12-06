@@ -485,13 +485,15 @@ fn ipc_recv(args: *ipc_args) -> i32 {
  * - message_short: address of short message to send to receiver. 
  * - short_len: maximum length of short message.  message_short is ignored if short_len
  *   is 0.
+ * - desc: descriptor being sent to sender
  *
  * Returns 0 on success, negative error code of failure.  
  *
  * TODO hide rend manipulation behind a layer of abstraction, as with the other
  * functions
  */
-fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) -> i32 {
+fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
+        desc: i32) -> i32 {
 
     // check to see if addresses all point to user addresses
     if ((!is_user_addr(message_long as *u32)  && long_len > 0)  ||
@@ -528,6 +530,16 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32) 
     cond_preempt_enable(enable);
 
     let message_src: *message_node = last_send->message as *message_node;
+    if (desc >= 0) {
+        let mailbox_fwd = desc_table::mb_desc_lookup(desc as
+                u32);
+        message_src->desc_dest = desc_table::mb_table_add(&last_send->tcb->proc->mb_desc, mailbox_fwd);
+        if (message_src->desc_dest < 0) {
+            rend_signal(null, 0, last_send, IPC_ERR_MB);
+            return IPC_ERR_MB;
+        }
+    }
+
 
     /* long message transfer */
     let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, &(last_send->tcb->proc->PD),

@@ -58,10 +58,10 @@ fn get_ticks() -> u32 {
 				syscall_0(shared::syscall_consts::INT_GET_TICKS) as u32
 }
 
-fn ipc_reply(message_long: *u8, long_len: u32, message_short: *u32, short_len:
-u32) -> i32 {
-    syscall_4(shared::syscall_consts::INT_IPC_REPLY, message_long as u32,
-            long_len, message_short as u32, short_len) as i32
+fn ipc_reply_full(message_long: *u8, long_len: u32, message_short: *u32, short_len:
+u32, desc: i32) -> i32 {
+    syscall_5(shared::syscall_consts::INT_IPC_REPLY, message_long as u32,
+            long_len, message_short as u32, short_len, desc as u32) as i32
 }
 
 // returns descriptor if works, negative error code otherwise
