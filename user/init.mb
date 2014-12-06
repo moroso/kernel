@@ -9,13 +9,8 @@ fn main() -> i32 {
 
     mallot_init();
     let mb = mailbox_new();
-    if (name_server_init(5, mb as u32) < 0) {
-        printf!("error\n");
-        abscond(-1);
-    }
     let name_mb: i32 = -1;
-    assert!(ipc_recv_mb(mb as u32, &name_mb, null, null, -1, null) >= 0);
-    if (name_mb < 0) {
+    if ((name_mb = name_server_init(5, mb as u32)) < 0) {
         printf!("error\n");
         abscond(-1);
     }

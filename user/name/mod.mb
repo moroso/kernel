@@ -14,6 +14,7 @@ use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
 use prelude::utils::asm::*;
+use prelude::server::*;
 
 const NAME_MAX: u32 = 64;
 // id of name server
@@ -40,8 +41,6 @@ static server_list: list_head = LIST_HEAD_INIT!(server_list);
 static server_lock: mut_t = MUTEX_INIT!();
 
 static name_server_active: bool = false;
-static threads_dormant: u32 = 0;
-static threads_active: u32 = 0;
 
 fn new_server_node(name: *u8, desc: u32) -> *server_node {
     let new_node = mallot(sizeof(server_node)) as *server_node;
@@ -126,28 +125,16 @@ fn run_name_server(mb_arg: *u8) {
     /*** setup ***/
     let mb = mb_arg as i32;
     assert!(mb >= 0);
+
+    if (server_thread_init(mb as u32) < 0) {
+        server_thread_exit(&name_server_active, -1);
+    }
+
     let status: i32 = -1; 
-
-    assert!(ipc_recv_i32(mb as u32, &status, -1, null) >= 0);
-    if (status < 0) {
-        printf!("err %d (%d)\n", get_tid(), status);
-        name_server_active = false;
-        abscond(-1);
-    }
-
-    printf!("thread %d waiting for wakeup\n", get_tid());
-    atomic_add(&threads_dormant, -1);
-    while (threads_dormant > 0) {
-        yield(-1);
-    }
-    assert!(threads_dormant >= 0);
-
-    printf!("thread %d running server\n", get_tid());
-    atomic_add(&threads_active, 1); 
-
     let client_desc: i32 = -1;
     let request: name_request;
     let request_size = sizeof(name_request); 
+
     while(name_server_active) {
         request_size = sizeof(name_request);
         if (ipc_recv_mb(mb as u32, &client_desc, &request as *u8, &request_size, -1, null) >=
@@ -179,117 +166,11 @@ fn run_name_server(mb_arg: *u8) {
 
     }
     printf!("thread %d exiting server\n", get_tid());
-    abscond(0);
-
+    server_thread_exit(&name_server_active, 0);
 }
 
 fn name_server_init(num_threads: u32, return_desc: u32) -> i32 {
-
-    let status: i32 = 0; 
-
-    let ret = repl();
-    if (ret < 0) {
-        return -1;
-    }
-
-    if (ret != 0) {
-        return 0;
-    }
-
-    // mailbox for the server
-    let mb: i32;
-    if ((mb = mailbox_new()) < 0) {
-        status = -1;
-        ipc_send_short(return_desc, &status as *u8, sizeof(u32), null,
-                null, false, -1);
-    }
-
-    // spin up the specified number of threads; quit early if thread
-    // creation fails
-    let i: u32 = 0;
-    for (i = 0; i < num_threads; i+=1) {
-        printf!("creating thread %d\n", i);
-        if ((ret = thr_create(run_name_server, mb as *u8)) < 0) {
-            // TODO task_vanish or cond var
-            status = -2;
-            num_threads = i;
-            break; 
-        } 
-    }
-
-    assert!(mb >= 0);
-
-    if (status >= 0) {
-        atomic_add(&threads_dormant, num_threads);
-        // we set this before the server is truly active, but it's ok,
-        // because nothing will get sent to the mailbox until we end out the
-        // descriptor, which happens after the threads wake up
-        name_server_active = true;
-    }
-
-    // wake up child threads either with success (run server) or error
-    // (abscond immediately)
-    // do this before waking the proc waiting on desc in case they attempt to wait on our
-    // mailbox and ruin everything 
-    for (i = 0; i < num_threads; i+=1) {
-        printf!("waking up thread %d with status %d\n", i, status);
-        let ret = ipc_send_i32(mb as u32, &status, null, null, false, -1);
-        if (ret < 0) {
-            printf!("%d\n", ret);
-        }
-        assert!(ret >= 0);
-    }
-
-    // wake up thread waiting on given mailbox
-    if (return_desc >= 0) {
-
-        // wait until server is fully active
-        while(threads_dormant > 0) {
-            yield(-1);
-        }
-
-        if (status < 0) {
-
-            // if async fails due to memory, send a synchronous message instead
-            if (ipc_send_i32(mb as u32, &status, null, null, true, -1) == IPC_ERR_INTERNAL) {
-                ipc_send_i32(mb as u32, &status, null, null, false, -1);
-            }
-        } else {
-
-            // if the sender isn't waiting, we're blocked forever.
-            // This is probably better than timing out and leaving
-            // the sender potentially blocked
-            ipc_forward_mb(return_desc as u32, mb as u32, null, 0, null,
-                    null, false, -1);
-        }
-    }
-    mailbox_remove(return_desc as u32);
-    printf!("exiting\n");
-    abscond(status);
-
-    assert!(false); // no return
-    0
-}
-
-fn name_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
-
-    if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
-        return -1;
-    }
-
-    let request: name_request;
-    request.request_type = NAME_REGISTER;
-    strncpy(&(request.name)[0], name, NAME_MAX);
-    let status: i32 = -2;
-    let status_size: u32 = sizeof(i32);
-
-    let ret = ipc_forward_mb(name_desc, desc, &request as *u8, sizeof(name_request),
-            &status as *u8, &status_size, false, timeout);
-
-    if (ret >= 0 && status_size == sizeof(u32)) {
-        return status;
-    }
-    ret
+    server_init(&name_server_active, num_threads, run_name_server, return_desc)
 }
 
 fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
