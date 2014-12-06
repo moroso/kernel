@@ -402,7 +402,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         args_kern.options = message_send.options;
         args_kern.desc_dest = message_send.desc_dest;
         args_kern.long_dest.len = message_send.long_dest.len;
-        args_kern.short_dest.len = args_kern.short_dest.len = min(args_kern.short_dest.len,
+        args_kern.short_dest.len = min(args_kern.short_dest.len,
                 recv_len);
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     args_kern.short_dest.len) <
