@@ -184,9 +184,9 @@ fn run_server(mb_arg: *u8) {
  * NOTE if a valid descriptor desc is given but no thread ever waits on desc,
  * server can fail to properly init and be blocked forever (if async send fails)
  */
-fn file_server_init(num_threads: u32, desc: u32) -> i32 {
+fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     server_init(&file_server_active, num_threads, run_server,
-            desc as u32)
+            desc)
 }
 
 

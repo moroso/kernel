@@ -169,7 +169,7 @@ fn run_name_server(mb_arg: *u8) {
     server_thread_exit(&name_server_active, 0);
 }
 
-fn name_server_init(num_threads: u32, return_desc: u32) -> i32 {
+fn name_server_init(num_threads: u32, return_desc: i32) -> i32 {
     server_init(&name_server_active, num_threads, run_name_server, return_desc)
 }
 

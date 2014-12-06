@@ -47,7 +47,7 @@ fn server_thread_init(mb: u32) -> i32 {
 }
 
 fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
-        desc: u32) -> i32 {
+        desc: i32) -> i32 {
 
     let ret = repl();
     if (ret < 0) {
@@ -55,7 +55,7 @@ fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(),
     }
     if (ret != 0) {
         let new_mb: i32;
-        if (ipc_recv_mb(desc, &new_mb, null, null, -1, null) < 0) {
+        if (ipc_recv_mb(desc as u32, &new_mb, null, null, -1, null) < 0) {
             return -2;
         }
         return new_mb;
@@ -123,17 +123,12 @@ fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(),
             if (ipc_send_i32(mb as u32, &status, null, null, true, -1) == IPC_ERR_INTERNAL) {
                 ipc_send_i32(mb as u32, &status, null, null, false, -1);
             }
-        } else {
-            if ((ret = ipc_forward_mb(desc as u32, mb as u32, null, 0, null, null,
-                            true, -1)) < 0) {
-                if (ret == IPC_ERR_INTERNAL) {
-                    // if the sender isn't waiting, we're blocked forever.
-                    // This is probably better than timing out and leaving
-                    // the sender potentially blocked
-                    ipc_forward_mb(desc as u32, mb as u32, null, 0, null, null,
-                            false, -1);
-                }
-            }
+        } else if (desc >= 0) {
+            // if the sender isn't waiting, we're blocked forever.
+            // This is probably better than timing out and leaving
+            // the sender potentially blocked
+            ipc_forward_mb(desc as u32, mb as u32, null, 0, null, null,
+                    false, -1);
         }
     }
     mailbox_remove(desc as u32);
