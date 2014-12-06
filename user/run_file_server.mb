@@ -1,8 +1,0 @@
-use file::*;
-
-
-fn main() -> i32 {
-    file_server_init(5, 0);
-    // does not return
-    0
-}

@@ -63,8 +63,9 @@ fn find_pages(num_pages: u32) -> *u8 {
                         1024)) >= 0) {
             return heap_pointer;
         }
-        // if we don't get a collision error, return immediately  
-        if (ret != -6) {
+        // if we don't get a collision or wrapping error, return immediately  
+				// TODO error codes
+        if (ret != -6 && ret != -1) {
             heap_pointer+=PAGE_SIZE;
             return null;
         }
