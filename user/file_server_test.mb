@@ -40,7 +40,12 @@ fn main() -> i32 {
         printf!("error registering file server\n");
         abscond(-1);
     } 
-    
+  
+    mailbox_remove(fs_mb as u32);
+
+    if (server_request(NAME_SERVER, "file server", &fs_mb, -1) < 0) {
+        abscond(-1);
+    }
     let request: file_message;
     let request_size = sizeof(file_message);
     let response: u32 = -1;

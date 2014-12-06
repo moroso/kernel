@@ -169,7 +169,7 @@ fn run_name_server(mb_arg: *u8) {
                     ipc_reply(null, 0, null, 0);
                 } else if (request.request_type == NAME_REQUEST) {
                     let return_desc = request_desc(&(request.name)[0]);
-                    
+                    ipc_reply_mb(null, 0, return_desc as u32); 
                 }
             }
         } 
@@ -287,4 +287,25 @@ fn name_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
         return status;
     }
     ret
+}
+
+fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
+    if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
+        return -1;
+    }
+
+    let request: name_request;
+    request.request_type = NAME_REQUEST;
+    strncpy(&(request.name)[0], name, NAME_MAX);
+    let status: i32 = -2;
+    let status_size: u32 = sizeof(i32);
+    let ret = ipc_request_mb(name_desc, &request as *u8, sizeof(name_request),
+            &status as *u8, &status_size, desc, false, timeout);
+
+    if (ret >= 0 && status_size == sizeof(u32)) {
+        return status;
+    }
+    ret
+
+
 }
