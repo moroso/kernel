@@ -21,6 +21,5 @@ fn print_char(x: i32) -> i32 {
 }
 
 fn rt_abort() {
-    // XXX: this is a bad implementation
-    while true { }
+    while(true) {}
 }

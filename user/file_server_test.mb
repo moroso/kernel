@@ -84,8 +84,9 @@ fn main() -> i32 {
         }   
         printf!("read file %s.  Content: %s\n", file_name, response);
 
-        if (file_write(fs_mb as u32, file_name, response, 10, get_tid(), -1) < 0) {
-            printf!("ERROR 3\n");
+        if ((ret = file_write(fs_mb as u32, file_name, response, 10, get_tid(),
+                        -1)) < 0) {
+            printf!("ERROR 3 (%d)\n", ret);
             abscond(-1);
         }   
 
