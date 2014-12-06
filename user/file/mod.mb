@@ -125,7 +125,7 @@ fn run_server(mb_arg: *u8) {
             // in theory, a proxy server is sanitizing things, but
             // if message does not look like a request, return an error
             if (request_size != sizeof(file_message)) {
-                status = -1;
+                status = -20;
                 ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
             } else {
