@@ -6,7 +6,7 @@
 use prelude::syslib::*;
 use prelude::locks::mut_asm::*;
 
-macro MUTEX_INIT!(name) {
+macro MUTEX_INIT!() {
     ::prelude::locks::mutex::mut_t {
         locked: 0, 
     }

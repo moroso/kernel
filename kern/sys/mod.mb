@@ -10,6 +10,7 @@ use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
 use structures::mailbox::{mailbox_new, mailbox_remove};
+use ipc::desc_table::*;
 
 extern fn enable_interrupts();
 
@@ -60,6 +61,8 @@ fn sys_init() {
     syscall!(INT_YIELD, yield);
     syscall!(INT_MAILBOX_REMOVE, mailbox_remove);
     syscall!(INT_REMOVE_PAGES, remove_pages);
+    syscall!(INT_MAILBOX_MOVE, mb_move_handler);
+
 }
 
 

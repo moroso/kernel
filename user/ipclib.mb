@@ -117,13 +117,16 @@ fn ipc_send_i32(mb: u32, src_i32: *i32, dest_addr: *u8, dest_len: *u32, async:
             timeout)
 }
 
-fn ipc_forward_mb(mb: u32, desc: u32, dest_addr: *u8, dest_len: *u32, async: bool,
+fn ipc_forward_mb(mb: u32, desc: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len: *u32, async: bool,
         timeout: i32) -> i32 {
     let args: ipc_args;
     ipc_args_init(&args);
     args.dest_id = mb;
     args.desc_src = desc as i32;
     args.short_dest.addr = dest_addr;
+    args.short_src.addr = src_addr;
+    args.short_src.len = src_len;
+
     if (dest_len != null) {
         args.short_dest.len = *dest_len;
     }
@@ -140,6 +143,10 @@ fn ipc_forward_mb(mb: u32, desc: u32, dest_addr: *u8, dest_len: *u32, async: boo
         }
     }
     ret
+}
+
+fn ipc_recv_mb(mb: u32, desc: *i32, dest_addr: *u8, dest_len: *u32, timeout: i32, reply_needed: *bool) -> i32 {
+		ipc_recv_all(mb, null, null, dest_addr, dest_len, desc, timeout, reply_needed)
 }
 
 fn ipc_recv_i32(mb: u32, dest_i32: *i32, timeout: i32, reply_needed: *bool) -> i32 {
