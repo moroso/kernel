@@ -6,7 +6,7 @@ use ipclib::*;
 use string::*;
 use name::*;
 
-const NUM_THREADS: u32 = 10;
+static NUM_THREADS: u32 = 200;
 
 fn main() -> i32 {
 
@@ -48,18 +48,50 @@ fn main() -> i32 {
     let file_name = "dance #x";
 
     let file_name_length = strnlen(file_name, 100);
-    file_name[7] = file[(get_tid()%10)] as u8;
+    file_name[7] = file[get_tid()] as u8;
 
     if ((ret = file_create(fs_mb as u32, file_name, file, strnlen(file, 1000),
                     -1)) >=
             0) {
 
         printf!("NAME: %s CONTENT: %s\n", file_name, file);
+    } else {
+        if (ret == -1) {
+            printf!("conflict %s\n", file_name);
+        } else {
+            printf!("ERROR %d\n", ret);
+            abscond(-1);
+        }
     }
 
-    //mailbox_remove(fs_mb as u32);
+    while (true) {
+        mailbox_remove(fs_mb as u32);
 
+        fs_mb = -1;
+        if (server_request(NAME_SERVER, "file server", &fs_mb, -1) < 0) {
+            printf!("ERROR 1\n");
+            abscond(-1);
+        }
 
+        remove_pages(file, 4096);
+        let response = find_pages(1);
+        let resp_len = 1000;
+
+        if ((ret = file_read(fs_mb as u32, file_name, response, &resp_len, 0,
+                        -1)) < 0) {
+            printf!("ERROR 2 (%d)\n", ret);
+            abscond(-1);
+        }   
+        printf!("read file %s.  Content: %s\n", file_name, response);
+
+        if (file_write(fs_mb as u32, file_name, response, 10, get_tid(), -1) < 0) {
+            printf!("ERROR 3\n");
+            abscond(-1);
+        }   
+
+        remove_pages(response, 4096);
+    }
+    printf!("DONE\n"); 
     abscond(1);
     0
 }

@@ -135,6 +135,7 @@ fn run_server(mb_arg: *u8) {
                             file_buffer,
                             request_message.buffer_len); 
                     remove_pages(file_buffer, file_buffer_len);
+
                     ipc_reply(null, 0, &status as *u32, sizeof(i32));
                 } else if (request_message.request_type == FILE_READ) {
                     status = file_system::fs_read(&request_message, file_buffer);
@@ -312,7 +313,6 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
             &message_size, timeout, true);
 
     if (message_size == sizeof(i32)) {
-        printf!("HERE STATUS\n");
         return *(&message as *i32);
     } 
 
