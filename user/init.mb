@@ -14,7 +14,8 @@ fn main() -> i32 {
     name_mb = new_server("name_server", mb);
     mailbox_move(name_mb as u32, NAME_SERVER);
 
-    perform("file_server_test", null);
+    let args = [null];
+    perform("file_server_test", &args[0]);
     while(true) {}
     0
 }

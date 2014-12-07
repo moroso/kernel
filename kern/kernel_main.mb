@@ -42,7 +42,7 @@ extern fn set_eflags(val: u32);
 fn user_thread(dummy: *u8) {
 
     let arg_array = ["foo", "bar", null];
-    assert!(perform("init", &arg_array[0]) >= 0);
+    assert!(perform("init", &arg_array[0], false) >= 0);
     assert!(false);
 }
 
