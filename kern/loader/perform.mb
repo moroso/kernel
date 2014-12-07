@@ -6,14 +6,45 @@ use entry::*;
 use loader::*;
 use utils::stdlib::mos_memcpy;
 use utils::string::{mos_strncpy, mos_strnlen};
+use utils::user_mem::*;
+
 const MAX_ARG_LEN: u32 = 500;
 const MAX_ARG_NUM: u32 = 50;
 
-fn perform(filename: *u8, argv: **u8) -> i32 {
+const PERF_ERR_MEM: i32 = -1;
+const PERF_ERR_ARGS: i32 = -2;
+
+fn perform_handler(filename: *u8, argv: **u8) -> i32 {
+    let filename_kern: u8[MAX_ARG_LEN];  
+    if (copy_from_user(&filename_kern[0], filename, MAX_ARG_LEN) < 0) {
+        return PERF_ERR_MEM;
+    }
+
+    let args_kern: (*u8)[MAX_ARG_NUM];
+    let i: u32 = 0;
+    for (i = 0; i < MAX_ARG_NUM; i+=1) { 
+        if (copy_from_user(&(args_kern[i]) as *u8, &argv[i] as *u8, sizeof(*u8)) < 0) {
+            printf!("HERE %p\n", &argv[i]);
+            return PERF_ERR_MEM;
+        }
+        if ((args_kern[i]) == null) {
+            break;
+        }
+    }
+    
+    if (i == MAX_ARG_NUM) {
+        return PERF_ERR_ARGS;
+    }
+
+    perform(&filename_kern[0], &args_kern[0], true)
+}
+
+fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 { 
+
     /* kernel-mem buffer for storing arguments.  Really, we should read this
      * into a page directly, but are not doing this because we do not want to expose
      * get_frame at this moment */
-    let arg_buffer: u8[MAX_ARG_LEN];
+    let arg_buffer: u8[MAX_ARG_LEN + 1];
     let arg_pointer: *u8 = &arg_buffer[0];
 
     let word_idx: u32 = 0;
@@ -23,26 +54,35 @@ fn perform(filename: *u8, argv: **u8) -> i32 {
     if (argv != null || word_idx >= MAX_ARG_NUM) {
         while(argv[word_idx] != null) {
             let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
+            let str_len = 0;
+
+            if (from_user) {
+                if ((str_len = copy_string_from_user(arg_pointer, argv[word_idx],
+                                MAX_ARG_LEN)) < 0) {
+                    return PERF_ERR_MEM;
+                }
+
+
+            } else {
+                mos_strncpy(arg_pointer, argv[word_idx], mos_strnlen(argv[word_idx],
+                            MAX_ARG_LEN));
+                /* if the arguments extend beyond our buffer length, return with
+                 * failure */
+                str_len = mos_strnlen(argv[word_idx], MAX_ARG_LEN); 
+            }
+
             /* if the arguments extend beyond our buffer length, return with
              * failure */
-            if (buffer_len + mos_strnlen(argv[word_idx],
-                        MAX_ARG_LEN) > MAX_ARG_LEN) {
-                return -1;
-            } 
+            if (buffer_len + str_len > MAX_ARG_LEN) {
+                return PERF_ERR_ARGS;
+            }
 
-            mos_strncpy(arg_pointer, argv[word_idx], mos_strnlen(argv[word_idx],
-                        MAX_ARG_LEN));
-
-            arg_pointer+=mos_strnlen(argv[word_idx], MAX_ARG_LEN) + 1;
-
+            arg_pointer+=str_len + 1;
             word_idx+=1;
         }
     }
-    let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
 
-    // TODO replace this with real people memory validation
-    let file_buffer: u8[500];
-    mos_strncpy(&file_buffer[0], filename, 500);
+    let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
 
     let proc: *proc = get_tcb()->proc;
     let old_entries: **u32 = proc->PD.PT_entries;    
@@ -59,7 +99,7 @@ fn perform(filename: *u8, argv: **u8) -> i32 {
 
     let uregs: uregs;
 
-    if (load(&file_buffer[0], &uregs) < 0) {
+    if (load(&filename[0], &uregs) < 0) {
         PD_destroy(&(proc->PD), old_entries); 
         printf!("error\n");
         return -2;

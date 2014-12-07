@@ -37,7 +37,7 @@ fn get_tid() -> u32 {
     syscall_0(shared::syscall_consts::INT_GETTID)
 }
 
-fn perform(filename: *u8, args: *u8) -> i32 {
+fn perform(filename: *u8, args: **u8) -> i32 {
     syscall_2(shared::syscall_consts::INT_PERFORM, filename as u32, args as u32) as i32
 }
 

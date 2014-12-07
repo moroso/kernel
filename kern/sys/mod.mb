@@ -51,7 +51,7 @@ fn sys_init() {
     syscall!(INT_THR_REPL, thr_repl_handler);
     syscall!(INT_PRINT, sys_print);
     syscall!(INT_GETTID, get_tid);
-    syscall!(INT_PERFORM, perform);
+    syscall!(INT_PERFORM, perform_handler);
     syscall!(INT_IPC_SEND, ipc_send);
     syscall!(INT_IPC_RECV, ipc_recv);
     syscall!(INT_NEW_PAGES, new_pages);

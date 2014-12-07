@@ -48,6 +48,11 @@ fn server_thread_init(mb: u32) -> i32 {
 }
 
 fn new_server(prog_name: *u8, desc: i32) -> i32 {
+    // TODO choose something meaningful
+    let desc_buffer_temp: u8[100];
+    let desc_buffer: *u8 = &desc_buffer_temp[0];
+
+    snprintf!(desc_buffer, 100, "%d", desc);
     let ret = repl();
     if (ret < 0) {
         return -1;
@@ -59,7 +64,8 @@ fn new_server(prog_name: *u8, desc: i32) -> i32 {
         }
         return new_mb;
     }
-    perform(prog_name, null);
+    let B = ["hello", "help", null];
+    perform(prog_name, &B[0]);
     -1
 }
 
