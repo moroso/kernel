@@ -14,9 +14,7 @@ fn main() -> i32 {
     name_mb = new_server("name_server", mb);
     mailbox_move(name_mb as u32, NAME_SERVER);
 
-    mb = mailbox_new();
-    let file_mb = new_server("file_server", mb); 
-    printf!("SUCCESS\n");
+    perform("file_server_test", null);
     while(true) {}
     0
 }

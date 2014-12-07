@@ -40,7 +40,7 @@ const NAME_REQUEST: u32 = 1;
 static NAME_ERR_MEM: i32 = IPC_ERR_MIN - 1;
 static NAME_ERR_ARGS: i32 = IPC_ERR_MIN - 2;
 static NAME_ERR_NOT_FOUND: i32 = IPC_ERR_MIN - 4;
-static NAME_ERR_DUP: i32 = IPC_ERR_MIN - 4;
+static NAME_ERR_DUP: i32 = IPC_ERR_MIN - 5;
 
 // list of server descs 
 static server_list: list_head = LIST_HEAD_INIT!(server_list);
@@ -118,7 +118,7 @@ fn run_name_server(mb_arg: *u8) {
         server_thread_exit(&name_server_active, -1);
     }
 
-    let status: i32 = -1; 
+    let status: i32 = 0; 
     let client_desc: i32 = -1;
     let request: name_request;
     let request_size = sizeof(name_request); 
@@ -136,15 +136,21 @@ fn run_name_server(mb_arg: *u8) {
                     printf!("MESSAGE RECEIVED: %s\n", &request.name[0]);
                     let new_node = new_server_node(&request.name[0], client_desc as
                             u32);
-                    if (new_node == null || server_list_insert(new_node) < 0) {
+                    if (new_node == null) {
                         status = -1;
-                        ipc_reply(null, 0, &status as *u32, sizeof(i32));
+                    } else if (server_list_insert(new_node) < 0) {
+                        status = -2;
                     }
+                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
+
 
                     ipc_reply(null, 0, null, 0);
                 } else if (request.request_type == NAME_REQUEST) {
                     let return_desc = request_desc(&(request.name)[0]);
-                    ipc_reply_mb(null, 0, return_desc as u32); 
+                    if (return_desc < 0) {
+                        status = return_desc;
+                    }
+                    ipc_reply_mb(&status as *u32, sizeof(i32), return_desc as u32); 
                 }
             }
         } 
@@ -158,7 +164,7 @@ fn name_server_init(num_threads: u32, return_desc: i32) -> i32 {
     server_init(&name_server_active, num_threads, run_name_server, return_desc)
 }
 
-fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
+fn name_server_request(name: *u8, desc: *i32, timeout: i32) -> i32 {
     if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
         return NAME_ERR_ARGS;
     }
@@ -168,7 +174,7 @@ fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
     strncpy(&(request.name)[0], name, NAME_MAX);
     let status: i32 = -2;
     let status_size: u32 = sizeof(i32);
-    let ret = ipc_request_mb(name_desc, &request as *u8, sizeof(name_request),
+    let ret = ipc_request_mb(NAME_SERVER, &request as *u8, sizeof(name_request),
             &status as *u8, &status_size, desc, false, timeout);
 
     if (ret >= 0 && status_size == sizeof(u32)) {
@@ -179,7 +185,7 @@ fn server_request(name_desc: u32, name: *u8, desc: *i32, timeout: i32) -> i32 {
 
 }
 
-fn server_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
+fn name_server_register(name: *u8, desc: u32, timeout: i32) -> i32 {
     if (strnlen(name, NAME_MAX + 1) > NAME_MAX) {
         return NAME_ERR_ARGS;
     }
@@ -189,7 +195,7 @@ fn server_register(name_desc: u32, name: *u8, desc: u32, timeout: i32) -> i32 {
     strncpy(&(request.name)[0], name, NAME_MAX);
     let status: i32 = -2;
     let status_size: u32 = sizeof(i32);
-    let ret = ipc_forward_mb(name_desc, desc, &request as *u8, sizeof(name_request),
+    let ret = ipc_forward_mb(NAME_SERVER, desc, &request as *u8, sizeof(name_request),
             &status as *u8, &status_size, false, timeout);
 
     if (ret >= 0 && status_size == sizeof(u32)) {

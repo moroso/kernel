@@ -3,7 +3,7 @@ use mallot::*;
 use syslib::*;
 
 const NUM_THREADS: u32 = 10;
-const MB: i32 = 1; // NOTE this is not guaranteed 
+const MB: i32 = 1; // NOTE this is not guaranteed -- we are assuming 
 
 fn main() -> i32 {
     printf!("initing file server\n");
@@ -12,6 +12,7 @@ fn main() -> i32 {
         abscond(-1);
     }
 
-    file_server_init(NUM_THREADS, MB);
+    let ret = file_server_init(NUM_THREADS, MB);
+    abscond(ret);
     0
 }

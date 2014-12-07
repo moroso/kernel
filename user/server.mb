@@ -138,10 +138,6 @@ fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(),
         }
     }
     mailbox_remove(desc as u32);
-    printf!("exiting\n");
-    abscond(status);
-
-    assert!(false); // no return
 
     0
 }

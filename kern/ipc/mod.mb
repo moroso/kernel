@@ -223,6 +223,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
             return IPC_ERR_DEAD;
         }
+
         return IPC_ERR_INTERNAL;
     }
 
@@ -238,6 +239,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len, args_kern.short_dest.len)) <
                 0) {
+
             return IPC_ERR_INTERNAL;
         }
 
