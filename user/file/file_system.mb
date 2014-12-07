@@ -144,8 +144,8 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         node->file_data = new_buffer;
     }
     assert!(node->file_len >= (buffer_len + offset));
-
     mos_memcpy((node->file_data + offset), buffer, buffer_len);
+
     node->file_end = max((buffer_len + offset), node->file_end);
 
     mut_unlock(&node->mut);
