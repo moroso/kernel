@@ -25,6 +25,7 @@ use prelude::locks::mutex::*;
 // TODO why won't it let me set the end of the heap as a constant?
 static heap_end: *u8 = 0xffffe000 as *u8; 
 static heap_pointer: *u8 = 0x4001e000 as *u8;  
+static page_lock: mut_t = MUTEX_INIT!();
 
 const debug: bool = false;
 const SLAB_SIZE: u32 = PAGE_SIZE; 
@@ -55,21 +56,28 @@ fn find_pages(num_pages: u32) -> *u8 {
 
     let heap_cur = heap_pointer;
     let ret: i32;
+
+    mut_lock(&page_lock);
     while((heap_pointer-=PAGE_SIZE) != heap_cur) {
         if (heap_pointer < USER_MEM_START as *u8) {
             heap_pointer = heap_end; 
         }    
         if ((ret = new_pages(heap_pointer, PAGE_SIZE * num_pages,
                         1024)) >= 0) {
-            return heap_pointer;
+            let new_addr = heap_pointer;
+            mut_unlock(&page_lock);
+            return new_addr;
         }
         // if we don't get a collision or wrapping error, return immediately  
 				// TODO error codes
         if (ret != -6 && ret != -1) {
             heap_pointer+=PAGE_SIZE;
+            mut_unlock(&page_lock);
             return null;
         }
     }
+
+    mut_unlock(&page_lock);
     null
 }
 
@@ -134,7 +142,7 @@ fn cache_create(size: u32, cache: *cache_head) -> i32 {
 /* remove an element from the given cache.  if cache is empty, a new slab is
  * allocated  */
 fn cache_remove (cache: *cache_head) -> *u32 {
-    
+
     mut_lock(&cache->mut);
     if (cache->slab == null) {
         slab_add(cache->size, cache);
@@ -155,9 +163,9 @@ fn is_in_cache(element: *u32, cache: *cache_head) -> bool {
     let i = 0;
     list_foreach_entry!(slab_node, &(cache->slab_list), slab_descriptor,
             slab_link, {
-           /* printf!("compare slab %p-%p to element %p\n", slab_node->slab_low,
-                ((slab_node->slab_low + SLAB_SIZE) as u32 -
-                 sizeof(slab_descriptor)) as *u8, element);*/
+            /* printf!("compare slab %p-%p to element %p\n", slab_node->slab_low,
+               ((slab_node->slab_low + SLAB_SIZE) as u32 -
+               sizeof(slab_descriptor)) as *u8, element);*/
             if (element >= slab_node->slab_low && element <=
                 ((((slab_node->slab_low  as *u8) +
                    SLAB_SIZE) as u32) - sizeof(slab_descriptor)) as *u32) {
