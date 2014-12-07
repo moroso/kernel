@@ -13,6 +13,7 @@ use prelude::utils::asm::*;
 use prelude::ipclib::*;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
+use prelude::name::*;
 
 static threads_dormant: u32 = 0; // number of threads needing wakeup
 static threads_active: u32 = 0; // number of active threads in server
@@ -62,7 +63,7 @@ fn new_server(prog_name: *u8, desc: i32) -> i32 {
     -1
 }
 
-fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
+fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
         desc: i32) -> i32 {
 
     let ret: i32;
@@ -100,6 +101,13 @@ fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(),
         // because nothing will get sent to the mailbox until we end out the
         // descriptor, which happens after the threads wake up
         *server_active = true;
+    }
+
+    if (name != null && mb >= 0) {
+        if (name_server_register(name, mb as u32, -1) < 0)  {
+            printf!("ERR registerring file server\n");
+            status = -6;
+        } 
     }
 
     // wake up child threads either with success (run server) or error
