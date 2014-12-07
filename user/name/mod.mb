@@ -42,9 +42,6 @@ static NAME_ERR_ARGS: i32 = IPC_ERR_MIN - 2;
 static NAME_ERR_NOT_FOUND: i32 = IPC_ERR_MIN - 4;
 static NAME_ERR_DUP: i32 = IPC_ERR_MIN - 4;
 
-
-
-
 // list of server descs 
 static server_list: list_head = LIST_HEAD_INIT!(server_list);
 static server_lock: mut_t = MUTEX_INIT!();

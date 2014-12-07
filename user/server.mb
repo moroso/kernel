@@ -46,9 +46,7 @@ fn server_thread_init(mb: u32) -> i32 {
     0
 }
 
-fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
-        desc: i32) -> i32 {
-
+fn new_server(prog_name: *u8, desc: i32) -> i32 {
     let ret = repl();
     if (ret < 0) {
         return -1;
@@ -60,6 +58,14 @@ fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(),
         }
         return new_mb;
     }
+    perform(prog_name, null);
+    -1
+}
+
+fn server_init(server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
+        desc: i32) -> i32 {
+
+    let ret: i32;
     let status: i32 = 0; 
 
     /* file server creates own mailbox */

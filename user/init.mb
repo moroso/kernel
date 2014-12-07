@@ -3,6 +3,7 @@ use name::*;
 use syslib::*;
 use ipclib::*;
 use mallot::*;
+use server::*;
 
 
 fn main() -> i32 {
@@ -10,14 +11,12 @@ fn main() -> i32 {
     mallot_init();
     let mb = mailbox_new();
     let name_mb: i32 = -1;
-    if ((name_mb = name_server_init(5, mb)) < 0) {
-        printf!("error\n");
-        abscond(-1);
-    }
+    name_mb = new_server("name_server", mb);
     mailbox_move(name_mb as u32, NAME_SERVER);
-    perform("file_server_test", null);
 
+    mb = mailbox_new();
+    let file_mb = new_server("file_server", mb); 
+    printf!("SUCCESS\n");
     while(true) {}
-
     0
 }
