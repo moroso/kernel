@@ -198,16 +198,22 @@ fn cache_add (element: *u32, cache: *cache_head) {
     mut_unlock(&cache->mut);
 }
 
-fn mallot_init() {
+fn mallot_init() -> i32 {
     // we are doing this sham of an allocation because we can't have a sized
     // array as a global, due to the compiler's initialization requirement.
     // Would like if fix.
     caches = find_pages(1) as *cache_head;
+    if (caches == null) {
+        return -1;
+    }
     let i: u32;
     for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
         let cache = &caches[i - POWER_MIN];
-        cache_create(1 << i, cache);
+        if (cache_create(1 << i, cache) < 0) {
+            return -2;
+        }
     }
+    0
 }
 
 /* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
