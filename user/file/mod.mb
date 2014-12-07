@@ -119,7 +119,6 @@ fn run_server(mb_arg: *u8) {
         // reset the buffer lengths to their maxes
         file_buffer_len = FILE_BUFFER_MAX;
         request_size = sizeof(file_message);
-
         if (ipc_recv_long(mb as u32, file_buffer, &file_buffer_len, &request_message as *u8,
                     &request_size, -1, null) >= 0) {
             // in theory, a proxy server is sanitizing things, but
@@ -187,15 +186,8 @@ fn run_server(mb_arg: *u8) {
  * server can fail to properly init and be blocked forever (if async send fails)
  */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
-    let new_desc = server_init(&file_server_active, num_threads, run_server,
-            desc);
-
-   // TODO what do if server registration fails? kill server, maybe 
-    if (name_server_register("file server", new_desc as u32, -1) < 0)  {
-        printf!("ERR registerring file server\n");
-        abscond(-1);
-    } 
-    new_desc
+    server_init("file server", &file_server_active, num_threads, run_server,
+            desc)
 }
 
 
@@ -249,7 +241,6 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     message.file_offset = 0;
     let response: u32;
     let response_size: u32 = sizeof(u32);
-
 
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
             sizeof(file_message), null, null, &response as *u8, &response_size, timeout, true);
