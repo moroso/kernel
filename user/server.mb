@@ -146,6 +146,6 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
         }
     }
     mailbox_remove(desc as u32);
-
+    abscond(0);
     0
 }
