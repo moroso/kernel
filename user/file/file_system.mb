@@ -165,7 +165,7 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
     list_foreach_entry!(node, &fs, file_node, fs_link, {
             if (strcmp(name, &(node->name)[0]) == 0) {
             mut_unlock(&fs_lock);
-
+            printf!("ERR %s already exists (%s)\n", name, &(node->name)[0]);
             return FS_ERR_DUP;
             }
             if (node->name[0] > name[0]) {
