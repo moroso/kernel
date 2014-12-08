@@ -13,7 +13,7 @@ use shared::consts::*;
 use string::*;
 use utils::asm::*;
 
-const NUM_PROCS: u32 = 5;
+const NUM_PROCS: u32 = 10;
 const NUM_THREADS: u32 = 50;
 const MAX_NAME_LEN: u32 = 100;
 
@@ -24,7 +24,7 @@ fn file_system_test(arg: *u8) {
     // the lookup table 
     let fs_mb = -1;
     let ret = 0;
-    if ((ret = name_server_request("file server", &fs_mb, -1)) < 0) {
+    if ((ret = name_server_request(FILE_SERVER_ID, &fs_mb, -1)) < 0) {
         printf!("error %d getting descriptor\n", ret);
     }
 
@@ -115,7 +115,7 @@ fn main() -> i32 {
         abscond(-1);
     }
     /* init new file server -- when finished, it will return with its descriptor */
-    let fs_mb = new_server("file_server", 10, mb);
+    let fs_mb = new_server(FILE_SERVER_ID, 100, mb);
     if (fs_mb < 0) {
         printf!("failed to init file server \n");
         abscond(-1);

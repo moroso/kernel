@@ -1,6 +1,5 @@
 /*  
  *
- * It is assumed that one instance of this code is run per-process
 */
 
 use prelude::string::*;
@@ -76,7 +75,7 @@ fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
         }
         return new_mb;
     }
-
+    printf!("calling perform on %s\n", prog_name);
     perform(prog_name, desc_buffer);
     -1
 }
