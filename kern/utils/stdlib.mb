@@ -32,4 +32,10 @@ fn max(a: u32, b: u32) -> u32 {
     a
 }
 
+fn round_up(num: u32, round_val: u32) -> u32 {
+    if (num%round_val != 0) {
+        return (num + (round_val - num%round_val));
+    }
+    num
+}
 
