@@ -19,6 +19,12 @@ use structures::proc::*;
 
 const MB_TABLE_SIZE: u32 = 64; // number of descriptors in the table
 
+/*** desc_table error codes ***/
+/* system-internal error */
+const DESC_ERR_INTERNAL: i32 = -2;
+/* descriptor table is too full for more entries */
+const DESC_ERR_FULL: i32 = -1;
+
 struct mb_desc_table {
     desc_table: (*mailbox_t)[MB_TABLE_SIZE],
     mut: kmut,
@@ -70,7 +76,7 @@ fn mb_desc_lookup(id: u32) -> *mailbox_t {
 // descriptor slots are taken
 fn mb_table_add(table: *mb_desc_table, mb: *mailbox_t) -> i32 {
     if (mb == null) {
-        return -2;
+        return DESC_ERR_INTERNAL;
     }
     kmut_lock(&table->mut); 
     let i: u32;
@@ -83,7 +89,7 @@ fn mb_table_add(table: *mb_desc_table, mb: *mailbox_t) -> i32 {
         }
     }
     kmut_unlock(&table->mut); 
-    -1
+    DESC_ERR_FULL
 }
 
 fn mb_table_remove(table: *mb_desc_table, desc: u32) {
