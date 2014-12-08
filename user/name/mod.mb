@@ -17,6 +17,8 @@ use prelude::utils::asm::*;
 use prelude::server::*;
 use prelude::shared::ipc_defs::IPC_ERR_MIN;
 
+const SERVER_ID: *u8 = "name_server";
+
 const NAME_MAX: u32 = 64;
 // id of name server
 const NAME_SERVER: u32 = 0;

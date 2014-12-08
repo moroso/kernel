@@ -33,6 +33,9 @@ use prelude::server::*;
 use prelude::name::*;
 mod file_system;
 
+// used id used to find server program and register with name server
+const FILE_SERVER_ID: *u8 = "file_server";
+
 /* file system request types */
 const FILE_CREATE: u32 = 0; // create new file
 const FILE_APPEND: u32 = 1; // append to end of file
@@ -186,7 +189,7 @@ fn run_server(mb_arg: *u8) {
  * server can fail to properly init and be blocked forever (if async send fails)
  */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
-    server_init("file server", &file_server_active, num_threads, run_server,
+    server_init(FILE_SERVER_ID, &file_server_active, num_threads, run_server,
             desc)
 }
 

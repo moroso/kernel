@@ -11,11 +11,12 @@ fn main() -> i32 {
     mallot_init();
     let mb = mailbox_new();
     let name_mb: i32 = -1;
-    name_mb = new_server("name_server", 10, mb);
+    name_mb = new_server(name::SERVER_ID, 10, mb);
     mailbox_move(name_mb as u32, NAME_SERVER);
 
     let args = [null];
     perform("file_server_test", &args[0]);
-    while(true) {}
+    printf!("ERR in init!\n");
+    abscond(-1);
     0
 }
