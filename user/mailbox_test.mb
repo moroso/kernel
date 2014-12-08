@@ -10,6 +10,8 @@ const MB_ERR_INTERNAL: i32 = -8;
 const DESC_ERR_FULL: i32 = -1;
 const MB_REMOVE: u32 = MB_LIMIT - 3;
 const MB_WAIT: u32 = MB_LIMIT - 2;
+const DESC_ERR_EMPTY: i32 = -4;
+const DESC_ERR_ARGS: i32 = -3;
 
 fn child_prog(args: *u8) {
     let i: u32;
@@ -74,6 +76,17 @@ fn child_prog(args: *u8) {
     }
     printf!("SUCCESS\n");
     printf!("testing mailbox movement: ");
+    
+    if ((ret = mailbox_move(MB_WAIT, MB_LIMIT+1)) != DESC_ERR_ARGS) {
+        printf!("ERROR 1: args in mb_move: %d\n", ret);
+        abscond(-1);
+    }
+
+    if (mailbox_move(MB_LIMIT+1, MB_REMOVE) != DESC_ERR_ARGS) {
+        printf!("ERROR 2: args in mb_move\n");
+        abscond(-1);
+    }
+
     ret = repl(); 
     if (ret < 0) {
         printf!("TEST ERROR: could not repl\n");
@@ -99,7 +112,7 @@ fn child_prog(args: *u8) {
             printf!("ERROR sending to valid dest of moved mb: %d\n", ret);
             abscond(-1); 
         }
-        
+
         if ((ret = ipc_recv_i32(MB_WAIT, null, -1, null)) != IPC_ERR_DEST) {
             printf!("ERROR sending to invalid src of moved mb: %d\n", ret);
             abscond(-1); 
@@ -115,6 +128,12 @@ fn child_prog(args: *u8) {
             abscond(-1);
         }
     }
+
+    if (mailbox_move(MB_WAIT, MB_REMOVE) != DESC_ERR_EMPTY) {
+        printf!("ERROR 3: args in mb_move\n");
+        abscond(-1);
+    }
+
     printf!("SUCCESS\n");
 
 
