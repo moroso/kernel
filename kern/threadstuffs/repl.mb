@@ -119,6 +119,7 @@ fn repl(parent_regs: *uregs) -> i32 {
     kmut_lock(&(parent_proc->child_mut));
     list_insert_head(&(child_proc->child_link), &(parent_proc->child_proc_list));
     parent_proc->child_count+=1;
+
     kmut_unlock(&(parent_proc->child_mut));
 
     schedule(child_tcb, QUEUE_BACK);
