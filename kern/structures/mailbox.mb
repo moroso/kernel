@@ -61,6 +61,9 @@ fn mailbox_new() -> i32 {
         return MB_ERR_INTERNAL;
     }
     let ret: i32 = mb_init(mb, get_tcb()->proc);
+    if (ret < 0) {
+        mb_destroy(mb);
+    }
     ret
 }
 
@@ -75,6 +78,9 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     mb->active = true;
     mb->ref_count = 0;
     let ret = mb_table_add(&proc->mb_desc, mb);
+    if (ret == DESC_ERR_INTERNAL) {
+        ret = MB_ERR_INTERNAL;
+    }
     assert!(mb->ref_count == 1);
     ret
 }
