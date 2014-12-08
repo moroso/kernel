@@ -147,7 +147,11 @@ fn ipc_request_mb(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8,
 
 fn ipc_send_i32(mb: u32, src_i32: *i32, dest_addr: *u8, dest_len: *u32, async:
         bool, timeout: i32) -> i32 {
-    ipc_send_short(mb, src_i32 as *u8, sizeof(i32), dest_addr, dest_len, async,
+    let size: u32 = sizeof(i32);
+    if (src_i32 == null) {
+        size = 0;
+    }
+    ipc_send_short(mb, src_i32 as *u8, size, dest_addr, dest_len, async,
             timeout)
 }
 
@@ -185,6 +189,9 @@ fn ipc_recv_mb(mb: u32, desc: *i32, dest_addr: *u8, dest_len: *u32, timeout: i32
 
 fn ipc_recv_i32(mb: u32, dest_i32: *i32, timeout: i32, reply_needed: *bool) -> i32 {
     let resp_max: u32 = sizeof(u32);
+    if (dest_i32 == null) {
+        resp_max = 0;
+    }
     ipc_recv_all(mb, null, null, dest_i32 as *u8, &resp_max, null, timeout,
             reply_needed)
 }

@@ -81,7 +81,10 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     if (ret == DESC_ERR_INTERNAL) {
         ret = MB_ERR_INTERNAL;
     }
-    assert!(mb->ref_count == 1);
+    if (ret == 0) {
+        assert!(mb->ref_count == 1);
+    }
+
     ret
 }
 

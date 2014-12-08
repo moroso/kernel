@@ -34,14 +34,12 @@ fn server_thread_init(mb: u32) -> i32 {
         return -1;
     }
 
-    printf!("thread %d waiting for wakeup\n", get_tid());
     atomic_add(&threads_dormant, -1);
     while (threads_dormant > 0) {
         yield(-1);
     }
     assert!(threads_dormant >= 0);
 
-    printf!("thread %d running server\n", get_tid());
     atomic_add(&threads_active, 1); 
     0
 }
