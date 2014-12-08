@@ -39,7 +39,7 @@ extern fn get_eflags() -> u32;
 const QUEUE_FRONT: u32 = 0;
 const QUEUE_BACK: u32 = 1;
 
-const debug: bool = true;
+const debug: bool = false;
 
 /* a data structure that manages run queue state */
 struct rq_master {
