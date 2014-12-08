@@ -3,22 +3,20 @@ use mallot::*;
 use syslib::*;
 use string::*;
 
-
-const NUM_THREADS: u32 = 10;
-
 fn main(argc: u32, argv: **u8) -> i32 {
-		if (argc < 1) {
+		if (argc < 2) {
         abscond(-1);
     }
 
 		let mb = atoi(argv[0]);
+		let num_threads = atoi(argv[1]) as u32;
 
     printf!("initing name server\n");
 		if (mallot_init() < 0) {
 				printf!("err initing name server\n");
 				abscond(-1);
 		}
-    let ret = name_server_init(NUM_THREADS, mb);
+    let ret = name_server_init(num_threads, mb);
 		abscond(ret);
     0
 }

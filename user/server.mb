@@ -47,21 +47,24 @@ fn server_thread_init(mb: u32) -> i32 {
     0
 }
 
-fn new_server(prog_name: *u8, desc: i32) -> i32 {
+fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
 
     // pay no mind -- I am just real bad at arrays in this language
     // (arrays in this language are also sort of bad)
-    let desc_buffer_temp: (*u8)[2];
+    let desc_buffer_temp: (*u8)[3];
     let desc_buffer: **u8 = &desc_buffer_temp[0];
-    desc_buffer[1] = null;
+    desc_buffer[2] = null;
 
     // TODO steal max arg len from kernel
     let desc_word: u8[100];
+    let threads_word: u8[100];
 
     desc_buffer[0] = &desc_word[0];
-    desc_buffer[1] = null;
+    desc_buffer[1] = &threads_word[0];
     snprintf!(&desc_word[0], 100, "%d", desc);
-    
+    snprintf!(&threads_word[0], 100, "%d", num_threads);
+
+
     let ret = repl();
     if (ret < 0) {
         return -1;
