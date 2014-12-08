@@ -62,7 +62,6 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
                     return PERF_ERR_MEM;
                 }
 
-
             } else {
                 mos_strncpy(arg_pointer, argv[word_idx], mos_strnlen(argv[word_idx],
                             MAX_ARG_LEN));
@@ -105,21 +104,36 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
         return -2;
     }
 
-    PD_entries_destroy(old_entries); 
 
     /* copy buffer of strings onto stack */
     let arg_start: *u8 = (uregs.esp - buffer_len) as *u8;
-    mos_memcpy((uregs.esp - buffer_len) as *u8, &arg_buffer[0], buffer_len);
+    if (from_user) {
+        if (copy_to_user((uregs.esp - buffer_len) as *u8, &arg_buffer[0],
+                    buffer_len) < 0) {
+            PD_destroy(&(proc->PD), old_entries); 
+            return PERF_ERR_MEM;
+        }
+    } else {
+        mos_memcpy((uregs.esp - buffer_len) as *u8, &arg_buffer[0], buffer_len);
+    }
+
+    PD_entries_destroy(old_entries); 
+
+    /*** here there be dragons ***/
     uregs.esp-=4;
     uregs.esp-= buffer_len;
     let arg_addr = arg_start;
 
     let i:u32;
+    let stack_pointer: *u8 = ((uregs.esp as u32) - ((word_idx - 1) * sizeof(u32))) as
+        *u8;
     /* create array of addresses of the aforementioned strings */
     for (i = 0; i < word_idx; i+=1) {
-        *(uregs.esp as *u32) = arg_addr as u32; 
-        arg_addr+=sizeof(*u8);
+        *(stack_pointer as *u32) = arg_addr as u32; 
+
+        arg_addr+=mos_strnlen(arg_addr, MAX_ARG_LEN) + 1;
         uregs.esp-=sizeof(u32);
+        stack_pointer+=sizeof(u32);
     }
 
     /* place address of array (argv) and argument count (argc) on stack as
