@@ -118,6 +118,17 @@ fn mb_table_add(table: *mb_desc_table, mb: *mailbox_t) -> i32 {
     DESC_ERR_FULL
 }
 
+// check to see if the descriptor corresponds to the mailbox before removing 
+fn mb_table_dead_entry_remove(desc: u32, mb: *mailbox_t) {
+    let table = &(get_tcb()->proc->mb_desc);
+    kmut_lock(&table->mut);
+    if (table->desc_table[desc] == mb) {
+        mb_table_remove_unsafe(table, desc);
+    }
+    kmut_unlock(&table->mut); 
+
+}
+
 fn mb_table_remove(table: *mb_desc_table, desc: u32) {
     if (desc >= MB_TABLE_SIZE || desc < 0) {
         return ();
@@ -133,6 +144,9 @@ fn mb_table_remove_unsafe(table: *mb_desc_table, desc: u32) {
     }
     let mb = table->desc_table[desc];
     if (mb != null) {
+        if (mb->owner == get_tcb()->proc) {
+            mb->active = false;
+        }
         dec_mb_ref(mb); 
     }
     table->desc_table[desc] = null;    

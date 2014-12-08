@@ -130,7 +130,6 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
     // do this before waking the proc waiting on desc in case they attempt to wait on our
     // mailbox and ruin everything 
     for (i = 0; i < num_threads; i+=1) {
-        printf!("waking up thread %d with status %d\n", i, status);
         let ret = ipc_send_i32(mb as u32, &status, null, null, false, -1);
         if (ret < 0) {
             printf!("%d\n", ret);

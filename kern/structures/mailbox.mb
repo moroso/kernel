@@ -116,8 +116,9 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  *  performed the transfer and is not blocked on us.  We denote this by
  *  returning null
  *
- * - mb: the mailbox the invoking thread is waiting on.  returns with err
- *   MB_ERR_OWNER if thread's proc is not the owner of mb
+ * - desc: the descriptor for mailbox the invoking thread is waiting on.  returns with err
+ *   MB_ERR_OWNER if thread's proc is not the owner of mb, and MB_ERR_DEST if
+ *   the mailbox lookup fails
  * - message: the message being send to the sender.  This message can contain
  *   whatever info is necessary for the sender thread to know how to treat a
  *   sleeping receiver.  
@@ -247,8 +248,8 @@ fn mb_end_recv(err: i32) {
  *  performed the transfer and is not blocked on us.  We denote this by
  *  returning null
  *
- * - mb: the mailbox the invoking thread is waiting on.  returns with err
- *   MB_ERR_OWNER if thread's proc is not the owner of mb
+ * - desc: the descriptor for the mailbox the invoking thread is waiting on.  returns with err
+ *   MB_ERR_DEST if the mailbox lookup fails
  * - message: the message being send to the sender.  This message can contain
  *   whatever info is necessary for the sender thread to know how to treat a
  *   sleeping receiver.  
@@ -270,6 +271,7 @@ fn mb_end_recv(err: i32) {
 fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
 
+    *err = 0;
     let mb = mb_desc_lookup(desc);
     if (mb == null) {
         *err = MB_ERR_DEST;
@@ -278,6 +280,7 @@ fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
 
     if (!(mb->active)) {
         *err = MB_ERR_INTERNAL;
+        mb_table_dead_entry_remove(desc, mb);   
         mb_end_lookup(mb);
 
         return null;
@@ -290,7 +293,17 @@ fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
     let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
             option, err);
 
+    // if the mailbox died while we were waiting on it, remove the entry from
+    // our table (check that it's the same as when we did the lookup, to make
+    // sure another thread didn't alter it
+    if (*err == REND_ERR_DEAD) {
+        mb_table_dead_entry_remove(desc, mb);                        
+        mb_end_lookup(mb);
+        return null;
+    }
+
     if (ret != null) {
+        assert!(*err == 0);
         assert!(ret->option == RECV);
         list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
         assert!(ret->can_timeout == false || ret->timeout ==
@@ -302,6 +315,7 @@ fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
 
         return ret->tcb;
     }  
+
     // if ret is null, this means any message has already been transferred to
     // message_recv during rend_wait
     mb_end_lookup(mb);

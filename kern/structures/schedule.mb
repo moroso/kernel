@@ -358,7 +358,10 @@ fn yield(tid: u32) -> i32 {
     let ret = -2;
     if (tid != -1) {
         let dest_tcb = tcb_lookup(tid);
-        if (dest_tcb == null || dest_tcb == get_tcb()) {
+        if (dest_tcb == null) {
+            return -1;
+        }
+        if (dest_tcb == get_tcb()) {
             tcb_end_lookup(dest_tcb);
             return -1;
         }

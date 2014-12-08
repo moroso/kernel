@@ -70,8 +70,8 @@ fn mailbox_new() -> i32 {
 }
 
 // no dumb syscall name this time.  Sorry to disappoint
-fn yield(tid: u32) -> i32 {
-    syscall_1(shared::syscall_consts::INT_YIELD, tid) as i32
+fn yield(tid: i32) -> i32 {
+    syscall_1(shared::syscall_consts::INT_YIELD, tid as u32) as i32
 }
 
 fn mailbox_remove(desc: u32) {
