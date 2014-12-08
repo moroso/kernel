@@ -143,11 +143,20 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  *  option to determine whether the returned tcb is in an active state
  * 
  */
-fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
+fn mb_recv(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: *u32, err: *i32) -> *tcb {
+
+
+    let mb = mb_desc_lookup(desc);
+    if (mb == null) {
+        *err = MB_ERR_DEST;
+        return null;
+    }
+    
 
     if (!(mb->active)) {
         *err = MB_ERR_INTERNAL;
+        mb_end_lookup(mb);
         return null;
     }
 
@@ -159,6 +168,7 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
 
     if (get_tcb()->proc != mb->owner) {
         *err = MB_ERR_OWNER;         
+        mb_end_lookup(mb);
         return null;
     }
     let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
@@ -175,11 +185,14 @@ fn mb_recv(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         *message_recv = ret->message;
         *option = ret->option;
         assert!(ret->tcb != null);
+        
+        mb_end_lookup(mb);
         return ret->tcb;
     } 
     // if ret is null, this means any message has already been transferred to
     // message_recv during rend_wait
-
+    
+    mb_end_lookup(mb);
     null
 }
 
@@ -254,11 +267,19 @@ fn mb_end_recv(err: i32) {
  * Returns the reciever's tcb if a rend_node is retrieved; null otherwise 
  */
 
-fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
+fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
         recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
+
+    let mb = mb_desc_lookup(desc);
+    if (mb == null) {
+        *err = MB_ERR_DEST;
+        return null;
+    }
 
     if (!(mb->active)) {
         *err = MB_ERR_INTERNAL;
+        mb_end_lookup(mb);
+
         return null;
     }
 
@@ -277,11 +298,13 @@ fn mb_send(mb: *mailbox_t, message: *u32, message_len: u32, message_recv: **u32,
         *recv_len = ret->message_len;
         *message_recv = ret->message;
         assert!(ret->tcb != null);
+        mb_end_lookup(mb);
+
         return ret->tcb;
     }  
     // if ret is null, this means any message has already been transferred to
     // message_recv during rend_wait
-
+    mb_end_lookup(mb);
     null
 }
 
@@ -322,8 +345,6 @@ fn mb_destroy(mb: *mailbox_t) {
 }
 
 /* removes entry for mailbox descriptor 
- * NOTE probably should be called something else, since it removes a descriptor,
- * not a mailbox
  */
 fn mailbox_remove(desc: u32) {
     mb_table_remove(&(get_tcb()->proc->mb_desc), desc);

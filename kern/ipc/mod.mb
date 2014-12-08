@@ -129,9 +129,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }
 
     let shared: u32 = args_kern.options&OPTION_SHARE;
-    /* the mailbox being forwarded to the destination */
-    let mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
-            u32);
+    
 
     /* if the message is short and needs a reply (meaning we're asleep until the
      * receiver copies us to userspace), place a manageable short message on the
@@ -180,14 +178,6 @@ fn ipc_send(args: *ipc_args) -> i32 {
         return IPC_ERR_ARGS;
     }    
 
-    /* looks up descriptor for dest mailbox */
-    let dest_mb = desc_table::mb_desc_lookup(args_kern.dest_id);
-
-    if dest_mb == null {
-        printf!("failed to find %d\n", dest_mb);
-        return IPC_ERR_DEST;
-    } 
-
     /*** create message that relays ipc info to receiver ***/
     let message_send: message_node;
     mos_memcpy(&message_send.long_src, &args_kern.long_src, sizeof(buffer_t));
@@ -196,20 +186,30 @@ fn ipc_send(args: *ipc_args) -> i32 {
     message_send.short_src.addr = short_message as *u8;
     message_send.short_src.len = args_kern.short_src.len;
     message_send.options = args_kern.options; 
+
+    /* the mailbox being forwarded to the destination */
+    let mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
+            u32);
     message_send.mailbox_src = mailbox_fwd; 
 
     let message_recv: *u8;
     let recv_len: u32;
     let err: i32;
 
-    let dest_tcb = mb_send(dest_mb, 
+    let dest_tcb = mb_send(args_kern.dest_id, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
             args_kern.timeout, option, &err);  
 
+    desc_table::mb_end_lookup(mailbox_fwd);
+
     /*** if there was an error during the process, return ***/
     if (err < 0) {
+
+        if (err == MB_ERR_DEST) {
+            return IPC_ERR_DEST;
+        }
 
         if (err == MB_ERR_OWNER) {
             return IPC_ERR_DEST;
@@ -234,7 +234,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
         args_kern.desc_dest = message_send.desc_dest;
         /* receiver already transferred long message, so update length */
         args_kern.long_dest.len = message_send.long_dest.len;
-      
+
         /* copy receiver's short reply to userland */
         args_kern.short_dest.len = min(recv_len, args_kern.short_dest.len);
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
@@ -257,10 +257,12 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
         message_dest->options = args_kern.options;
 
-        if (mailbox_fwd != null) {
+        if ((mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
+                        u32)) != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
             message_dest->desc_dest = desc_table::mb_table_add(&proc_dest->mb_desc, mailbox_fwd);
+            desc_table::mb_end_lookup(mailbox_fwd);
         }
         if (message_dest->long_dest.len > 0) {
 
@@ -370,19 +372,17 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     let err: i32;
     let send_option: u32;
 
-    /* look up mailbox descriptor to find the mailbox we're waiting on */
-    let dest_mb = desc_table::mb_desc_lookup(args_kern.dest_id);
-    if (dest_mb == null) {
-        return IPC_ERR_DEST;
-    } 
-
-    let dest_tcb = mb_recv(dest_mb, 
+    let dest_tcb = mb_recv(args_kern.dest_id, 
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32, &recv_len, 
             args_kern.timeout, &send_option, &err);  
 
     // if recv had an error, return with err
     if (err < 0) {
+
+        if (err == MB_ERR_DEST) {
+            return IPC_ERR_DEST;
+        }
 
         if (err == MB_ERR_OWNER) {
             return IPC_ERR_DEST;
@@ -540,6 +540,8 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
                 u32);
         message_src->desc_dest = desc_table::mb_table_add(&last_send->tcb->proc->mb_desc, 
                 mailbox_fwd);
+
+        desc_table::mb_end_lookup(mailbox_fwd);
         if (message_src->desc_dest < 0) {
             rend_signal(null, 0, last_send, IPC_ERR_MB);
             return IPC_ERR_MB;
