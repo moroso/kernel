@@ -25,7 +25,7 @@ use locks::mutex::*;
 use structures::schedule::*;
 
 
-const debug: bool = true;
+const debug: bool = false;
 const SLAB_SIZE: u32 = PAGE_SIZE; /* this really isn't the right size*/
 const UINT_SIZE: u32 = 4;
 const POWER_MIN: u32 = 2;

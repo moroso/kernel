@@ -24,6 +24,10 @@ const MB_TABLE_SIZE: u32 = 64; // number of descriptors in the table
 const DESC_ERR_INTERNAL: i32 = -2;
 /* descriptor table is too full for more entries */
 const DESC_ERR_FULL: i32 = -1;
+/* invalid arguments to function */
+const DESC_ERR_ARGS: i32 = -3;
+/* operation on empty descriptor */
+const DESC_ERR_EMPTY: i32 = -4;
 
 struct mb_desc_table {
     desc_table: (*mailbox_t)[MB_TABLE_SIZE],
@@ -139,12 +143,12 @@ fn mb_move_handler(old_desc: u32, new_desc: u32) -> i32 {
 /* if old entry has no mailbox, returns with failure */
 fn mb_move(table: *mb_desc_table, old_desc: u32, new_desc: u32) -> i32 {
     if (old_desc >= MB_TABLE_SIZE || new_desc >= MB_TABLE_SIZE) {
-        return -1;
+        return DESC_ERR_ARGS;
     }
     kmut_lock(&table->mut); 
     if (table->desc_table[old_desc] == null) {
         kmut_unlock(&table->mut); 
-        return -2;
+        return DESC_ERR_EMPTY;
     } 
     mb_table_remove_unsafe(table, new_desc);
     table->desc_table[new_desc] = table->desc_table[old_desc];

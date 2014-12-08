@@ -8,8 +8,13 @@
  * receive on the mailbox.  All other threads will return with error if they
  * attempt to receive
  *
- * children of the owner proc will be allowed to the mailbox, but are not
+ * children of the owner proc will be allowed to send to the mailbox, but are not
  * allowed to receive on it
+ *
+ * Mailboxes are reference counted: an entry in a descriptor table acts as a
+ * reference.  Once all descriptors pointing to a mailbox have been removed --
+ * meaning there is no longer any way for programs to communicate with it -- the
+ * mailbox is destroyed and freed.  
  *
  * We can think of the mailbox, to some extent, as the middle layer between the
  * rend primitive and the IPC functions
@@ -17,6 +22,15 @@
  * NOTE: some language about whether the sender/receiver does the transfer will
  * be confusing without proper understanding of the rend synchronization
  * primitive.  See locks/rendezvous.mb for clarification.
+ *
+ * TODO at some point, we want owners to be able to delete mailboxes, not just
+ * their reference.  This raises some minor but not insurmountable concurrency
+ * issues that will need to be thought through.  I'm thinking a protocol where, when
+ * the owner removes their reference, all waiting threads are woken up with
+ * ERR_DEAD, and a flag is set in the rend that is checked when preemption is
+ * disabled -- either of these cases causes the sender to remove their reference
+ * in the table (if it still points to the given mailbox)
+ * when ints are disabled 
  *
  * Author: Amanda M. Watson
 */
