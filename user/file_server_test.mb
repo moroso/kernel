@@ -115,7 +115,7 @@ fn main() -> i32 {
         abscond(-1);
     }
     /* init new file server -- when finished, it will return with its descriptor */
-    let fs_mb = new_server("file_server", mb);
+    let fs_mb = new_server("file_server", 10, mb);
     if (fs_mb < 0) {
         printf!("failed to init file server \n");
         abscond(-1);

@@ -4,20 +4,19 @@ use syslib::*;
 use prelude::rt_abort;
 use string::*;
 
-const NUM_THREADS: u32 = 10;
-
 fn main(argc: u32, argv: **u8) -> i32 {
-    if (argc < 1) {
+    if (argc < 2) {
         abscond(-1);
     }
     let mb = atoi(argv[0]);
+    let num_threads = atoi(argv[1]) as u32;
     printf!("initing file server\n");
     if (mallot_init() < 0) {
         printf!("err initing file server\n");
         abscond(-1);
     }
 
-    let ret = file_server_init(NUM_THREADS, mb);
+    let ret = file_server_init(num_threads, mb);
     assert!(ret < 0);
     abscond(ret);
     0
