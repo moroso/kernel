@@ -280,6 +280,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
 
 
 /* give new message to rend_node and wake it up */
+/* makes no reference to original rend in case it was removed */
 fn rend_signal(message: *u32, message_len: u32, rend_node: *rend_node, err: i32) {
 
     if (rend_node->option == SEND_ASYNC) {

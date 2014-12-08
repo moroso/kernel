@@ -1,3 +1,8 @@
+/* mailbox_test.mb: tests basic mailbox operations  
+ *
+ * Author Amanda M. Watson
+*/
+
 use ipclib::*;
 use string::*;
 use syslib::*;
@@ -26,6 +31,7 @@ fn child_prog(args: *u8) {
         } 
     }
     printf!("SUCCESS\n");
+    /* testing whether mailboxes are invalid after removal */
     printf!("testing mailbox removal: ");
     ret = repl();
     if (ret < 0) {
@@ -65,7 +71,8 @@ fn child_prog(args: *u8) {
         abscond(-1);
     }
     printf!("SUCCESS\n");
-
+    
+    /* testing replacement of deleted mailbox */
     printf!("Testing successful mailbox replacement: ");
     if ((ret = mailbox_new()) == MB_ERR_INTERNAL) {
         printf!("TEST ERROR: not enough internal memory.  Exiting\n");
@@ -135,7 +142,7 @@ fn child_prog(args: *u8) {
     }
 
     printf!("SUCCESS\n");
-
+    /* testing if waiting thread can still return with its descriptor removed */
 
 
     printf!("***SUCCESS***\n");
@@ -147,6 +154,7 @@ fn main() -> i32 {
     let ret: i32;
     let i: u32 = 0;
 
+    /* testing behavior for when descriptor table runs out of space */
     printf!("testing overflow: ");
     for (i = 0; i < MB_LIMIT; i+=1) {
         if ((ret = mailbox_new()) == MB_ERR_INTERNAL) {
@@ -165,6 +173,7 @@ fn main() -> i32 {
     } 
     printf!("SUCCESS!\n");
 
+    /* testing whether parent descriptors remain valid for the child */
     printf!("testing mailbox propogation -- child: ");
     ret = repl();
     if (ret < 0) {
@@ -190,6 +199,8 @@ fn main() -> i32 {
         }
         abscond(0);
     }
+    /* testing whether mailbox descriptors are valid for other threads in the
+     * process */
     printf!("testing propogation: new thread: ");
     if (thr_create(child_prog, null) < 0) {
         printf!("TEST ERROR: unable to create thread\n");

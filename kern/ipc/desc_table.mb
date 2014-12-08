@@ -52,7 +52,7 @@ fn mb_desc_init(table: *mb_desc_table, parent_proc: *proc) {
 
                 let mb = parent_table->desc_table[i]; 
                 (child_table->desc_table)[i] = mb;
-                atomic_add(&mb->ref_count, 1);
+                inc_mb_ref(mb);
             } 
         }
         kmut_unlock(&parent_table->mut);
@@ -70,11 +70,33 @@ fn mb_desc_lookup(id: u32) -> *mailbox_t {
     let table = &(proc->mb_desc);
     kmut_lock(&table->mut);
     let mb = table->desc_table[id];    
+    if (mb != null) {
+        inc_mb_ref(mb);
+    }
     kmut_unlock(&table->mut);
     mb
 }
 
+fn mb_end_lookup(mb: *mailbox_t) {
+    dec_mb_ref(mb);
+}
 
+fn dec_mb_ref(mb: *mailbox_t) {
+    if (mb == null) {
+        return ();
+    }
+    let last_count = atomic_add(&mb->ref_count, -1);
+    if (last_count == 1) {
+        mb_destroy(mb);
+    }
+}
+
+fn inc_mb_ref(mb: *mailbox_t) {
+    if (mb == null) {
+        return ();
+    }
+    atomic_add(&mb->ref_count, 1);
+}
 
 // add mailbox to descriptor table, return descriptor.  returns failure if all
 // descriptor slots are taken
@@ -87,7 +109,7 @@ fn mb_table_add(table: *mb_desc_table, mb: *mailbox_t) -> i32 {
     for (i = 0; i < MB_TABLE_SIZE; i+=1) {
         if (table->desc_table[i] == null) {
             (table->desc_table)[i] = mb;
-            atomic_add(&mb->ref_count, 1);
+            inc_mb_ref(mb);
             kmut_unlock(&table->mut); 
             return i as i32;
         }
@@ -109,12 +131,16 @@ fn mb_table_remove_unsafe(table: *mb_desc_table, desc: u32) {
     if (desc >= MB_TABLE_SIZE || desc < 0) {
         return ();
     }
+    let mb = table->desc_table[desc];
+    if (mb != null) {
+        dec_mb_ref(mb); 
+    }
     table->desc_table[desc] = null;    
 }
 
 
 
-// desc ref counts on all mailboxes in descriptor table.  free any that no
+// dec ref counts on all mailboxes in descriptor table.  free any that no
 // longer have a reference
 // NOTE if the only way references can be added is by repls and forwarding, we
 // don't have to worry about references being added is we're the last one 
@@ -122,14 +148,7 @@ fn mb_table_destroy(table: *mb_desc_table) {
     kmut_lock(&table->mut); 
     let i: u32;
     for (i = 0; i < MB_TABLE_SIZE; i+=1) {
-        if (table->desc_table[i] != null) {
-            let mb = table->desc_table[i];
-            let last_count = atomic_add(&mb->ref_count, -1);
-            if (last_count == 1) {
-                mb_destroy(mb);
-            }
-            kmut_unlock(&table->mut); 
-        }
+        mb_table_remove_unsafe(table, i); 
     }
     kmut_unlock(&table->mut); 
 }
