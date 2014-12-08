@@ -31,6 +31,7 @@ use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 use prelude::server::*;
 use prelude::name::*;
+use prelude::utils::stdlib::*;
 mod file_system;
 
 // used id used to find server program and register with name server
@@ -170,7 +171,7 @@ fn run_server(mb_arg: *u8) {
 
 /* file_server_init: creates a file server with specified number of threads.
  * spins up a new process with a mailbox; original thread performs init on
- * server and threads before exiting.  All other threads execute server_run.  if a
+ * server and threads before exiting.  All other threads execute run_server.  if a
  * valid mailbox descriptor desc is specified, new server sends a message to the
  * mailbox with its descriptor.  Returns with error if threads or mailbox fail
  * to init
@@ -225,11 +226,7 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
 
     /* round up long message so it's a multiple of a page.  we only copy in
      * buffer_len bytes */
-    let long_message_len = buffer_len;
-
-    if (buffer_len%PAGE_SIZE != 0) {
-        long_message_len = buffer_len + (PAGE_SIZE - buffer_len%PAGE_SIZE);   
-    } 
+    let long_message_len = round_up(buffer_len, PAGE_SIZE);
 
     if (long_message_len > FILE_BUFFER_MAX) {
         return -2;
@@ -301,10 +298,7 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
 
     /* round up long message so it's a multiple of a page.  we only copy in
      * buffer_len bytes */
-    let long_message_len = *buffer_len;
-    if (*buffer_len%PAGE_SIZE != 0) {
-        long_message_len = *buffer_len + (PAGE_SIZE - *buffer_len%PAGE_SIZE);   
-    } 
+    let long_message_len = round_up(*buffer_len, PAGE_SIZE);
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
             sizeof(file_message), null, null, &message as *u8, 
             &message_size, timeout, true);
@@ -364,10 +358,7 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
 
     /* round up long message so it's a multiple of a page.  we only copy in
      * buffer_len bytes */
-    let long_message_len = buffer_len;
-    if (buffer_len%PAGE_SIZE != 0) {
-        long_message_len = buffer_len + (PAGE_SIZE - buffer_len%PAGE_SIZE);   
-    } 
+    let long_message_len = round_up(buffer_len, PAGE_SIZE);   
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
             sizeof(file_message), null, null, &response as *u8, 
             &response_size, timeout, true);

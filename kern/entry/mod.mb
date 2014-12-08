@@ -109,7 +109,6 @@ fn timer_handler(regs: *uregs) {
     ticks += 1;
     pic_acknowledge_any_master();
 
-    // printf!("%d ticks\n", ticks);
     if (is_preempt_enabled()) {
         rend_timeout_remove(ticks);
         scheduler_update(-1);

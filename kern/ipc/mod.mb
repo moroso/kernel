@@ -192,6 +192,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     let message_send: message_node;
     mos_memcpy(&message_send.long_src, &args_kern.long_src, sizeof(buffer_t));
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
+
     message_send.short_src.addr = short_message as *u8;
     message_send.short_src.len = args_kern.short_src.len;
     message_send.options = args_kern.options; 
@@ -536,7 +537,8 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     if (desc >= 0) {
         let mailbox_fwd = desc_table::mb_desc_lookup(desc as
                 u32);
-        message_src->desc_dest = desc_table::mb_table_add(&last_send->tcb->proc->mb_desc, mailbox_fwd);
+        message_src->desc_dest = desc_table::mb_table_add(&last_send->tcb->proc->mb_desc, 
+                mailbox_fwd);
         if (message_src->desc_dest < 0) {
             rend_signal(null, 0, last_send, IPC_ERR_MB);
             return IPC_ERR_MB;
@@ -544,8 +546,8 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     }
 
     /* long message transfer */
-    let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, &(last_send->tcb->proc->PD),
-            message_src->long_dest.addr, message_src->long_dest.len, 0);
+    let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, 
+            &(last_send->tcb->proc->PD), message_src->long_dest.addr, message_src->long_dest.len, 0);
     message_src->long_dest.len = transfer_len;
 
     let message_kernel = null;
@@ -565,5 +567,3 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
 
     0
 }
-
-
