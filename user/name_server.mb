@@ -1,17 +1,24 @@
 use name::*;
 use mallot::*;
 use syslib::*;
+use string::*;
+
 
 const NUM_THREADS: u32 = 10;
-const MB: i32 = 0; // NOTE this is not guaranteed -- we are assuming
 
-fn main() -> i32 {
+fn main(argc: u32, argv: **u8) -> i32 {
+		if (argc < 1) {
+        abscond(-1);
+    }
+
+		let mb = atoi(argv[0]);
+
     printf!("initing name server\n");
 		if (mallot_init() < 0) {
 				printf!("err initing name server\n");
 				abscond(-1);
 		}
-    let ret = name_server_init(NUM_THREADS, MB);
+    let ret = name_server_init(NUM_THREADS, mb);
 		abscond(ret);
     0
 }

@@ -2,18 +2,22 @@ use file::*;
 use mallot::*;
 use syslib::*;
 use prelude::rt_abort;
+use string::*;
 
 const NUM_THREADS: u32 = 10;
-const MB: i32 = 1; // NOTE this is not guaranteed -- we are assuming 
 
-fn main() -> i32 {
+fn main(argc: u32, argv: **u8) -> i32 {
+    if (argc < 1) {
+        abscond(-1);
+    }
+    let mb = atoi(argv[0]);
     printf!("initing file server\n");
     if (mallot_init() < 0) {
         printf!("err initing file server\n");
         abscond(-1);
     }
 
-    let ret = file_server_init(NUM_THREADS, MB);
+    let ret = file_server_init(NUM_THREADS, mb);
     assert!(ret < 0);
     abscond(ret);
     0
