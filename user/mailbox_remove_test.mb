@@ -1,0 +1,103 @@
+use syslib::{mailbox_new, repl, bide, abscond, mailbox_remove, yield};
+use ipclib::{ipc_send_i32, ipc_recv_i32};
+use shared::ipc_defs::IPC_ERR_TIMEOUT;
+use thrlib::thr_create;
+
+const NUM_PROCS: u32 = 50;
+// the system will put the first descriptor at 1, as it's the first available
+// slot after the name server
+const MB_ID: i32 = 1;
+const MB_WAIT: i32 = 2;
+
+fn run_test(args: *u8) {
+    let ret: i32 = 0;
+    if ((ret = ipc_recv_i32(MB_ID as u32, null, -1, null)) < 0) {
+        printf!("ERROR 1: %d\n", ret);
+        abscond(-1);
+    } 
+    abscond(0);
+
+}
+
+fn main() -> i32 {
+    let mb = mailbox_new();
+    if (mb != MB_ID) {
+        printf!("TEST ERROR: failure initting new mailbox\n");
+        abscond(-1);
+    } 
+
+    let i: u32 = 0;  
+    let ret: i32 = 0;
+    for (i = 0; i < NUM_PROCS; i+=1) {
+        if ((ret = repl()) < 0) {
+            printf!("TEST ERROR: repl failed\n");
+            abscond(-1);
+        }
+        if (ret == 0) {
+            mailbox_remove(MB_ID as u32);
+            abscond(0);
+        }
+    }
+
+
+    let status: i32 = 0;
+    while((ret = bide(&status)) >= 0) {
+        assert!(status >= 0);
+    }
+
+    if ((ret = ipc_send_i32(MB_ID as u32, null, null, null, false, 5)) != IPC_ERR_TIMEOUT) {
+        printf!("ERROR 2: %d\n", ret);
+        abscond(-1);
+    } 
+
+    let mb_wait = mailbox_new();
+    if (mb_wait != MB_WAIT) {
+        printf!("TEST ERROR: failure initting new mailbox\n");
+        abscond(-1);
+    } 
+
+    /*** tests proper behavior for a thread waiting on a mailbox whose
+     * descriptor gets destroyed.  A child proc, whose descriptor remains intact, is
+     * repled and waits for the parent to signal.  the parent then creates a new
+     * thread, which goes to sleep on MB_ID.  the parent thread then removes MB_id,
+     * and wakes up the child process, which collects the child thread's recv.
+     * It's all very complicated.   ***/
+
+    ret = repl();
+    if (ret < 0) {
+        printf!("TEST ERROR: repl failed\n");
+        abscond(-1);
+
+    }
+    if (ret == 0) {
+        if (ipc_send_i32 (MB_WAIT as u32, null, null, null, false, -1) < 0) {
+            printf!("TEST ERROR: IPC\n");
+            abscond(-1);
+        }
+        if (ipc_send_i32(MB_ID as u32, null, null, null, false, -1) < 0) {
+            printf!("TEST ERROR: IPC\n");
+            abscond(-1);
+        }
+        abscond(0);
+    }
+
+    let new_tid = thr_create(run_test, null);
+    if (new_tid < 0) {
+        printf!("TEST ERROR: thr_create\n");
+        abscond(-1);
+    }
+
+    // wait for it to go to sleep on MB_ID
+    while(yield(new_tid) >= 0) { }
+
+    // wake up other process, which will receive the message send by the child
+    // on MB_ID 
+    if ((ret = ipc_recv_i32(MB_WAIT as u32, null, -1, null)) < 0) {
+        printf!("ERROR 3: %d\n", ret);
+        abscond(-1);
+    } 
+
+    printf!("***SUCCESS***\n");
+    abscond(0);
+    0
+}
