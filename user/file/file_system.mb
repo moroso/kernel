@@ -129,7 +129,7 @@ fn fs_write_unsafe(node: *file_node, buffer: *u8, buffer_len: u32, offset: u32) 
         return FS_ERR_OOB;
     }
 
-    if (buffer_len > (node->file_len + offset)) {
+    if ((buffer_len + offset) > (node->file_len)) {
         // round up to page
         let new_file_len = (buffer_len + offset);
         if ((buffer_len + offset)%PAGE_SIZE != 0) {
@@ -182,7 +182,6 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
             return FS_ERR_DUP;
             }
             if (node->name[0] > name[0]) {
-            printf!("creating file %s\n", name);
             list_insert_before(&new_file->fs_link, &node->fs_link);
             mut_unlock(&fs_lock);
 

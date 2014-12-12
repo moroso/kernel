@@ -27,28 +27,30 @@ fn file_system_test(arg: *u8) {
     if ((ret = name_server_request(FILE_SERVER_ID, &fs_mb, -1)) < 0) {
         printf!("error %d getting descriptor\n", ret);
     }
+    printf!("client %d successfully requested file server descriptor from name server\n", get_tid());
 
     let file_name_temp: u8[MAX_NAME_LEN];
     let file_name: *u8 = &file_name_temp[0];
     snprintf!(file_name, 99, "%d", get_tid());
-     
+
     if ((ret = file_create(fs_mb, file_name, null, 0, -1)) < 0) {
         printf!("err creating file %s: %d\n", file_name, ret);
         abscond(-1);
     }
+    printf!("client %d successfully created file \"%s\"\n", get_tid(), file_name); 
     let file_buffer = find_pages(1);
     if (file_buffer == null) {
         printf!("ERROR: cannot init write buffer\n");
         abscond(-1);
     }
-   
+
 
     strncpy(file_buffer, file_name, MAX_NAME_LEN); 
     let i: u32 = 0;
     let offset = 0;
     for (i = 0; i < (PAGE_SIZE/MAX_NAME_LEN); i+=1) {
         if ((ret = file_write(fs_mb, file_name, file_buffer, MAX_NAME_LEN,
-                    offset, -1)) < 0) {
+                        offset, -1)) < 0) {
             printf!("write error %d\n", ret);
             abscond(-1);
         }
@@ -61,7 +63,7 @@ fn file_system_test(arg: *u8) {
         printf!("ERROR: cannot init read buffer\n");
         abscond(-1);
     }
-    
+
     let read_size = PAGE_SIZE;
     if (file_read(fs_mb, file_name, read_buffer, &read_size, 0, -1) < 0) {
         printf!("read error\n");
@@ -71,7 +73,7 @@ fn file_system_test(arg: *u8) {
     let name_buffer_temp: u8[MAX_NAME_LEN];
     let name_buffer: *u8 = &name_buffer_temp[0];
     let file_name_len = strnlen(file_name, 100);
-    
+
     offset = 0;
     for (i = 0; i < (PAGE_SIZE/MAX_NAME_LEN); i+=1) {
         strncpy(name_buffer, read_buffer + offset, file_name_len); 
@@ -109,23 +111,38 @@ fn spawn_procs(num_procs: u32) {
 }
 
 fn main() -> i32 {
-    let mb = mailbox_new();
-    if (mb < 0) {
-        printf!("failed to allocate mailbox\n");
-        abscond(-1);
-    }
-    /* init new file server -- when finished, it will return with its descriptor */
-    let fs_mb = new_server(FILE_SERVER_ID, 100, mb);
-    if (fs_mb < 0) {
-        printf!("failed to init file server \n");
-        abscond(-1);
+    let ret = repl();
+    if (ret == 0) {
+        let mb = mailbox_new();
+        if (mb < 0) {
+            printf!("failed to allocate mailbox\n");
+            abscond(-1);
+        }
+        /* init new file server -- when finished, it will return with its descriptor */
+        printf!("program: initializing file server\n");
+        let fs_mb = new_server(FILE_SERVER_ID, 100, mb);
+        if (fs_mb < 0) {
+            printf!("failed to init file server \n");
+            abscond(-1);
+        }
+        printf!("program: received descriptor %d from file server\n", fs_mb);        
+        let parent_tid = get_tid();
+        printf!("program: spawning %d client procs, each with %d threads: ",
+                NUM_PROCS, NUM_THREADS);
+        spawn_procs(NUM_PROCS);
+        spawn_threads(NUM_THREADS);
+        if (get_tid() == parent_tid) {
+            printf!("SUCCESS\n");
+        }
+        abscond(0);
     }
 
-    spawn_procs(NUM_PROCS);
-    spawn_threads(NUM_THREADS);
-
-    while(num_threads > 0) {
-        yield(-1);
+    let status: i32 = 0;
+    while(bide(&status) < 0) {
+        if (status < 0) {
+            printf!("ERROR\n");
+            abscond(-1);
+        }
     }
     printf!("***SUCCESS***\n");
     abscond(0);
