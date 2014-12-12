@@ -158,8 +158,13 @@ fn run_server(mb_arg: *u8) {
                     remove_pages(file_buffer, file_buffer_len);
                     ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
-                }
+                } else if (request_message.request_type == FILE_APPEND) {
+                    status = file_system::fs_append(&request_message.name[0],
+                            file_buffer, request_message.buffer_len);
+                    remove_pages(file_buffer, file_buffer_len);
+                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
 
+                }
             }
 
         }     
@@ -352,6 +357,38 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
     assert!(len <= file_system::NAME_MAX); 
     message.buffer_len = buffer_len;
     message.file_offset = offset;
+
+    let response: u32;
+    let response_size = sizeof(u32);
+
+    /* round up long message so it's a multiple of a page.  we only copy in
+     * buffer_len bytes */
+    let long_message_len = round_up(buffer_len, PAGE_SIZE);   
+    let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
+            sizeof(file_message), null, null, &response as *u8, 
+            &response_size, timeout, true);
+
+    if (ret >= 0) {
+        return response as i32
+    }
+
+    ret
+}
+
+
+fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i32) -> i32 {
+
+
+    if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
+        return -1;
+    }
+    // TODO sanitize name input
+    let message: file_message;
+    message.request_type = FILE_APPEND;
+    let len = strncpy(&(message.name)[0], name, file_system::NAME_MAX);
+    assert!(len <= file_system::NAME_MAX); 
+    message.buffer_len = buffer_len;
+    message.file_offset = 0;
 
     let response: u32;
     let response_size = sizeof(u32);

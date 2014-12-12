@@ -113,16 +113,19 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     0
 }
 
-/* write to file at given offset */
-fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
+fn fs_append(name: *u8, data: *u8, data_len: u32) -> i32 {
     let node = fs_lookup(name);
     if (node == null){
         return FS_ERR_NOT_FOUND;
     } 
     mut_lock(&node->mut);
+    let ret = fs_write_unsafe(node, data, data_len, node->file_end);
+    mut_unlock(&node->mut);
+    ret
+}
 
+fn fs_write_unsafe(node: *file_node, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
     if (offset > node->file_end) {
-        mut_unlock(&node->mut);
         return FS_ERR_OOB;
     }
 
@@ -135,7 +138,6 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
         }
         let new_buffer = find_pages(new_file_len/PAGE_SIZE);
         if (new_buffer) == null {
-            mut_unlock(&node->mut);
             return FS_ERR_MEM;
         }
 
@@ -149,9 +151,19 @@ fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
 
     node->file_end = max((buffer_len + offset), node->file_end);
 
-    mut_unlock(&node->mut);
-
     0
+}
+
+/* write to file at given offset */
+fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
+    let node = fs_lookup(name);
+    if (node == null){
+        return FS_ERR_NOT_FOUND;
+    } 
+    mut_lock(&node->mut);
+    let ret = fs_write_unsafe(node, buffer, buffer_len, offset);
+    mut_unlock(&node->mut);
+    ret
 }
 
 fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
@@ -170,6 +182,7 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
             return FS_ERR_DUP;
             }
             if (node->name[0] > name[0]) {
+            printf!("creating file %s\n", name);
             list_insert_before(&new_file->fs_link, &node->fs_link);
             mut_unlock(&fs_lock);
 
@@ -183,4 +196,6 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
     0
 
 }
+
+
 

@@ -40,7 +40,9 @@ struct message_node {
     err: u32,
 }
 
-// size of buffer we're willing to put on the stack for short messages
+// size of buffer we're willing to put on the stack for short messages; anything
+// between this and a page, we dynamically allocate and free on whichever side
+// ends up receiving it
 const SHORT_BUFFER_MAX: u32 = 200;
 
 /* places long message in destination PD, returns length transferred */

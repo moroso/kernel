@@ -13,8 +13,8 @@
  *
  * Mailboxes are reference counted: an entry in a descriptor table acts as a
  * reference.  Once all descriptors pointing to a mailbox have been removed --
- * meaning there is no longer any way for programs to communicate with it -- the
- * mailbox is destroyed and freed.  
+ * meaning there is no longer any way for programs to communicate with it -- and
+ * all lookups have ended, the mailbox is destroyed and freed.  
  *
  * We can think of the mailbox, to some extent, as the middle layer between the
  * rend primitive and the IPC functions
@@ -30,7 +30,8 @@
  * ERR_DEAD, and a flag is set in the rend that is checked when preemption is
  * disabled -- either of these cases causes the sender to remove their reference
  * in the table (if it still points to the given mailbox)
- * when ints are disabled 
+ * when ints are disabled  UPDATE I have implemented all of this except for the
+ * deletion itself.  Need to prove to myself that it's safe
  *
  * Author: Amanda M. Watson
 */
@@ -279,7 +280,7 @@ fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
     }
 
     if (!(mb->active)) {
-        *err = MB_ERR_INTERNAL;
+        *err = MB_ERR_DEST;
         mb_table_dead_entry_remove(desc, mb);   
         mb_end_lookup(mb);
 
