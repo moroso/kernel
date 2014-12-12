@@ -113,6 +113,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     /* copying arguments into the kernel */   
     let args_kern: ipc_args;
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
+        printf!("HERE 1\n");
         return IPC_ERR_INTERNAL;
     } 
 

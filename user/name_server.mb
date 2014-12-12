@@ -11,7 +11,7 @@ fn main(argc: u32, argv: **u8) -> i32 {
 		let mb = atoi(argv[0]);
 		let num_threads = atoi(argv[1]) as u32;
 
-    printf!("initing name server\n");
+    printf!("**initializing name server\n");
 		if (mallot_init() < 0) {
 				printf!("err initing name server\n");
 				abscond(-1);
