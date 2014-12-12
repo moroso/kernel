@@ -1,0 +1,173 @@
+use syslib::{mailbox_new, mailbox_remove, abscond, repl, bide, get_tid};
+use file::{FILE_SERVER_ID, file_create, file_append, file_read};
+use server::new_server;
+use thrlib::thr_create;
+use mallot::{mallot_init, find_pages};
+use name::name_server_request;
+use string::{strnlen, strncpy};
+use shared::consts::PAGE_SIZE;
+
+
+// number of threads in filesystem
+const FS_THREADS: u32 = 50;
+// number of client procs
+const NUM_PROCS: u32 = 10;
+// number of threads per proc (cannot exceed 63)
+const NUM_THREADS: u32 = 40;
+// name of global file
+const FILE_NAME: *u8 = "basic file";
+// max number of bytes we need to represent a file name -- informal
+const FILE_NAME_MAX: u32 = 8;
+// number of iterations to write to file
+const NUM_ITERS: u32 = 3;
+
+static CHILD_MIN: i32 = -1;
+
+// create n threads 
+fn spawn_threads(func: fn(*u8) -> (), num_threads: u32) {
+    let i: u32;
+    let ret: i32;
+    for (i = 0; i < num_threads; i+=1) {
+        if (ret = thr_create(func, null)) < 0 {
+            printf!("TEST ERROR: thr_create failed\n");
+            break;
+        }
+        if (CHILD_MIN < 0) {
+            CHILD_MIN = ret;
+        }
+    }
+
+}
+
+// create n procs
+fn spawn_procs(num_procs: u32) {
+    let i: u32;
+    let ret: i32;
+    for (i = 0; i < num_procs; i+=1) {
+        if (ret = repl()) == 0 {
+            if mallot_init() < 0 {
+                printf!("TEST ERROR: mallot failed to init\n");
+                abscond(-1);
+            }
+            break;
+        }
+        if ret < 0 {
+            printf!("TEST ERROR: repl failed\n");
+            abscond(-1);
+        }
+
+    }
+
+}
+
+
+fn run_file_query(args: *u8) {
+
+    let fs_mb: i32 = -1;
+    let ret: i32;
+
+    if name_server_request(FILE_SERVER_ID, &fs_mb, -1) < 0 {
+        printf!("ERROR name request\n");
+        abscond(-1);
+    } 
+
+    assert!(fs_mb > 0);
+
+    // The compilers team and I differ on our feelings about types >:(
+    let file_name_temp: u8[FILE_NAME_MAX];
+    let file_name: *u8 = &file_name_temp[0];
+
+    snprintf!(file_name, FILE_NAME_MAX, "%d", get_tid()); 
+    let file_name_len = strnlen(file_name, FILE_NAME_MAX);
+
+    if (ret = file_create(fs_mb as u32, file_name, null, 0, -1)) < 0 {
+        printf!("ERROR creating file! %d\n", ret);
+        abscond(-1);
+    }
+
+    let write_page: *u8 = find_pages(1);
+    if write_page == null {
+        printf!("TEST ERROR allocating page!\n");
+        abscond(-1);
+    }
+
+    strncpy(write_page, file_name, file_name_len);
+
+    let i: u32;
+    let j: u32;
+
+    for (j = 0; j < NUM_THREADS; j+=1) { 
+        let dest_tid: u32 = CHILD_MIN as u32 + ((j + get_tid() as u32)%NUM_THREADS);
+        snprintf!(file_name, FILE_NAME_MAX, "%d", dest_tid); 
+        file_name_len = strnlen(file_name, FILE_NAME_MAX);
+        for (i = 0; i < NUM_ITERS; i+=1) {
+            file_append(fs_mb as u32, file_name, write_page, file_name_len,
+                    -1);
+        }
+    }
+
+    let read_page: *u8 = find_pages(1);
+    if read_page == null {
+        printf!("TEST ERROR allocating page!\n");
+        abscond(-1);
+    }
+
+    let file_len: u32 = PAGE_SIZE;
+    snprintf!(file_name, FILE_NAME_MAX, "%d", get_tid()); 
+    file_name_len = strnlen(file_name, FILE_NAME_MAX);
+
+    if (ret = file_read(fs_mb as u32, file_name, read_page, &file_len, 0,
+                -1)) < 0 {
+        printf!("ERROR reading file! %d\n", ret);
+        abscond(-1);
+    }
+    printf!("%d: %s\n", get_tid(), read_page);
+    abscond(0);
+}
+
+fn main() -> i32 {
+
+    if mallot_init() < 0 {
+        printf!("TEST ERROR: mallot failed to init\n");
+        abscond(-1);
+    }
+
+    let mb_new = mailbox_new();
+    if mb_new < 0 {
+        printf!("TEST ERROR: could not init mailbox\n");
+        abscond(-1);
+    } 
+    let fs_mb: i32 = -1;
+    let ret: i32 = 0;
+
+    // initialize file server
+    if (fs_mb = new_server(FILE_SERVER_ID, FS_THREADS, mb_new)) < 0 {
+        printf!("error %d initializing file server\n", fs_mb);
+        abscond(-1);
+    }
+
+    // we no longer need this mailbox -- delete it!
+    mailbox_remove(mb_new as u32);
+
+    if (ret = file_create(fs_mb as u32, FILE_NAME, null, 0, -1)) < 0 {
+        printf!("ERROR creating file! %d\n", ret);
+        abscond(-1);
+    }
+
+    // spin up some threads and procs
+    spawn_procs(NUM_PROCS);
+    spawn_threads(run_file_query, NUM_THREADS);
+
+    let status: i32 = 0;
+
+    while bide(&status) >= 0 {
+
+        if status < 0 {
+            printf!("ERROR\n");
+            abscond(-1);
+        }
+    }
+
+    abscond(0);
+    0
+}
