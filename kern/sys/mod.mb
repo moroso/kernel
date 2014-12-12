@@ -6,6 +6,7 @@ use threadstuffs::abscond::*;
 use threadstuffs::bide::*;
 use structures::schedule::{get_tcb, yield};
 use structures::tcb::*;
+use locks::mutex::*;
 use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
@@ -72,11 +73,14 @@ fn sys_test_sys(i: i32) -> i32 {
     i
 }
 
+static debug_print_lock: kmut = KMUT_INIT!(debug_print_lock);
 fn sys_print(s: *u8, n: u32) -> i32 {
     // XXX this is super bogus; do validation, etc
     let i: u32;
+    kmut_lock(&debug_print_lock);
     for (i = 0; i < n; i += 1) {
         print_char(s[i] as i32);
     }
+    kmut_unlock(&debug_print_lock);
     0
 }
