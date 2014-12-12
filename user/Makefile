@@ -31,7 +31,7 @@ CFLAGS = -nostdinc \
 	-DMB_FREESTANDING
 INCLUDES = -Iinc
 
-LIB_OBJS=build/syscall_x86.o build/thr_repl.o utils/asm.o locks/mut_asm.o
+LIB_OBJS=syscall_x86.o thr_repl.o utils/asm.o locks/mut_asm.o
 
 PROG_BINS := $(PROGS:%=$(BUILDDIR)/%)
 PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
@@ -41,7 +41,9 @@ all: $(BUILDDIR)/fs_img.o
 $(BUILDDIR)/%.c: %.mb $(MBC)
 	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf:../../compiler/lib/printf.mb --lib=prelude:prelude.mb
 
-$(BUILDDIR)/%.o: %.S
+# XXX: This is screwy.
+#$(BUILDDIR)/%.o: %.S
+%.o: %.S
 	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<
 	$(OBJCOPY) -R .comment -R .note $@ $@
 %.o: %.c
@@ -57,7 +59,7 @@ $(BUILDDIR)/%.o: %.S
 # Include all the dependency files for our programs that mbc generates.
 -include $(PROG_DEPS)
 
-GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c) $(PROG_DEPS)
+GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c) $(PROG_DEPS) $(LIB_OBJS:%.c=%.o)
 .SECONDARY: $(GENERATED_FILES) $(LIB_OBJS)
 
 # We don't want the path in the names in the script, so cd
