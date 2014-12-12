@@ -83,14 +83,14 @@ macro list_foreach_entry!(cur, head, typ, link, body) {
 }
 
 macro __LIST_HEAD_INIT!(name) {
-    list_node { next: &$name, prev: &$name }
+    ::utils::list::list_node { next: &$name, prev: &$name }
 }
 macro LIST_HEAD_INIT!(name) {
-    list_head { node: __LIST_HEAD_INIT!($name.node) }
+    ::utils::list::list_head { node: __LIST_HEAD_INIT!($name.node) }
 }
 
 macro LIST_NODE!() {
-    list_node { next: null, prev: null }
+    ::utils::list::list_node { next: null, prev: null }
 }
 
 
@@ -112,16 +112,16 @@ fn __list_insert_between(n: *list_node, n1: *list_node, n2: *list_node) {
     n2->prev = n;
 
     if (ptr_too_low!(n2->next)) {
-        printf!("%p %p\n", n2, n2->next); 
+        printf!("%p %p\n", n2, n2->next);
     }
     if (ptr_too_low!(n1->next)) {
-        printf!("%p %p\n", n1, n1->next); 
+        printf!("%p %p\n", n1, n1->next);
     }
     if (ptr_too_low!(n2->prev)) {
-        printf!("%p %p\n", n2, n2->prev); 
+        printf!("%p %p\n", n2, n2->prev);
     }
     if (ptr_too_low!(n1->prev)) {
-        printf!("%p %p\n", n1, n1->prev); 
+        printf!("%p %p\n", n1, n1->prev);
     }
 
 
@@ -179,4 +179,3 @@ fn __list_is_singleton(n: *list_node) -> bool {
 }
 fn list_is_empty(h: *list_head) -> bool { __list_is_empty(&h->node) }
 fn list_is_singleton(h: *list_head) -> bool { __list_is_singleton(&h->node) }
-
