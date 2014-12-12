@@ -29,7 +29,7 @@ const OPTION_NO_REPLY: u32 = 4; // sync, but no reply
 const OPTION_SHARE: u32 = 8; // shared memory
 
 /*** errors: errors that can be returned to the invoker ***/
-// unspecified internal error, such as OOM
+// opaque internal error, such as OOM
 const IPC_ERR_INTERNAL: i32 = -1;
 // destination mailbox does not exist (could be in the process of being created) 
 const IPC_ERR_DEST: i32 = -2;

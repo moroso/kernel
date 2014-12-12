@@ -14,15 +14,17 @@ fn main() -> i32 {
     name_mb = new_server(name::SERVER_ID, 10, mb);
     mailbox_move(name_mb as u32, NAME_SERVER);
 
+    let status = 0;
     let no_args = [null];
     let ret = repl();
-    if (ret != 0) {
-        abscond(0);
-    }
+
     if (ret == 0) {
-        perform("mailbox_remove_test", &no_args[0]);
+        perform("play_test", &no_args[0]);
     }
-    printf!("ERR in init!\n");
-    abscond(-1);
+
+    bide(&status);
+
+    
+    abscond(0);
     0
 }

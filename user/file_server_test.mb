@@ -13,8 +13,8 @@ use shared::consts::*;
 use string::*;
 use utils::asm::*;
 
-const NUM_PROCS: u32 = 10;
-const NUM_THREADS: u32 = 50;
+const NUM_PROCS: u32 = 20;
+const NUM_THREADS: u32 = 60;
 const MAX_NAME_LEN: u32 = 100;
 
 static num_threads: u32 = NUM_THREADS;
@@ -47,9 +47,9 @@ fn file_system_test(arg: *u8) {
     let i: u32 = 0;
     let offset = 0;
     for (i = 0; i < (PAGE_SIZE/MAX_NAME_LEN); i+=1) {
-        if (file_write(fs_mb, file_name, file_buffer, MAX_NAME_LEN,
-                    offset, -1) < 0) {
-            printf!("write error\n");
+        if ((ret = file_write(fs_mb, file_name, file_buffer, MAX_NAME_LEN,
+                    offset, -1)) < 0) {
+            printf!("write error %d\n", ret);
             abscond(-1);
         }
         offset+=strnlen(file_name, PAGE_SIZE);

@@ -44,12 +44,14 @@ fn child_prog(args: *u8) {
             abscond(-1); 
         }
         if ((ret = ipc_send_short(MB_REMOVE, message, strnlen(message, 100) + 1, null, null, false,
-                        5)) != IPC_ERR_TIMEOUT) {
+                        5)) != IPC_ERR_DEST) {
             printf!("ERROR: %d\n", ret);
             abscond(-1);
         } 
         abscond(0);
     }
+    // wait until other thread is asleep
+    while(yield(ret) >= 0) {}
     mailbox_remove(MB_REMOVE);
     if ((ret = ipc_recv_i32(MB_REMOVE, null, -1, null)) != IPC_ERR_DEST) {
         printf!("ERROR sending to deleted mb: %d\n", ret);
