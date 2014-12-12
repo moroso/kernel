@@ -1,4 +1,3 @@
-mod printf;
 mod printf_internal;
 
 mod syslib;
@@ -14,9 +13,6 @@ mod ipclib;
 mod server;
 
 fn print_char(x: i32) -> i32 {
-    // TODO: printf! implemented by repeatedly calling this print_char
-    // isn't great because it will make a lot of system calls and will
-    // interleave.  Change things so it gets buffered.
     let c: u8 = x as u8;
     syslib::print(&c, 1);
     x
@@ -24,4 +20,55 @@ fn print_char(x: i32) -> i32 {
 
 fn rt_abort() {
     while(true) {}
+}
+
+// Basically copied and modified from the compiler lib lib
+mod printf {
+    // We should be more clever and break up strings that are too long,
+    // but we don't yet.
+    const BOGUS_MAX_PRINTF_LEN: u32 = 1024;
+
+    fn vprintf(fmt: *u8, args: **()) -> i32 {
+        let buf: u8[BOGUS_MAX_PRINTF_LEN];
+        let n = vsnprintf(&buf[0], BOGUS_MAX_PRINTF_LEN, fmt, args);
+        ::prelude::syslib::print(&buf[0], n as u32);
+        n
+    }
+    macro printf!(fmt) { call_printf!(::prelude::printf::vprintf, varargs!(...), $fmt) }
+
+    macro __vsnprintf_out!(c) { {
+        if n+1 < size {
+            out[n] = $c;
+        }
+        n += 1;
+    } }
+    fn vsnprintf(out: *u8, size: u32, fmt: *u8, args: **()) -> i32 {
+        let n: u32 = 0;
+        do_printf!(fmt, args, __vsnprintf_out!);
+
+        // Null terminate - normal case
+        if n < size {
+            out[n] = 0;
+        } else if size > 0 { // Overflow case - but not if size == 0
+            out[size-1] = 0;
+        }
+
+        n as i32
+    }
+    macro snprintf!(s, size, fmt) {
+        call_printf!(::prelude::printf::vsnprintf, varargs!(...), $s, $size, $fmt)
+    }
+
+
+    // This is here because it needs to use printf! and because
+    // the IR compiler is too slow compiling printf right now.
+    macro assert!(cond) {
+        if !($cond) {
+            printf!("Assertion failed: %s (%s:%d)\n",
+                    stringify!($cond),
+                    file!(),
+                    line!()+1);
+            rt_abort();
+        }
+    }
 }
