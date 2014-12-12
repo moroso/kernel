@@ -1,4 +1,6 @@
 mod printf;
+mod printf_internal;
+
 mod syslib;
 mod locks;
 mod name;
