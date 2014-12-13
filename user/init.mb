@@ -19,7 +19,7 @@ fn main() -> i32 {
     let ret = repl();
 
     if (ret == 0) {
-        perform("file_server_test", &no_args[0]);
+        perform("play_test", &no_args[0]);
     }
 
     bide(&status);

@@ -383,9 +383,8 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
     ret
 }
 
-
-fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i32) -> i32 {
-
+fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: 
+        i32) -> i32 {
 
     if (strnlen(name, file_system::NAME_MAX + 1) > file_system::NAME_MAX) {
         return -1;
@@ -396,7 +395,6 @@ fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     let len = strncpy(&(message.name)[0], name, file_system::NAME_MAX);
     assert!(len <= file_system::NAME_MAX); 
     message.buffer_len = buffer_len;
-    message.file_offset = 0;
 
     let response: u32;
     let response_size = sizeof(u32);
@@ -413,4 +411,7 @@ fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
     }
 
     ret
+
+
 }
+
