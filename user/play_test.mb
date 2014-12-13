@@ -9,22 +9,11 @@ use string::{strnlen, strncpy};
 use shared::consts::PAGE_SIZE;
 use locks::mutex::*;
 
-static printf_mut: mut_t = MUTEX_INIT!();
+const NUM_PROCS: u32 = 10;
+const NUM_THREADS: u32 = 1;
+const FILE_NAME: *u8 = "file id";
 
-// number of threads in filesystem
-const FS_THREADS: u32 = 20;
-// number of client procs
-const NUM_PROCS: u32 = 1;
-// number of threads per proc (cannot exceed 63)
-const NUM_THREADS: u32 = 10;
-// name of global file
-const FILE_NAME: *u8 = "basic file";
-// max number of bytes we need to represent a file name -- informal
-const FILE_NAME_MAX: u32 = 8;
-// number of iterations to write to file
-const NUM_ITERS: u32 = 3;
-
-static CHILD_MIN: i32 = 37;
+const NUM_THREADS_SERVER: u32 = 100;
 
 // create n threads 
 fn spawn_threads(func: fn(*u8) -> (), num_threads: u32) {
@@ -63,140 +52,75 @@ fn spawn_procs(num_procs: u32) {
 
 
 fn run_file_query(args: *u8) {
-
-    let fs_mb: i32 = -1;
-    let ret: i32;
-
-    if name_server_request(FILE_SERVER_ID, &fs_mb, -1) < 0 {
-        printf!("ERROR name request\n");
+    let fs_mb: i32;
+    if (name_server_request(FILE_SERVER_ID, &fs_mb, -1) < 0) {
+        printf!("ERROR: name server request failed\n");
         abscond(-1);
-    } 
-
-    assert!(fs_mb > 0);
-
-    // The compilers team and I differ on our feelings about types >:(
-    let file_name_temp: u8[FILE_NAME_MAX];
-    let file_name: *u8 = &file_name_temp[0];
-
-    snprintf!(file_name, FILE_NAME_MAX, "%d", get_tid()); 
-    let file_name_len = strnlen(file_name, FILE_NAME_MAX);
-
-    if (ret = file_create(fs_mb as u32, file_name, null, 0, -1)) < 0 {
-        printf!("ERROR creating file! %d\n", ret);
+    }    
+    let write_buffer: *u8 = find_pages(1);
+    if (write_buffer == null) {
+        printf!("TEST ERROR: unable to allocate write buffer\n");
         abscond(-1);
     }
 
-    let write_page: *u8 = find_pages(1);
-    if write_page == null {
-        printf!("TEST ERROR allocating page!\n");
-        abscond(-1);
-    }
+        
 
-    strncpy(write_page, "h", 100);
 
-    let i: u32;
-    let j: u32;
-
-    for (j = 0; j < (NUM_THREADS * NUM_PROCS); j+=1) { 
-        let dest_tid: u32 = (CHILD_MIN as u32) as u32;
-        snprintf!(file_name, FILE_NAME_MAX, "%d", dest_tid); 
-        //printf!("%d %d\n", get_tid(), dest_tid);
-        for (i = 0; i < NUM_ITERS; i+=1) {
-            file_append(fs_mb as u32, file_name, write_page, strnlen(write_page,
-                        100),
-                    -1);
-        }
-    }
-
-    remove_pages(write_page, 4096);
-    
-    
-    
     abscond(0);
 }
 
 fn main() -> i32 {
+
     let ret = repl();
+    if (ret < 0) {
+        printf!("TEST ERROR: repl failed\n");
+        abscond(-1);
+    }
+
+    let mb = mailbox_new();
+    if (mb < 0) {
+        printf!("TEST ERROR: failed to allocate new mailbox\n");
+        abscond(-1);
+    }
+
     if (ret == 0) {
-        if mallot_init() < 0 {
-            printf!("TEST ERROR: mallot failed to init\n");
+        let fs_mb = new_server(FILE_SERVER_ID, NUM_THREADS_SERVER, mb);
+        if (fs_mb < 0) {
+            printf!("ERROR: failed to init server\n");
             abscond(-1);
         }
 
-        let mb_new = mailbox_new();
-        if mb_new < 0 {
-            printf!("TEST ERROR: could not init mailbox\n");
-            abscond(-1);
-        } 
-        let fs_mb: i32 = -1;
-
-        // initialize file server
-        if (fs_mb = new_server(FILE_SERVER_ID, FS_THREADS, mb_new)) < 0 {
-            printf!("error %d initializing file server\n", fs_mb);
+        if ((ret = file_create(fs_mb as u32, FILE_NAME, null, 0, -1)) < 0) {
+            printf!("ERROR in file_create\n");
             abscond(-1);
         }
 
-        // we no longer need this mailbox -- delete it!
-        mailbox_remove(mb_new as u32);
-
-        if (ret = file_create(fs_mb as u32, FILE_NAME, null, 0, -1)) < 0 {
-            printf!("ERROR creating file! %d\n", ret);
-            abscond(-1);
-        }
-
-        // spin up some threads and procs
-        spawn_procs(NUM_PROCS);
+        spawn_procs(NUM_PROCS - 1);
         spawn_threads(run_file_query, NUM_THREADS);
-        abscond(0);
-    } else {
 
-        let status: i32 = 0;
-
-        while bide(&status) >= 0 {
-
-            if status < 0 {
+        let status: i32;
+        let procs_alive: i32 = (NUM_PROCS - 1) as i32;
+        while(procs_alive > 0 && (ret = bide(&status)) >= 0) {
+            procs_alive-=1;
+            if (status < 0) {
                 printf!("ERROR\n");
                 abscond(-1);
             }
         }
-        let ticks = get_ticks();
-        while(get_ticks() != ticks + 100) {
-            yield(-1);
-        }
+        abscond(0);
 
-        let fs_mb: i32;
-        if name_server_request(FILE_SERVER_ID, &fs_mb, -1) < 0 {
-            printf!("ERROR name request\n");
-            abscond(-1);
-        } 
-
-        let i: u32;
-        let read_page: *u8 = find_pages(1);
-        if read_page == null {
-            printf!("TEST ERROR allocating page!\n");
-            abscond(-1);
-        }
-
-
-        // The compilers team and I differ on our feelings about types >:(
-        let file_name_temp: u8[FILE_NAME_MAX];
-        let file_name: *u8 = &file_name_temp[0]; 
-
-        let file_len: u32 = PAGE_SIZE;
-
-        for (i = CHILD_MIN as u32; i < (CHILD_MIN as u32 + NUM_THREADS); i+=1) {
-            snprintf!(file_name, FILE_NAME_MAX, "%d", i); 
-            let file_name_len = strnlen(file_name, FILE_NAME_MAX);
-            if (ret = file_read(fs_mb as u32, file_name, read_page, &file_len, 0,
-                        -1)) < 0 {
-                printf!("ERROR reading file! %d\n", ret);
+    } else {
+        let status: i32 = 0;
+        while(bide(&status) < 0) {
+            if (status < 0) {
+                printf!("ERROR\n");
                 abscond(-1);
             }
-            mut_lock(&printf_mut);
-            printf!("%d: %d\n", i, file_len);
-            mut_unlock(&printf_mut);
-
         }
+
+        printf!("***SUCCESS***\n");
+        abscond(0);
+
     }
     abscond(0);
     0

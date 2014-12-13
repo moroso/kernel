@@ -113,13 +113,13 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
     0
 }
 
-fn fs_append(name: *u8, data: *u8, data_len: u32) -> i32 {
+fn fs_append(name: *u8, buffer: *u8, buffer_len: u32) -> i32 {
     let node = fs_lookup(name);
     if (node == null){
         return FS_ERR_NOT_FOUND;
     } 
     mut_lock(&node->mut);
-    let ret = fs_write_unsafe(node, data, data_len, node->file_end);
+    let ret = fs_write_unsafe(node, buffer, buffer_len, node->file_end);
     mut_unlock(&node->mut);
     ret
 }

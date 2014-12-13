@@ -52,8 +52,7 @@ fn file_system_test(arg: *u8) {
     printf!("client %d writing %d instances of \"%s\" to file \"%s\"\n",
             get_tid(), (NUM_ITERS), file_buffer, file_name);
     for (i = 0; i < (NUM_ITERS); i+=1) {
-        if ((ret = file_write(fs_mb, file_name, file_buffer, MAX_NAME_LEN,
-                        offset, -1)) < 0) {
+        if ((ret = file_append(fs_mb, file_name, file_buffer, MAX_NAME_LEN, -1)) < 0) {
             printf!("write error %d\n", ret);
             abscond(-1);
         }
@@ -145,6 +144,10 @@ fn main() -> i32 {
         let status: i32;
         let procs_alive: i32 = (NUM_PROCS - 1) as i32;
         while(procs_alive > 0 && (ret = bide(&status)) >= 0) {
+            if (status < 0) {
+                printf!("ERROR\n");
+                abscond(-1);
+            }
             procs_alive-=1;
         }
 
@@ -158,7 +161,7 @@ fn main() -> i32 {
             abscond(-1);
         }
     }
-    
+
     printf!("***SUCCESS***\n");
     abscond(0);
 
