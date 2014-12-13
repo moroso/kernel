@@ -30,7 +30,8 @@
  * ERR_DEAD, and a flag is set in the rend that is checked when preemption is
  * disabled -- either of these cases causes the sender to remove their reference
  * in the table (if it still points to the given mailbox)
- * when ints are disabled  UPDATE I have implemented all of this except for the
+ * when ints are disabled.  Currently, we have an active flag that prevents
+ * future sends, but does not wakeup threads that are blocked on send  UPDATE I have implemented all of this except for the
  * deletion itself.  Need to prove to myself that it's safe
  *
  * Author: Amanda M. Watson
@@ -60,7 +61,9 @@ struct mailbox_t {
     // denotes the proc that owns the mailbox. only threads that belong to this
     // proc will be allowed to receive messages from the mailbox 
     owner: *proc,
-    ref_count: u32, // denotes how many desc tables have references
+    // denotes references: one reference for every open lookup
+    // and descriptor table entry
+    ref_count: u32,   
     // denotes whether the mailbox is accepting activity
     active: bool, 
 }
@@ -68,6 +71,7 @@ struct mailbox_t {
 /* allocates a new mailbox, and assigns proc of invoking thread as its owner,
  * adds mailbox to invoking proc's descriptor table.
  * Assumes owner has corresponding proc
+ *
  * Returns mailbox descriptor on success, negative error code on OOM failure, or
  * if descriptor table is full */
 fn mailbox_new() -> i32 {
@@ -92,6 +96,7 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     mb->owner = proc; 
     mb->active = true;
     mb->ref_count = 0;
+    // attempt to add to descriptor table
     let ret = mb_table_add(&proc->mb_desc, mb);
     if (ret == DESC_ERR_INTERNAL) {
         ret = MB_ERR_INTERNAL;
@@ -101,138 +106,6 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
     }
 
     ret
-}
-
-/* 
- *  When an owner thread invokes mb_recv on a mailbox mb, it blocks until either it times out, or
- *  a sending thread calls mb_send on mb. 
- * 
- *  if rend_wait returns a non-null rend_node, it means that a sender is blocked
- *  on us (the invoking thread), and we are responsible for the message transfer
- *  once we exit mb_recv.  we denote this case by returning the sender's tcb.
- *  mb_recv also stores the rend_node in the tcb (last_send), so it can be
- *  reawoken (or at least allowed to time out) when mb_end_recv is called.
- *
- *  If the return value of rend_wait is null, this means the sender has already
- *  performed the transfer and is not blocked on us.  We denote this by
- *  returning null
- *
- * - desc: the descriptor for mailbox the invoking thread is waiting on.  returns with err
- *   MB_ERR_OWNER if thread's proc is not the owner of mb, and MB_ERR_DEST if
- *   the mailbox lookup fails
- * - message: the message being send to the sender.  This message can contain
- *   whatever info is necessary for the sender thread to know how to treat a
- *   sleeping receiver.  
- * - message_len: lenth of message.  
- * - message_recv: pointer where message left by sender can be stored.  
- * - recv_len: pointer to where receiver length is stored.  The value at
- *   recv_len is updated to denote the legnth of the message at message_recv
- * - timeout: how many cycles the invoking thread should block in wait of a
- *   transfer before returning with error.  Note that thread is unable to time
- *   out while the sending thread is performing the transfer.
- * - err: stores any errors that arise; *err = 0 means receipt was successful
- * 
- *  Barring errors, returns the tcb of the sender if we're responsible for the transfer.  null if
- *  the transfer already happened. 
- *
- *  It's important to note that if message_len is non-zero, this means the
- *  sending thread is waiting to be woken up (or at least have its timeout
- *  restarted) by mb_end_recv(); it is incorrect to leave a function that calls
- *  mb_recv and retrieves a message without knowing when the thread will call mb_end_recv;
- *
- *  Further note that just because a tcb is returned, it does not mean the tcb is
- *  blocked.  in the async case, the tcb returned could be active.  look at
- *  option to determine whether the returned tcb is in an active state
- * 
- */
-fn mb_recv(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, option: *u32, err: *i32) -> *tcb {
-
-
-    let mb = mb_desc_lookup(desc);
-    if (mb == null) {
-        *err = MB_ERR_DEST;
-        return null;
-    }
-    
-
-    if (!(mb->active)) {
-        *err = MB_ERR_INTERNAL;
-        mb_end_lookup(mb);
-        return null;
-    }
-
-    if (timeout != -1) { 
-        timeout = timeout + get_ticks();
-    }
-
-    assert!(list_is_empty(&get_tcb()->last_send));
-
-    if (get_tcb()->proc != mb->owner) {
-        *err = MB_ERR_OWNER;         
-        mb_end_lookup(mb);
-        return null;
-    }
-    let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
-            RECV, err);
-
-    /* if we need to wake up our sender after we return, store sender in the
-     * tcb with its timeout disabled */
-    if (ret != null) {
-        assert!(ret->option != RECV);
-        list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
-        assert!(ret->can_timeout == false || ret->timeout ==
-                -1);
-        *recv_len = ret->message_len;
-        *message_recv = ret->message;
-        *option = ret->option;
-        assert!(ret->tcb != null);
-        
-        mb_end_lookup(mb);
-        return ret->tcb;
-    } 
-    // if ret is null, this means any message has already been transferred to
-    // message_recv during rend_wait
-    
-    mb_end_lookup(mb);
-    null
-}
-
-/* Cleanup in the case that a thread calls mb_recv and retrieves a non-null
- * tcb.  Should be invoked once transfer from sender to receiver is
- * complete.  If the sender does not expect a reply, wakes it up
- * immediately; otherwise, it sets can_timeout to true, allowing the sender to
- * timeout and return if the receiver takes to long to reply
- *
- * Note that this function must still be called if a message is async
- *
- * - err: error code to send the sender (denotes whether transfer was successful)
- *
- * Returns immediately if no sender if waiting to be woken up
- * */
-fn mb_end_recv(err: i32) {
-
-    if (list_is_empty(&get_tcb()->last_send)) {
-        return ();
-    }
-
-    let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
-            rend_link);
-
-    /* if no reply is expected, remove rend_node from tcb and signal it with err */
-    if (last_send->option != SEND_SYNC_REPLY || err < 0) {
-        assert!(last_send->can_timeout == false);
-        list_del(&last_send->rend_link);
-        rend_signal(null, 0, last_send, err);
-    } else {
-        /* if waiting sender expects a reply, don't wake them up; rather re-enable
-         * timeout and return */
-        assert!(last_send->tcb != null); 
-        assert!(last_send->can_timeout == false || last_send->timeout ==
-                -1);
-        last_send->can_timeout = true;
-    }
-
 }
 
 /* 
@@ -346,6 +219,147 @@ fn mb_end_send(message: *u32, message_len: u32, err: i32) {
     assert!(last_send->can_timeout == false);
     list_del(&last_send->rend_link);
     rend_signal(message, message_len, last_send, err);
+
+}
+
+
+/* 
+ *  When an owner thread invokes mb_recv on a mailbox mb, it blocks until either it times out, or
+ *  a sending thread calls mb_send on mb. 
+ * 
+ *  if rend_wait returns a non-null rend_node, it means that a sender is blocked
+ *  on us (the invoking thread), and we are responsible for the message transfer
+ *  once we exit mb_recv.  we denote this case by returning the sender's tcb.
+ *  mb_recv also stores the rend_node in the tcb (last_send), so it can be
+ *  reawoken (or at least allowed to time out) when mb_end_recv is called.
+ *
+ *  If the return value of rend_wait is null, this means the sender has already
+ *  performed the transfer and is not blocked on us.  We denote this by
+ *  returning null
+ *
+ * - desc: the descriptor for mailbox the invoking thread is waiting on.  returns with err
+ *   MB_ERR_OWNER if thread's proc is not the owner of mb, and MB_ERR_DEST if
+ *   the mailbox lookup fails
+ * - message: the message being send to the sender.  This message is defined by
+ *   the programmer, and can contain
+ *   whatever info is necessary for the sender thread to know how to treat a
+ *   sleeping receiver.  
+ * - message_len: length of message.  
+ * - message_recv: pointer where message left by sender can be stored.  
+ * - recv_len: pointer to where receiver length is stored.  The value at
+ *   recv_len is updated to denote the legnth of the message at message_recv
+ * - option: returns whether the type of message being received is SEND_SYNC,
+ *   SEND_SYNC_NOREPLY, or SEND_ASYNC
+ * - timeout: how many cycles the invoking thread should block in wait of a
+ *   transfer before returning with error.  Note that thread is unable to time
+ *   out while the sending thread is performing the transfer.
+ * - err: stores any errors that arise; *err = 0 means receipt was successful
+ * 
+ *  Barring errors, returns the tcb of the sender if we're responsible for the transfer.  null if
+ *  the transfer already happened. 
+ *
+ *  It's important to note that if the return value is non-null and its option
+ *  is not SEND_ASYNC, this means the
+ *  sending thread is waiting to be woken up (or at least have its timeout
+ *  restarted) by mb_end_recv(); it is incorrect to leave a function that calls
+ *  mb_recv and retrieves a message without knowing when the thread will call mb_end_recv;
+ *
+ *  Further note that just because a tcb is returned, it does not mean the tcb is
+ *  blocked.  in the async case, the tcb returned could be active.  look at
+ *  option to determine whether the returned tcb is in an active state
+ * 
+ */
+fn mb_recv(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
+        recv_len: *u32, timeout: u32, option: *u32, err: *i32) -> *tcb {
+
+    assert!(option != null && err != null);
+
+    /* look up mailbox in descriptor table */
+    let mb = mb_desc_lookup(desc);
+    if (mb == null) {
+        *err = MB_ERR_DEST;
+        return null;
+    }
+
+    /* if mailbox is not longer active (sender removed reference), return with
+     * error */ 
+    if (!(mb->active)) {
+        *err = MB_ERR_INTERNAL;
+        mb_end_lookup(mb);
+        return null;
+    }
+
+    if (timeout != -1) { 
+        timeout = timeout + get_ticks();
+    }
+
+    assert!(list_is_empty(&get_tcb()->last_send));
+
+    if (get_tcb()->proc != mb->owner) {
+        *err = MB_ERR_OWNER;         
+        mb_end_lookup(mb);
+        return null;
+    }
+    let ret = rend_wait(&mb->mb_rend, message, message_len, message_recv, recv_len, timeout,
+            RECV, err);
+
+    /* if we need to wake up our sender after we return, store sender in the
+     * tcb with its timeout disabled (note that since this is per-threadm we
+     * don't have to deal with locking since it cannot timeout) */
+    if (ret != null) {
+        assert!(ret->option != RECV);
+        list_insert_head(&ret->rend_link, &(get_tcb()->last_send));
+        assert!(ret->can_timeout == false || ret->timeout ==
+                -1);
+        *recv_len = ret->message_len;
+        *message_recv = ret->message;
+        *option = ret->option;
+        assert!(ret->tcb != null);
+
+        mb_end_lookup(mb);
+        return ret->tcb;
+    } 
+    // if ret is null, this means any message has already been transferred to
+    // message_recv during rend_wait
+
+    mb_end_lookup(mb);
+    null
+}
+
+/* Cleanup in the case that a thread calls mb_recv and retrieves a non-null
+ * tcb.  Should be invoked once transfer from sender to receiver is
+ * complete.  If the sender does not expect a reply, wakes it up
+ * immediately; otherwise, it sets can_timeout to true, allowing the sender to
+ * timeout and return if the receiver takes to long to reply
+ *
+ * Note that this function must still be called if a message is async
+ *
+ * - err: error code to send the sender (denotes whether transfer was successful)
+ *
+ * Returns immediately if no sender if waiting to be woken up
+ * */
+fn mb_end_recv(err: i32) {
+
+    if (list_is_empty(&get_tcb()->last_send)) {
+        return ();
+    }
+
+    let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
+            rend_link);
+
+    /* if no reply is expected, remove rend_node from tcb and signal it with err */
+    if (last_send->option != SEND_SYNC_REPLY || err < 0) {
+        assert!(last_send->can_timeout == false);
+        list_del(&last_send->rend_link);
+        rend_signal(null, 0, last_send, err);
+    } else {
+        /* if waiting sender expects a reply, don't wake them up; rather re-enable
+         * timeout and return */
+        assert!(last_send->tcb != null); 
+        assert!(last_send->can_timeout == false || last_send->timeout ==
+                -1);
+        last_send->can_timeout = true;
+    }
 
 }
 
