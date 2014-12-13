@@ -1,7 +1,6 @@
 /* file_server_test: tests file_server creation, name server registration, file create, write and read 
  * each thread manipulates its own file many times 
- * On success, ***SUCCESS*** will print NUM_PROCS times
-*/
+ * On success, ***SUCCESS*** will print */
 
 use server::*;
 use syslib::*;
@@ -13,9 +12,11 @@ use shared::consts::*;
 use string::*;
 use utils::asm::*;
 
-const NUM_PROCS: u32 = 20;
+const NUM_PROCS: u32 = 30;
+// NUM_THREADS cannot exceed 63, as this is the system limit
 const NUM_THREADS: u32 = 60;
 const MAX_NAME_LEN: u32 = 100;
+const NUM_ITERS: u32 = 1;
 
 static num_threads: u32 = NUM_THREADS;
 
@@ -31,7 +32,7 @@ fn file_system_test(arg: *u8) {
 
     let file_name_temp: u8[MAX_NAME_LEN];
     let file_name: *u8 = &file_name_temp[0];
-    snprintf!(file_name, 99, "%d", get_tid());
+    snprintf!(file_name, MAX_NAME_LEN, "%d", get_tid());
 
     if ((ret = file_create(fs_mb, file_name, null, 0, -1)) < 0) {
         printf!("err creating file %s: %d\n", file_name, ret);
@@ -48,7 +49,9 @@ fn file_system_test(arg: *u8) {
     strncpy(file_buffer, file_name, MAX_NAME_LEN); 
     let i: u32 = 0;
     let offset = 0;
-    for (i = 0; i < (PAGE_SIZE/MAX_NAME_LEN); i+=1) {
+    printf!("client %d writing %d instances of \"%s\" to file \"%s\"\n",
+            get_tid(), (NUM_ITERS), file_buffer, file_name);
+    for (i = 0; i < (NUM_ITERS); i+=1) {
         if ((ret = file_write(fs_mb, file_name, file_buffer, MAX_NAME_LEN,
                         offset, -1)) < 0) {
             printf!("write error %d\n", ret);
@@ -65,6 +68,7 @@ fn file_system_test(arg: *u8) {
     }
 
     let read_size = PAGE_SIZE;
+    printf!("client %d reading file \"%s\"\n", get_tid(), file_name);
     if (file_read(fs_mb, file_name, read_buffer, &read_size, 0, -1) < 0) {
         printf!("read error\n");
         abscond(-1);
@@ -75,16 +79,19 @@ fn file_system_test(arg: *u8) {
     let file_name_len = strnlen(file_name, 100);
 
     offset = 0;
-    for (i = 0; i < (PAGE_SIZE/MAX_NAME_LEN); i+=1) {
+    printf!("client %d verifying file \"%s\"\n", get_tid(), file_name);
+
+    for (i = 0; i < NUM_ITERS; i+=1) {
         strncpy(name_buffer, read_buffer + offset, file_name_len); 
         if (strcmp(name_buffer, file_name) != 0) {
-            printf!("ERR READING FILE\n");
+            printf!("ERR READING FILE: %s\n", name_buffer);
             abscond(-1);
         }
         offset+=file_name_len;
     }
 
     atomic_add(&num_threads, -1);
+
     abscond(0);
 }
 
@@ -129,11 +136,18 @@ fn main() -> i32 {
         let parent_tid = get_tid();
         printf!("program: spawning %d client procs, each with %d threads: ",
                 NUM_PROCS, NUM_THREADS);
-        spawn_procs(NUM_PROCS);
+        spawn_procs(NUM_PROCS - 1);
         spawn_threads(NUM_THREADS);
         if (get_tid() == parent_tid) {
             printf!("SUCCESS\n");
         }
+
+        let status: i32;
+        let procs_alive: i32 = (NUM_PROCS - 1) as i32;
+        while(procs_alive > 0 && (ret = bide(&status)) >= 0) {
+            procs_alive-=1;
+        }
+
         abscond(0);
     }
 
@@ -144,6 +158,7 @@ fn main() -> i32 {
             abscond(-1);
         }
     }
+    
     printf!("***SUCCESS***\n");
     abscond(0);
 
