@@ -163,7 +163,8 @@ fn run_name_server(mb_arg: *u8) {
 }
 
 fn name_server_init(num_threads: u32, return_desc: i32) -> i32 {
-    server_init(SERVER_ID, &name_server_active, num_threads, run_name_server, return_desc)
+    server_init(SERVER_ID, &name_server_active, num_threads, run_name_server,
+            return_desc, false)
 }
 
 fn name_server_request(name: *u8, desc: *i32, timeout: i32) -> i32 {

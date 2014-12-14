@@ -95,10 +95,10 @@ fn page_fault_handler(regs: *uregs) {
         if (get_tcb() != null) {
             tid = get_tcb()->tid;
         }
-        let frame = *log_to_phys(log_addr as *u8, PD);
-                printf!("Thread %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid,
+        let frame = *log_to_phys(get_aligned_addr(log_addr as *u32) as *u8, PD);
+        printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid, get_tcb()->proc->pid,
                 log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD) );
-                printf!("frame: %p\n", frame);
+        printf!("frame: %p\n", frame);
         assert!(false);
     }
     kmut_unlock(&PD->mut);
