@@ -13,7 +13,7 @@ use locks::lol_atomics::*;
 use utils::buddy_alloc::*;
 use utils::stdlib::*;
 use utils::list::*;
-use structures::schedule::get_tcb;
+use structures::schedule::{get_tcb, cond_preempt_disable, cond_preempt_enable};
 use locks::mutex::*;
 
 
@@ -69,6 +69,8 @@ const GLOBAL_BIT: u32 = 1 << 8;
 const PAGE_SIZE_BIT: u32 = 1 << 7;
 // denotes whether a page is read-only because it's COW
 const COW_BIT: u32 = 1 << 9;
+
+static VM_verbose: bool = false;
 
 /* error codes */
 // out of memory
@@ -275,6 +277,7 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
     if (frame == null) {
         return 0;
     }
+
     assert!(!ptr_too_low!(frame) && frame < USER_MEM_START as *u8);
     let size: u32 = KB;
     if (has_flags(frame, PAGE_SIZE_BIT)) {
@@ -300,6 +303,7 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 }
 
 fn free_page(log_addr: *u8, PD: *PD_t) {
+    
     assert!(is_user_addr(log_addr));
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
     let page_entry: **u8 = log_to_phys(log_addr, PD);
@@ -312,6 +316,16 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     if (frame == null) {
         return ();
     }
+    if (VM_verbose) {
+        if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
+                == (0x40005000 as *u8)) {
+            if (has_flags(frame, COW_BIT)) {
+                printf!("REMOVING PAGE: %p COW\n", frame);     
+            } else {
+                printf!("REMOVING PAGE: %p NO COW\n", frame);   
+            }
+        }
+    }
 
     if (ptr_too_low!(frame)) {
         printf!("tcb: %p %p %p\n", get_tcb(), log_addr, frame);
@@ -322,6 +336,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
      * care  */
     let size = get_log_addr_size(log_addr, PD);
     dec_frame_ref(frame, PD, size);
+
     *page_entry = null;
     invalidate_tlb(log_addr);
 
@@ -433,7 +448,7 @@ fn remove_pages(addr: *u8, len: u32) {
     let addr_start = addr;
     let addr_end = addr + len - 1;
     if (addr_start >= addr_end) {
-      return ();
+        return ();
     }
     if (!(is_user_addr(addr_start) && is_user_addr(addr_end))) {
         return ();
@@ -601,10 +616,12 @@ fn PD_init(PD: *PD_t) -> i32 {
  * also made writable.  Assuming overcommits are not possible, should not be
  * allowed to fail.  */
 fn cow_copy(log_addr: *u8, PD: *PD_t) {
+
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
     assert!(frame_orig_addr != null);
     let frame_orig: *u8 = get_aligned_addr(*frame_orig_addr as *u32) as *u8;
+
 
     // if we are the only one holding the page, let's make it writable again
     if (get_frame_ref(frame_orig) == 1) {
@@ -620,11 +637,22 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     // but should not once we deal with overcommitting
 
     mos_memcpy(frame_new, frame_orig, 4 * frame_size);
+    if (VM_verbose) {
+        if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
+                == (0x40005000 as *u8)) {
+            printf!("replacing %p with %p (%d\n)\n", *frame_orig_addr, frame_new); 
+        }
+    }
     free_page(log_addr, PD); // removes page and decs ref count
     let set_page_result = set_page(frame_new, log_addr, PD,
             USER_SUPER_BIT | READ_WRITE_BIT,
             frame_size);
-
+    if (VM_verbose) {
+        if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
+                == (0x40005000 as *u8)) {
+            printf!("END %p\n", *log_to_phys(log_addr, &get_tcb()->proc->PD)); 
+        }
+    }
     assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
 

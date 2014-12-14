@@ -1,3 +1,9 @@
+/* play_test.mb: creates file server, NUM_PROCS procs and NUM_THREAD threads, and has
+ * all children apprend their tid NUM_ITERS times to the file.  after all
+ * children have exited, parent reads the file 
+*/
+
+
 use syslib::{mailbox_new, mailbox_remove, abscond, repl, bide, get_tid,
 remove_pages, yield, get_ticks};
 use file::{FILE_SERVER_ID, file_create, file_append, file_read};
@@ -9,9 +15,11 @@ use string::{strnlen, strncpy};
 use shared::consts::PAGE_SIZE;
 use locks::mutex::*;
 
-const NUM_PROCS: u32 = 10;
-const NUM_THREADS: u32 = 1;
+const NUM_PROCS: u32 = 50;
+const NUM_THREADS: u32 = 40;
+const NUM_ITERS: u32 = 10;
 const FILE_NAME: *u8 = "file id";
+const WORD_MAX: u32 = 100;
 
 const NUM_THREADS_SERVER: u32 = 100;
 
@@ -57,13 +65,26 @@ fn run_file_query(args: *u8) {
         printf!("ERROR: name server request failed\n");
         abscond(-1);
     }    
+
     let write_buffer: *u8 = find_pages(1);
+
     if (write_buffer == null) {
         printf!("TEST ERROR: unable to allocate write buffer\n");
         abscond(-1);
     }
 
-        
+    snprintf!(write_buffer, WORD_MAX, "%d ", get_tid());
+
+    let word_len = strnlen(write_buffer, WORD_MAX);
+    assert!(word_len > 0);
+
+    let i: u32;
+    for (i = 0; i < NUM_ITERS; i+= 1) {
+        if (file_append(fs_mb as u32, FILE_NAME, write_buffer, word_len, -1) < 0) {
+            printf!("ERROR: file append\n");
+            abscond(-1);
+        }
+    }        
 
 
     abscond(0);
@@ -94,9 +115,13 @@ fn main() -> i32 {
             printf!("ERROR in file_create\n");
             abscond(-1);
         }
+        let parent = get_tid();
 
         spawn_procs(NUM_PROCS - 1);
         spawn_threads(run_file_query, NUM_THREADS);
+        if (get_tid() != parent) {
+            abscond(0);
+        }
 
         let status: i32;
         let procs_alive: i32 = (NUM_PROCS - 1) as i32;
@@ -107,6 +132,17 @@ fn main() -> i32 {
                 abscond(-1);
             }
         }
+        let page_read = find_pages(1);
+        let read_size = PAGE_SIZE;
+        if (page_read == null) {
+            printf!("TEST ERROR: allocating page_read\n");
+            abscond(-1);
+        }
+        if (file_read(fs_mb as u32, FILE_NAME, page_read, &read_size, 0, -1) < 0) {
+            printf!("ERROR reading file\n");
+            abscond(-1);
+        }
+        printf!("%s\n", page_read);
         abscond(0);
 
     } else {

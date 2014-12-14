@@ -128,7 +128,6 @@ fn fs_write_unsafe(node: *file_node, buffer: *u8, buffer_len: u32, offset: u32) 
     if (offset > node->file_end) {
         return FS_ERR_OOB;
     }
-
     if ((buffer_len + offset) > (node->file_len)) {
         // round up to page
         let new_file_len = (buffer_len + offset);
@@ -150,7 +149,6 @@ fn fs_write_unsafe(node: *file_node, buffer: *u8, buffer_len: u32, offset: u32) 
     mos_memcpy((node->file_data + offset), buffer, buffer_len);
 
     node->file_end = max((buffer_len + offset), node->file_end);
-
     0
 }
 

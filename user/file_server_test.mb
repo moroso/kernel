@@ -139,6 +139,8 @@ fn main() -> i32 {
         spawn_threads(NUM_THREADS);
         if (get_tid() == parent_tid) {
             printf!("SUCCESS\n");
+        } else {
+            abscond(0);
         }
 
         let status: i32;

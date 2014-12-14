@@ -1,6 +1,6 @@
 .globl xchg
 xchg:
-    movl 0x4(%esp), %ecx
-    movl 0x8(%esp), %eax
+    mov 0x04(%esp), %ecx
+    mov 0x08(%esp), %eax
     xchg (%ecx), %eax 
     ret
