@@ -11,10 +11,17 @@
  * buffers, will attempt to dereference it.  This could cause a fault at any
  * point in a faulty IPC implementation.  The client SHOULD receive zero-length
  * long and short messages, rather than the faulty ones, and the server should
- * return with IPC_ERR_INTERNAL, meaning the short message was not backed up by
+ * return with IPC_ERR_MAP, meaning the short message was not backed up by
  * memory. 
- * 3. be forwarded an invalid descriptor.  The server will try to reply back with a    
+ * 3. be forwarded an invalid descriptor.  The server will try to reply back
+ * with a descriptor it does not have.  the client SHOULD fail to be forwarded
+ * the descriptor and simply return with success, and the server should return
+ * with IPC_ERR_MAP  
  *
+ * These options are chosen based on the value of the server tid that is
+ * requesting them
+ *
+ * Author Amanda M. Watson
 **/
 
 
@@ -23,7 +30,8 @@ use prelude::syslib::{abscond, get_tid, get_ticks};
 use prelude::rt_abort;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::ipclib::{ipc_recv_i32, ipc_reply, ipc_reply_mb, ipc_send_all};
-use prelude::shared::ipc_defs::{IPC_ERR_TIMEOUT, IPC_ERR_MIN, IPC_ERR_ARGS};
+use prelude::shared::ipc_defs::{IPC_ERR_TIMEOUT, IPC_ERR_MIN, IPC_ERR_ARGS,
+    IPC_ERR_MAP};
 
 const BAD_SERVER_ID: *u8 = "bad_server";
 static bad_server_active: bool = false;
@@ -56,14 +64,14 @@ fn bad_server_worker(mb_arg: *u8) {
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
                             *u32, PAGE_SIZE) == IPC_ERR_ARGS);  
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
-                            *u32, 300) == IPC_ERR_INTERNAL);
+                            *u32, 300) == IPC_ERR_MAP);
             } else {
-            // forward a descriptor we do not have
-            assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + mb as u32) 
-                    == IPC_ERR_ARGS);
+                // forward a descriptor we do not have
+                assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + mb as u32) 
+                        == IPC_ERR_MAP);
 
-            assert!(ipc_reply(null, 0, null, 0) 
-                    != IPC_ERR_ARGS);
+                assert!(ipc_reply(null, 0, null, 0) 
+                        != IPC_ERR_ARGS);
 
             }
         }

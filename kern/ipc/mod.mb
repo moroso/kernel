@@ -118,7 +118,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     /* copying arguments into the kernel */   
     let args_kern: ipc_args;
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
-        return IPC_ERR_INTERNAL;
+        return IPC_ERR_MAP;
     } 
 
     /* identifying send options for internal IPC */ 
@@ -151,10 +151,14 @@ fn ipc_send(args: *ipc_args) -> i32 {
         } else {
             short_message = slub_alloc(args_kern.short_src.len); 
         }
-        if (short_message == null || copy_from_user(short_message as *u8,
+        if (short_message == null) {
+            return IPC_ERR_INTERNAL;
+        }
+
+        if ( copy_from_user(short_message as *u8,
                     args_kern.short_src.addr,
                     args_kern.short_src.len) < 0) {
-            return IPC_ERR_INTERNAL;
+            return IPC_ERR_MAP;
         }
     }
 
@@ -251,7 +255,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     min(recv_len as i32, args_kern.short_dest.len as i32) as u32) <
                 0) {
-            return IPC_ERR_INTERNAL;
+            return IPC_ERR_MAP;
         }
 
     } else {
@@ -300,7 +304,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
 
-        return IPC_ERR_INTERNAL;
+        return IPC_ERR_MAP;
     }
 
     0
@@ -355,7 +359,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
     /* copy args to kernel */
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
-        return IPC_ERR_INTERNAL;
+        return IPC_ERR_MAP;
     }
 
     // check to see if addresses all point to user addresses
@@ -424,7 +428,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     args_kern.short_dest.len) <
                 0) {
-            return IPC_ERR_INTERNAL;
+            return IPC_ERR_MAP;
         }
     } else {
         /* otherwise, we perform the transfer ourselves */
@@ -472,8 +476,8 @@ fn ipc_recv(args: *ipc_args) -> i32 {
                     args_kern.short_dest.len) <
                 0) {
 
-            mb_end_recv(IPC_ERR_INTERNAL);
-            return IPC_ERR_INTERNAL;
+            mb_end_recv(IPC_ERR_MAP);
+            return IPC_ERR_MAP;
         }
         if (message_src->short_src.len > 0 &&
                 message_src->options&(OPTION_NO_REPLY | OPTION_ASYNC) == 0 &&
@@ -488,7 +492,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
             0) {
 
-        return IPC_ERR_INTERNAL;
+        return IPC_ERR_MAP;
     }
     mb_end_recv(0);
 
@@ -558,7 +562,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
         if (mailbox_fwd == null) {
             // place last_send back for later invocation, return with error 
             last_send_unremove(last_send);
-            return IPC_ERR_ARGS;
+            return IPC_ERR_MAP;
         }
 
     }
@@ -574,7 +578,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
         // if the descriptor failed to be added, return with failure and do not
         // transfer the other messages 
         if (message_src->desc_dest < 0) {
-            err = IPC_ERR_INTERNAL;
+            err = IPC_ERR_MAP;
         }
     }
 
@@ -588,11 +592,14 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     let message_kernel = null;
     if (short_len > 0) {
         message_kernel = slub_alloc(short_len);
-        if (message_kernel == null || copy_from_user(message_kernel as *u8,
+        if (message_kernel == null) {
+            return IPC_ERR_INTERNAL;
+        } 
+        if (copy_from_user(message_kernel as *u8,
                     message_short as *u8,
                     short_len) < 0) {
             short_len = 0;
-            err = IPC_ERR_INTERNAL;
+            err = IPC_ERR_MAP;
         }
     }
 
