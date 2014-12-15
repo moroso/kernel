@@ -49,25 +49,26 @@ const SHORT_BUFFER_MAX: u32 = 200;
 fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
         addr_dest: *u8, len_dest: u32, shared: u32) -> u32 {
     /*** transfer long message ***/
-    let transfer_len = min!(len_src, len_dest);
-    if (transfer_len == 0) {
+    let transfer_len: i32 = min!(len_src as i32, len_dest as i32);
+    if (transfer_len <= 0) {
         return 0;
     }
     kmut_2lock(&(PD_src->mut), &(PD_dest->mut));
 
-    let page: u32;
-    for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+    let page: i32;
+    for (page = 0; page < transfer_len; page+=(PAGE_SIZE as i32)) {
         if (page_transfer(addr_src + page,
                     addr_dest + page,
                     PD_src,
                     PD_dest, shared) < 0) {
-            transfer_len = max(0, page - PAGE_SIZE);
+            transfer_len = max(0, page - PAGE_SIZE as i32);
             break;
         }
     }
     kmut_2unlock(&(PD_src->mut), &(PD_dest->mut));
 
-    transfer_len
+    assert!(transfer_len >= 0);
+    transfer_len as u32
 }
 
 
@@ -107,13 +108,16 @@ fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
  * args are altered to denote how much was copied to the specified buffers.
  * Note that message transfers might still be successful, even if a negative
  * error code is returned
+ *
+ * MB_ERR_DESC means that the receiver tried to transfer a descriptor but was
+ * unable to do so
+ * desc must be positive for receipt
  */
 fn ipc_send(args: *ipc_args) -> i32 {
 
     /* copying arguments into the kernel */   
     let args_kern: ipc_args;
     if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
-        printf!("HERE 1\n");
         return IPC_ERR_INTERNAL;
     } 
 
@@ -169,7 +173,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     }
 
     /* ensures short message is smaller than page */
-    if (args_kern.short_src.len > PAGE_SIZE) {
+    if (args_kern.short_src.len >= PAGE_SIZE) {
 
         return IPC_ERR_ARGS;
     }
@@ -212,6 +216,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     if (err < 0) {
 
         if (err == MB_ERR_DEST) {
+
             return IPC_ERR_DEST;
         }
 
@@ -235,16 +240,17 @@ fn ipc_send(args: *ipc_args) -> i32 {
     // if we have no tcb and no error, this means the full transfer
     // occurred on the other side; clean up and return
     if (dest_tcb == null) {
-        args_kern.desc_dest = message_send.desc_dest;
+        if (args_kern.desc_dest >= 0) { 
+            args_kern.desc_dest = message_send.desc_dest;
+        }
         /* receiver already transferred long message, so update length */
         args_kern.long_dest.len = message_send.long_dest.len;
-
         /* copy receiver's short reply to userland */
-        args_kern.short_dest.len = min(recv_len, args_kern.short_dest.len);
+        args_kern.short_dest.len = min(recv_len as i32, args_kern.short_dest.len
+                as i32) as u32;
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
-                    min(recv_len, args_kern.short_dest.len)) <
+                    min(recv_len as i32, args_kern.short_dest.len as i32) as u32) <
                 0) {
-
             return IPC_ERR_INTERNAL;
         }
 
@@ -265,7 +271,9 @@ fn ipc_send(args: *ipc_args) -> i32 {
                         u32)) != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
-            message_dest->desc_dest = desc_table::mb_table_add(&proc_dest->mb_desc, mailbox_fwd);
+            if (message_dest->desc_dest >= 0) {
+                message_dest->desc_dest = desc_table::mb_table_add(&proc_dest->mb_desc, mailbox_fwd);
+            }
             desc_table::mb_end_lookup(mailbox_fwd);
         }
         if (message_dest->long_dest.len > 0) {
@@ -411,8 +419,8 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         args_kern.options = message_send.options;
         args_kern.desc_dest = message_send.desc_dest;
         args_kern.long_dest.len = message_send.long_dest.len;
-        args_kern.short_dest.len = min(args_kern.short_dest.len,
-                recv_len);
+        args_kern.short_dest.len = min(args_kern.short_dest.len as i32,
+                recv_len as i32) as u32;
         if (copy_to_user((args_kern.short_dest.addr), message_recv as *u8,
                     args_kern.short_dest.len) <
                 0) {
@@ -425,25 +433,28 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         if (message_src->mailbox_src != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
-            args_kern.desc_dest =
-                desc_table::mb_table_add(&(get_tcb()->proc->mb_desc),
-                        message_src->mailbox_src);
+            if (args_kern.desc_dest >= 0) {
+                args_kern.desc_dest =
+                    desc_table::mb_table_add(&(get_tcb()->proc->mb_desc),
+                            message_src->mailbox_src);
+            }
         }
 
 
-        let transfer_len = min!(message_src->long_src.len, args_kern.long_dest.len);
+        let transfer_len = min!(message_src->long_src.len as i32,
+                args_kern.long_dest.len as i32);
         if (transfer_len > 0) {
             assert!(send_option != SEND_ASYNC);
             assert!(dest_tcb != null);
             kmut_2lock(&(get_tcb()->proc->PD.mut), &(dest_tcb->proc->PD.mut));
-            let page: u32;
-            for (page = 0; page < transfer_len; page+=PAGE_SIZE) {
+            let page: i32;
+            for (page = 0; page < transfer_len; page+=PAGE_SIZE as i32) {
                 if (page_transfer(message_src->long_src.addr + page,
                             args_kern.long_dest.addr + page,
                             &(dest_tcb->proc->PD), 
                             &(get_tcb()->proc->PD),
                             message_src-> options&OPTION_SHARE) < 0) {
-                    transfer_len = max(0, page - PAGE_SIZE);
+                    transfer_len = max(0, page - PAGE_SIZE as i32);
                     break;
                 }
             }
@@ -451,9 +462,10 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
         }
 
-        args_kern.short_dest.len = min(args_kern.short_dest.len,
-                message_src->short_src.len);
-        args_kern.long_dest.len = transfer_len;
+        args_kern.short_dest.len = min(args_kern.short_dest.len as i32,
+                message_src->short_src.len as i32) as u32;
+        assert!(transfer_len >= 0);
+        args_kern.long_dest.len = transfer_len as u32;
 
         if (copy_to_user((args_kern.short_dest.addr),
                     message_src->short_src.addr as *u8,
@@ -471,7 +483,6 @@ fn ipc_recv(args: *ipc_args) -> i32 {
         } 
 
 
-        mb_end_recv(0);
     }
 
     if (copy_to_user(args as *u8, &args_kern as *u8, sizeof(ipc_args)) <
@@ -479,11 +490,18 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
         return IPC_ERR_INTERNAL;
     }
+    mb_end_recv(0);
 
     0
 }
 
 
+
+// policy: send the messages as well as possible.  On an args error, return err
+// without waking up the receiver.  Else, wake them up with whatever messages we
+// can send, and return error.  We send errors for the descriptors and the short
+// message, because we can tell whether an error was encountered, but can't with
+// a long message 
 /* reply: replies to the last sender received by invoking thread; returns with error if no active thread
  * awaits a reply  
  * 
@@ -504,6 +522,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
         desc: i32) -> i32 {
 
+    let mailbox_fwd = null;
     // check to see if addresses all point to user addresses
     if ((!is_user_addr(message_long as *u32)  && long_len > 0)  ||
             (!is_user_addr(message_short)  && short_len > 0))  {
@@ -516,7 +535,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     }
 
     /* ensures short message is smaller than page */
-    if (short_len > PAGE_SIZE) {
+    if (short_len >= PAGE_SIZE) {
         return IPC_ERR_ARGS;
     }
 
@@ -525,52 +544,59 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
         return IPC_ERR_ARGS;
     }    
 
-    let enable = cond_preempt_disable();
-    if (list_is_empty(&get_tcb()->last_send)) {
-        cond_preempt_enable(enable);
+    let last_send: *rend_node = null;
+
+    if ((last_send = last_send_remove()) == null) {
         return IPC_ERR_REPLY;
     }
 
-    let last_send: *rend_node = list_head_entry!(&get_tcb()->last_send, rend_node,
-            rend_link);
-    assert!(last_send != null);
-    last_send->can_timeout = false;
-    list_del(&last_send->rend_link);
-    cond_preempt_enable(enable);
-
     let message_src: *message_node = last_send->message as *message_node;
-    if (desc >= 0) {
-        let mailbox_fwd = desc_table::mb_desc_lookup(desc as
+
+    if (desc >= 0 && message_src->desc_dest >= 0) {
+        mailbox_fwd = desc_table::mb_desc_lookup(desc as
                 u32);
+        if (mailbox_fwd == null) {
+            // place last_send back for later invocation, return with error 
+            last_send_unremove(last_send);
+            return IPC_ERR_ARGS;
+        }
+
+    }
+
+    let err: i32 = 0;
+    /// send descriptor ///
+    if (mailbox_fwd != null) {
         message_src->desc_dest = desc_table::mb_table_add(&last_send->tcb->proc->mb_desc, 
                 mailbox_fwd);
 
         desc_table::mb_end_lookup(mailbox_fwd);
+
+        // if the descriptor failed to be added, return with failure and do not
+        // transfer the other messages 
         if (message_src->desc_dest < 0) {
-            rend_signal(null, 0, last_send, IPC_ERR_MB);
-            return IPC_ERR_MB;
+            err = IPC_ERR_INTERNAL;
         }
     }
 
+    /// send long message ///
     /* long message transfer */
     let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, 
             &(last_send->tcb->proc->PD), message_src->long_dest.addr, message_src->long_dest.len, 0);
     message_src->long_dest.len = transfer_len;
 
+    /// copy short message -- on error, message length is truncated to 0 
     let message_kernel = null;
     if (short_len > 0) {
         message_kernel = slub_alloc(short_len);
         if (message_kernel == null || copy_from_user(message_kernel as *u8,
                     message_short as *u8,
                     short_len) < 0) {
-
-
-            rend_signal(message_kernel, short_len, last_send, 0);
-            return IPC_ERR_INTERNAL;
+            short_len = 0;
+            err = IPC_ERR_INTERNAL;
         }
     }
 
+    /// send short message /// 
     rend_signal(message_kernel, short_len, last_send, 0);
-
-    0
+    err
 }
