@@ -102,8 +102,8 @@ fn fs_read(message: *file_message, buffer: *u8) -> i32 {
 
     mut_lock(&node->mut);
 
-    let transfer_len = min(message->buffer_len, node->file_end
-            - message->file_offset);
+    let transfer_len = min(message->buffer_len as i32, node->file_end as i32
+            - message->file_offset as i32) as u32;
 
 
     mos_memcpy(buffer, node->file_data + message->file_offset, transfer_len);
@@ -146,51 +146,52 @@ fn fs_write_unsafe(node: *file_node, buffer: *u8, buffer_len: u32, offset: u32) 
         node->file_data = new_buffer;
     }
     assert!(node->file_len >= (buffer_len + offset));
-    mos_memcpy((node->file_data + offset), buffer, buffer_len);
+		mos_memcpy((node->file_data + offset), buffer, buffer_len);
 
-    node->file_end = max((buffer_len + offset), node->file_end);
-    0
+		node->file_end = max((buffer_len + offset) as i32, node->file_end as i32) as
+						u32;
+		0
 }
 
 /* write to file at given offset */
 fn fs_write(name: *u8, buffer: *u8, buffer_len: u32, offset: u32) -> i32 {
-    let node = fs_lookup(name);
-    if (node == null){
-        return FS_ERR_NOT_FOUND;
-    } 
-    mut_lock(&node->mut);
-    let ret = fs_write_unsafe(node, buffer, buffer_len, offset);
-    mut_unlock(&node->mut);
-    ret
+				let node = fs_lookup(name);
+				if (node == null){
+								return FS_ERR_NOT_FOUND;
+				} 
+				mut_lock(&node->mut);
+				let ret = fs_write_unsafe(node, buffer, buffer_len, offset);
+				mut_unlock(&node->mut);
+				ret
 }
 
 fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
 
-    let new_file: *file_node = file_node_create(name, data, data_len);
-    if (new_file == null) {
-        return FS_ERR_MEM;
-    }
+				let new_file: *file_node = file_node_create(name, data, data_len);
+				if (new_file == null) {
+								return FS_ERR_MEM;
+				}
 
-    let node: *file_node = null;
-    mut_lock(&fs_lock);
-    list_foreach_entry!(node, &fs, file_node, fs_link, {
-            if (strcmp(name, &(node->name)[0]) == 0) {
-            mut_unlock(&fs_lock);
-            printf!("ERR %s already exists (%s)\n", name, &(node->name)[0]);
-            return FS_ERR_DUP;
-            }
-            if (node->name[0] > name[0]) {
-            list_insert_before(&new_file->fs_link, &node->fs_link);
-            mut_unlock(&fs_lock);
+				let node: *file_node = null;
+				mut_lock(&fs_lock);
+				list_foreach_entry!(node, &fs, file_node, fs_link, {
+												if (strcmp(name, &(node->name)[0]) == 0) {
+												mut_unlock(&fs_lock);
+												printf!("ERR %s already exists (%s)\n", name, &(node->name)[0]);
+												return FS_ERR_DUP;
+												}
+												if (node->name[0] > name[0]) {
+												list_insert_before(&new_file->fs_link, &node->fs_link);
+												mut_unlock(&fs_lock);
 
-            return 0;
-            }
-            });
+												return 0;
+												}
+												});
 
-    list_insert_tail(&new_file->fs_link, &fs);
-    mut_unlock(&fs_lock);
+				list_insert_tail(&new_file->fs_link, &fs);
+				mut_unlock(&fs_lock);
 
-    0
+				0
 
 }
 

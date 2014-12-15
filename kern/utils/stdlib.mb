@@ -18,14 +18,14 @@ fn mos_memcpy<T>(destT: *T, srcT: *T, n: u32) {
 }
 
 /* you might want this general, but comparisons are weird */
-fn min(a: u32, b: u32) -> u32 {
+fn min(a: i32, b: i32) -> i32 {
     if (a > b) {
         return b;
     }
     a
 }
 
-fn max(a: u32, b: u32) -> u32 {
+fn max(a: i32, b: i32) -> i32 {
     if (a < b) {
         return b;
     }

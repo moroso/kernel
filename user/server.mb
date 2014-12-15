@@ -79,7 +79,7 @@ fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
 }
 
 fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
-        desc: i32, ns_register: bool) -> i32 {
+        desc: i32, ns_register: bool, timeout: i32) -> i32 {
 
     let ret: i32;
     let status: i32 = 0; 
@@ -92,7 +92,7 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
             // on error send, error code to descriptor 
             status = -1;
             ipc_send_short(desc as u32, &status as *u8, sizeof(u32), null,
-                    null, false, -1);
+                    null, false, timeout);
         }
         abscond(-1);
     }
@@ -102,7 +102,6 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
     // creation fails
     printf!("\tspinning up %d worker threads:", num_threads);
     for (i = 0; i < num_threads; i+=1) {
-        printf!(" %d,", i);
         if ((ret = thr_create(run_server, mb as *u8)) < 0) {
             // TODO task_vanish or cond var
             status = -2;

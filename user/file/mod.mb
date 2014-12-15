@@ -214,7 +214,7 @@ fn run_server(mb_arg: *u8) {
  */
 fn file_server_init(num_threads: u32, desc: i32) -> i32 {
     server_init(FILE_SERVER_ID, &file_server_active, num_threads, run_server,
-            desc, true)
+            desc, true, -1)
 }
 
 

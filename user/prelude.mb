@@ -3,6 +3,7 @@ mod printf_internal;
 mod syslib;
 mod locks;
 mod name;
+mod bad;
 mod string;
 mod file;
 mod thrlib;
