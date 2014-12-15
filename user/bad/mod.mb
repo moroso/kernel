@@ -1,0 +1,82 @@
+use prelude::server::{server_init, server_thread_init, server_thread_exit};
+use prelude::syslib::{abscond, get_tid, get_ticks};
+use prelude::rt_abort;
+use prelude::shared::consts::PAGE_SIZE;
+use prelude::ipclib::{ipc_recv_i32, ipc_reply, ipc_reply_mb, ipc_send_all};
+use prelude::shared::ipc_defs::{IPC_ERR_TIMEOUT, IPC_ERR_MIN, IPC_ERR_ARGS};
+
+const BAD_SERVER_ID: *u8 = "bad_server";
+static bad_server_active: bool = false;
+const MAX_DESC_NUM: u32 = 63;
+
+fn bad_server_worker(mb_arg: *u8) {
+    let mb = mb_arg as i32;
+    assert!(mb >= 0);
+
+    if (server_thread_init(mb as u32) < 0) {
+        server_thread_exit(&bad_server_active, -1); 
+    } 
+
+
+    let tid = get_tid();
+    let empty_page = null;
+    /*** active server code ***/
+    while(bad_server_active) {
+        if (ipc_recv_i32(mb as u32, null, -1, null) >= 0) {
+            printf!("request received by thread %d\n", tid);
+            if (tid%3 == 0) {
+                // ignore request
+                continue;
+            } else if (tid%3 == 1) {
+                // send a reply with bogus memory
+                assert!(ipc_reply(0xdeadbeef as *u8, PAGE_SIZE, null, 0) ==
+                        IPC_ERR_ARGS);  
+                assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE - 2, null, 0) ==
+                        IPC_ERR_ARGS);  
+                assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
+                            *u32, PAGE_SIZE) == IPC_ERR_ARGS);  
+                assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
+                            *u32, 300) != IPC_ERR_ARGS);
+            } else {
+            // forward a descriptor we do not have
+            assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + 1) 
+                    == IPC_ERR_ARGS);
+
+            assert!(ipc_reply(null, 0, null, 0) 
+                    != IPC_ERR_ARGS);
+
+            }
+        }
+    }
+    server_thread_exit(&bad_server_active, -1); 
+}
+
+fn bad_server_init(num_threads: u32, mb: i32) -> i32 {
+    server_init(BAD_SERVER_ID, &bad_server_active, num_threads,
+            bad_server_worker, mb, true, 30)  
+}
+
+fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
+        short_len: *u32, desc: *i32, timeout: i32) -> i32 {
+    let ret = ipc_send_all(mb, null, 0, null, 0, long_dest, long_len,
+            short_dest, short_len, -1, desc, timeout, false);
+
+    if (ret == IPC_ERR_TIMEOUT) {
+        return 0;
+    } else if (ret < 0) {
+        return ret;
+    }
+    if (short_len != null && *short_len > 0) {
+        *short_dest = 1;
+        return IPC_ERR_MIN - 1;
+    }
+    if (long_len != null && *long_len > 0) {
+        *long_dest = 2;
+        return IPC_ERR_MIN - 2;
+    }
+    if (desc != null && *desc >= 0) {
+        return IPC_ERR_MIN - 3;
+    }
+
+    0
+}
