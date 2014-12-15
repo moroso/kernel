@@ -31,8 +31,8 @@ fn main() -> i32 {
 
     let i: u32;
     for (i = 0; i < NUM_ITERS; i+=1) {
-        let long_buffer_size = 4096;
-        let short_buffer_size = 4;
+        let long_buffer_size = PAGE_SIZE;
+        let short_buffer_size = sizeof(u32);
         if ((ret = bad_server_request(bad_mb as u32, long_buffer, &long_buffer_size,
                         &short_buffer, &short_buffer_size, &desc, TIMEOUT)) < 0) {
             printf!("ERROR: bad server request %d\n", ret);

@@ -43,8 +43,13 @@ const IPC_ERR_TIMEOUT: i32 = -5;
 const IPC_ERR_DEAD: i32 = -6;
 // mailbox failed to transfer
 const IPC_ERR_MB: i32 = -7;
+// attempted to send a message that was not backed by memory, or a descriptor
+// not in the table.  This could be due
+// to a mapping being removed by another thread, or because the memory was never
+// valid to begin with.  
+const IPC_ERR_MAP: i32 = -8;
 
 // min ipc err -- server errors should be past this max
-const IPC_ERR_MIN: i32 = -7;
+const IPC_ERR_MIN: i32 = -8;
 
 
