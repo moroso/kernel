@@ -1,3 +1,23 @@
+/** bad: function declarations for the bad server
+ *
+ * The bad server's objective is to cause the client (or even better -- the system!) to crash.  
+ * While setup should go as planned, client requests will be handled one of three ways:
+ * 1. be ignored.  The server will move on to the next client, failing to issue the
+ * reply that wakes up the blocked thread.  The client SHOULD time out and
+ * return with error IPC_ERR_TIMEOUT, at which point the server should once
+ * again be allowed to receive messages.
+ * 2. be issued faulty messages.  the server will reply with memory it does not
+ * have access to, and if the client receives a non-zero reply in its message
+ * buffers, will attempt to dereference it.  This could cause a fault at any
+ * point in a faulty IPC implementation.  The client SHOULD receive zero-length
+ * long and short messages, rather than the faulty ones, and the server should
+ * return with IPC_ERR_INTERNAL, meaning the short message was not backed up by
+ * memory. 
+ * 3. be forwarded an invalid descriptor.  The server will try to reply back with a    
+ *
+**/
+
+
 use prelude::server::{server_init, server_thread_init, server_thread_exit};
 use prelude::syslib::{abscond, get_tid, get_ticks};
 use prelude::rt_abort;
@@ -36,10 +56,10 @@ fn bad_server_worker(mb_arg: *u8) {
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
                             *u32, PAGE_SIZE) == IPC_ERR_ARGS);  
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
-                            *u32, 300) != IPC_ERR_ARGS);
+                            *u32, 300) == IPC_ERR_INTERNAL);
             } else {
             // forward a descriptor we do not have
-            assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + 1) 
+            assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + mb as u32) 
                     == IPC_ERR_ARGS);
 
             assert!(ipc_reply(null, 0, null, 0) 
@@ -58,6 +78,16 @@ fn bad_server_init(num_threads: u32, mb: i32) -> i32 {
 
 fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
         short_len: *u32, desc: *i32, timeout: i32) -> i32 {
+
+    if (long_len == null || *long_len == 0) {
+        return IPC_ERR_MIN - 4;
+    }
+
+    if (short_len == null || *short_len == 0) {
+        return IPC_ERR_MIN - 4;
+    }
+
+
     let ret = ipc_send_all(mb, null, 0, null, 0, long_dest, long_len,
             short_dest, short_len, -1, desc, timeout, false);
 
@@ -67,10 +97,12 @@ fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
         return ret;
     }
     if (short_len != null && *short_len > 0) {
+        // attempt to dereference 
         *short_dest = 1;
         return IPC_ERR_MIN - 1;
     }
     if (long_len != null && *long_len > 0) {
+        // attempt to dereference
         *long_dest = 2;
         return IPC_ERR_MIN - 2;
     }

@@ -1,5 +1,23 @@
-/*  
+/* server.mb: A library for quickly setting up multithreaded servers.  Moroso servers don't
+ * have to use these declarations, but it provides a decent skeleton for the
+ * common case.  A process that wishes to create a new server calls new_server(),
+ * specifying the server id.  This ID can be used to register the new server
+ * with the name server, and also corresponds to a program in the
+ * kernel's filesystem, which runs as the server.  
+ * 
+ * Servers are run as a child of the invoking process; the invoking thread is given
+ * the option of blocking until server setup completes.     
  *
+ * TODO The Moroso userland is in desperate need of some synchronization primitives.
+ * Cond vars could probably be set up with a better thread library and some
+ * careful use of IPC.  For now, some threads block on global variables, and we
+ * hope the CPU/compiler doesn't mess this up for us.
+ * 
+ * All server threads belong to the same process and, by default, have one
+ * mailbox.  Mailboxes, however, can be added by client threads in the
+ * developer-defined client function 
+ *
+ * Author Amanda M. Watson
 */
 
 use prelude::string::*;
@@ -14,6 +32,8 @@ use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 use prelude::name::*;
 
+// we spin on the values of these two variables, and hope the CPU/compiler
+// doesn't re-order instructions
 static threads_dormant: u32 = 0; // number of threads needing wakeup
 static threads_active: u32 = 0; // number of active threads in server
 
