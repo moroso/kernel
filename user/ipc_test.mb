@@ -6,6 +6,8 @@
 
 use shared::ipc_defs::*;
 use syslib::*;
+use ipclib::{ipc_args_init, ipc_reply};
+use mallot::find_pages;
 const NUM_ITERS: u32 = 500;
 const NUM_THREADS: u32 = 50;
 
@@ -13,15 +15,15 @@ const NUM_THREADS: u32 = 50;
  * exits with error as well */
 fn child_check() {
     let status: i32 = 0;
-    while (syslib::bide(&status) >= 0) {
+    while (bide(&status) >= 0) {
         if status < 0 {
             printf!("***ERROR***");
-            syslib::abscond(-1);
+            abscond(-1);
         }
     }
     if (status < 0) {
         printf!("***ERROR***");
-        syslib::abscond(-1);
+        abscond(-1);
     }
 }
 
@@ -29,61 +31,63 @@ fn main() -> i32 {
     let j: u32;
     let ret: i32;
     for (j = 0; j < NUM_THREADS; j+=1) {
-        ret = syslib::repl();
+        ret = repl();
         if (ret == 0) {
-            ret = syslib::repl();
+            ret = repl();
             if (ret != 0) {
                 child_check(); 
-                syslib::abscond(0);
+                abscond(0);
             }
-            syslib::mailbox_new();
-            let mb_desc = syslib::mailbox_new();
+            mailbox_new();
+            let mb_desc = mailbox_new();
             assert!(mb_desc > 0);
-            let src_addr: *u8 = 0xdeadb000 as *u8;
+            
             let dest_addr: *u8 = 0xdeaaa000 as *u8;
             let len_long = 4096;
             let short_message: u32 = -1;
             let args: ipc_args;
+            ipc_args_init(&args);
             args.dest_id = mb_desc as u32;
             args.long_src.len = 0;
             args.long_dest.addr = dest_addr;
             args.long_dest.len = len_long;
             args.short_src.len = 4;
+            args.short_src.addr = &short_message as *u8;
             args.short_dest.len = 4;
             args.short_dest.addr = &short_message as *u8;
-            args.short_src.addr = &short_message as *u8; 
             args.timeout = -1;
             args.options = 0;
             let i: u32;
             for (i = 0; i < NUM_ITERS; i+=1) {
-                ret = syslib::repl();
+                ret = repl();
                 if (ret == 0) {
-                    short_message = syslib::get_tid();
-                    printf!("%d send returned %d\n", syslib::get_tid(), syslib::ipc_send(&args));
+                    short_message = get_tid();
+                    printf!("%d send returned %d\n", get_tid(), ipc_send(&args));
                     if (args.long_dest.len > 0) {
-                        assert!(*(dest_addr as *u32) == syslib::get_tid());
+                        assert!(*(dest_addr as *u32) == get_tid());
                     }
-                    syslib::abscond(1);
+                    abscond(1);
                 } else {
-                    if (syslib::new_pages(src_addr, len_long, 1024) < 0) {
-                        printf!("err in new_pages\n");
-                        syslib::abscond(-1);
+                    let src_addr: *u8 = find_pages(1);
+                    if (src_addr == null) {
+                        printf!("ERR: find_pages failed\n");  
+                        abscond(-1);
                     }
                     *(src_addr as *u32) = ret as u32;
-                    printf!("%d recv returned %d\n", syslib::get_tid(), syslib::ipc_recv(&args));
-                    assert!(syslib::ipc_recv(&args) < 0);
-                    assert!(syslib::ipc_reply(src_addr, len_long, null, 0) >= 0);
+                    printf!("%d recv returned %d\n", get_tid(), ipc_recv(&args));
+                    assert!(ipc_recv(&args) < 0);
+                    assert!(ipc_reply(src_addr, 4096, null, 0) >= 0);
                     assert!((short_message) as i32 == ret);
                 }
             }
 
             child_check(); 
-            syslib::abscond(0);
+            abscond(0);
         }
     }
     child_check(); 
     printf!("***SUCCESS***\n");
-    syslib::abscond(0);
+    abscond(0);
 
     0
 }

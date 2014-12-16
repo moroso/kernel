@@ -203,15 +203,16 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         own_head = &rend->recv_head;
     }
 
-    // I'll be honest -- if i had gotos, I'd use gotos
-    // when a message is sent with option SEND_SYNC_REPLY, it requires that the
-    // receiver perform the transfer.  In the case that a receiver is already
-    // waiting when the sender calls rend_wait, it wakes up the receiver and
-    // goes to sleep on its list to be woken.  The receiver then loops around
-    // and attempts to collect the sender.  Potentially loops until rend is no
-    // longer active, or the message times out 
-    // TODO this design is a little hacky.  Some improvements to make it more
-    // elegant would be nice. 
+    /* when a message is sent with option SEND_SYNC_REPLY, it requires that the
+     * receiver perform the transfer.  In the case that a receiver is already
+     * waiting when the sender calls rend_wait, it wakes up the receiver and
+     * goes to sleep on its list to be woken.  The receiver then loops around
+     * and attempts to collect the sender.  Potentially loops until rend is no
+     * longer active, or the message times out 
+     * TODO this design is a little hacky.  Some improvements to make it more
+     * elegant would be nice. 
+     * I'll be honest -- if i had gotos, I'd use gotos 
+     */
     let replay_flag = true;
     while (replay_flag) {
         
@@ -285,15 +286,14 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             }
         }
 
-
-
-        // while if we are going through the loop again, it means sending thread
-        // has awoken us and gone to sleep in the hopes that we would wake up
-        // and collect it, it's possible another receiver got to it before us.
-        // Thus, we reenable preemption for the loop case as well, to avoid
-        // spending large amounts of time with preemption disabled, (though each
-        // time we fail, we do call scheduler_update(), so this is arguably
-        // not a proper concern) 
+        /* while if we are going through the loop again, it means sending thread
+         * has awoken us and gone to sleep in the hopes that we would wake up
+         * and collect it, it's possible another receiver got to it before us.
+         * Thus, we reenable preemption for the loop case as well, to avoid
+         * spending large amounts of time with preemption disabled, (though each
+         * time we fail, we do call scheduler_update(), so this is arguably
+         * not a proper concern) 
+         */
         cond_preempt_enable(enable);
     }
     *message_recv = my_node->message;
