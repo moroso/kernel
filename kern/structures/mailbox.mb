@@ -23,16 +23,13 @@
  * be confusing without proper understanding of the rend synchronization
  * primitive.  See locks/rendezvous.mb for clarification.
  *
- * TODO at some point, we want owners to be able to delete mailboxes, not just
- * their reference.  This raises some minor but not insurmountable concurrency
- * issues that will need to be thought through.  I'm thinking a protocol where, when
- * the owner removes their reference, all waiting threads are woken up with
- * ERR_DEAD, and a flag is set in the rend that is checked when preemption is
- * disabled -- either of these cases causes the sender to remove their reference
- * in the table (if it still points to the given mailbox)
- * when ints are disabled.  Currently, we have an active flag that prevents
- * future sends, but does not wakeup threads that are blocked on send  UPDATE I have implemented all of this except for the
- * deletion itself.  Need to prove to myself that it's safe
+ * TODO we currently delete references for both sender and receiver, meaning
+ * that the receiver deleting its mailbox does not wake up threads currently
+ * waiting on it (though it does ensure no more threads are allowed to send to
+ * it).  The code actually exists to wake up these threads with an error (at
+ * which point they delete the descriptor in the table, provided it hasn't
+ * already been replaced), but I haven't implemented it for the mailbox_remove
+ * syscall because I haven't done enough testing to convince myself it works 
  *
  * Author: Amanda M. Watson
 */
@@ -206,7 +203,6 @@ fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
  *
  * Returns immediately if no sender if waiting to be woken up
  * */
-
 fn mb_end_send(message: *u32, message_len: u32, err: i32) {
     if (list_is_empty(&get_tcb()->last_send)) {
         assert!(message_len == 0);

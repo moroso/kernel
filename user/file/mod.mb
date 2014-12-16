@@ -38,7 +38,6 @@ const FILE_SERVER_ID: *u8 = "file_server";
 /* file system request types */
 const FILE_CREATE: u32 = 0; // create new file
 const FILE_APPEND: u32 = 1; // append to end of file
-const FILE_DELETE: u32 = 2; // delete file 
 const FILE_READ: u32 = 3; // read from file
 const FILE_WRITE: u32 = 4; // write to file
 
