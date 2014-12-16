@@ -1,3 +1,7 @@
+/* stdlib.mb: a standard library for basic operations on data 
+ *
+*/
+
 // Could use optimiz - Could maybe asm optimiz
 fn mos_memset<T>(pT: *T, c: u8, n: u32) {
     let p: *u8 = pT as *u8;

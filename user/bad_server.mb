@@ -1,3 +1,8 @@
+/* bad_server.mb.  Program executed to initialize and run the bad server
+ * 
+ * Author Amanda M. Watson
+*/
+
 use bad::{BAD_SERVER_ID, bad_server_init};
 use syslib::abscond;
 use string::atoi;

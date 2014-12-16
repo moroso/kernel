@@ -1,9 +1,18 @@
-use file::*;
-use name::*;
-use syslib::*;
-use ipclib::*;
-use mallot::*;
-use server::*;
+/* init.mb: called from the kernel to initialize userland.  inits name server,
+ * sets its descriptor to NAME_SERVER for all future programs, and runs first 
+ * user program.  
+ *
+ * TODO when console is in place, program running should get replaced by a shell
+ * of some sort
+ *
+ * Author Amanda M. Watson
+*/
+
+use name::NAME_SERVER;
+use syslib::{mailbox_new, mailbox_remove, mailbox_move, repl, perform, bide,
+		abscond};
+use mallot::mallot_init;
+use server::new_server;
 
 
 fn main() -> i32 {
@@ -12,6 +21,7 @@ fn main() -> i32 {
     let mb = mailbox_new();
     let name_mb: i32 = -1;
     name_mb = new_server(name::SERVER_ID, 10, mb);
+		mailbox_remove(mb as u32);
     mailbox_move(name_mb as u32, NAME_SERVER);
 
     let status = 0;

@@ -1,6 +1,8 @@
 /* play_test.mb: creates file server, NUM_PROCS procs and NUM_THREAD threads, and has
  * all children apprend their tid NUM_ITERS times to the file.  after all
  * children have exited, parent reads the file 
+ *
+ * Author Amanda M. Watson
 */
 
 
@@ -58,7 +60,7 @@ fn spawn_procs(num_procs: u32) {
 
 }
 
-
+// writes tid NUM_ITERS times to FILE_NAME
 fn run_file_query(args: *u8) {
     let fs_mb: i32;
     if (name_server_request(FILE_SERVER_ID, &fs_mb, -1) < 0) {
