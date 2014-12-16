@@ -70,7 +70,7 @@ const PAGE_SIZE_BIT: u32 = 1 << 7;
 // denotes whether a page is read-only because it's COW
 const COW_BIT: u32 = 1 << 9;
 
-static VM_verbose: bool = false;
+static vm_debug: bool = false;
 
 /* error codes */
 // out of memory
@@ -316,7 +316,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     if (frame == null) {
         return ();
     }
-    if (VM_verbose) {
+    if (vm_debug) {
         if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
                 == (0x40005000 as *u8)) {
             if (has_flags(frame, COW_BIT)) {
@@ -637,17 +637,18 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     // but should not once we deal with overcommitting
 
     mos_memcpy(frame_new, frame_orig, 4 * frame_size);
-    if (VM_verbose) {
+    if (vm_debug) {
         if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
                 == (0x40005000 as *u8)) {
             printf!("replacing %p with %p (%d\n)\n", *frame_orig_addr, frame_new); 
         }
     }
+    // TODO this CANNOT be right! can it?  this has to be a race
     free_page(log_addr, PD); // removes page and decs ref count
     let set_page_result = set_page(frame_new, log_addr, PD,
             USER_SUPER_BIT | READ_WRITE_BIT,
             frame_size);
-    if (VM_verbose) {
+    if (vm_debug) {
         if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
                 == (0x40005000 as *u8)) {
             printf!("END %p\n", *log_to_phys(log_addr, &get_tcb()->proc->PD)); 

@@ -33,6 +33,7 @@ use prelude::mallot::*;
 use prelude::name::*;
 
 // maximum len for arg to perform
+// TODO steal max arg len from kernel
 const PERFORM_MAX_LEN: u32 = 100;
 
 // when set to true, prints updates as server progresses 
@@ -107,7 +108,6 @@ fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
     let desc_buffer: **u8 = &desc_buffer_temp[0];
     desc_buffer[2] = null;
 
-    // TODO steal max arg len from kernel
     let desc_word: u8[PERFORM_MAX_LEN];
     let threads_word: u8[PERFORM_MAX_LEN];
 

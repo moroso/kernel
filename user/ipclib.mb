@@ -34,8 +34,8 @@ fn ipc_args_init(args: *ipc_args) {
 
 fn ipc_send_all(mb: u32, long_src: *u8, long_src_len: u32, short_src: *u32,
         short_src_len: u32, long_dest: *u8, long_dest_len: *u32, short_dest:
-        *u32, short_dest_len: *u32, desc_src: i32, desc_dest: *i32, timeout:
-i32, shared: bool) -> i32 {
+        *u32, short_dest_len: *u32, desc_src: i32, desc_dest: *i32, 
+				timeout: i32, shared: bool) -> i32 {
     
     let args: ipc_args;
     ipc_args_init(&args);
@@ -68,8 +68,9 @@ i32, shared: bool) -> i32 {
         args.long_dest.addr = long_dest;
         args.long_dest.len = *long_dest_len;
     }
+
     if (desc_dest != null) {
-        *desc_dest = args.desc_dest;
+        args.desc_dest = IPC_DESC_ACCEPT;
     }
 
     args.timeout = timeout as u32;

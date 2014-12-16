@@ -31,7 +31,7 @@ use prelude::rt_abort;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::ipclib::{ipc_recv_i32, ipc_reply, ipc_reply_mb, ipc_send_all};
 use prelude::shared::ipc_defs::{IPC_ERR_TIMEOUT, IPC_ERR_MIN, IPC_ERR_ARGS,
-    IPC_ERR_MB, IPC_ERR_MAP};
+    IPC_ERR_MB, IPC_ERR_MAP, IPC_ERR_REPLY};
 
 // server id.  Used to open server program and register with the name server
 const BAD_SERVER_ID: *u8 = "bad_server";
@@ -57,7 +57,7 @@ fn bad_server_worker(mb_arg: *u8) {
     } 
 
     let tid = get_tid();
-
+		let ret: i32;
     /*** active server code ***/
     while(bad_server_active) {
         if (ipc_recv_i32(mb as u32, null, -1, null) >= 0) {
@@ -82,8 +82,8 @@ fn bad_server_worker(mb_arg: *u8) {
                             *u32, 300) == IPC_ERR_MAP);
             } else {
                 // forward a descriptor we do not have
-                assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + mb as u32) 
-                        == IPC_ERR_MB);
+                assert!((ret = ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM)
+										+ mb as u32)) == IPC_ERR_MB || ret == IPC_ERR_REPLY);
 
                 assert!(ipc_reply(null, 0, null, 0) 
                         != IPC_ERR_ARGS);
@@ -124,8 +124,8 @@ fn bad_server_init(num_threads: u32, mb: i32) -> i32 {
  *   at a maximum *short_len.  Returns with error if *short_len starts with a length
  *   of zero.  If system works as expected, this should be zero if ipc_send
  *   returns success  
- * - desc: destination for a mailbox descriptor.  returns error if *desc is
- *   negative
+ * - desc: destination for a mailbox descriptor.  returns error if desc is
+ *   null
  * 
  * Returns 0 if error handling successful.  Negative error code otherwise.
  */
@@ -140,7 +140,7 @@ fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
         return IPC_ERR_MIN - 4;
     }
 
-    if (desc == null || *desc < 0) {
+    if (desc == null) {
         return IPC_ERR_MIN - 4;
     }
 
