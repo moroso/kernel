@@ -12,10 +12,6 @@
  * TODO server threads should probably be elastic (respond to frequency of
  * requests)
  *
- * Bug: nasty security vuln/general correctness issue.  clients timeout when reads/writes are being
- * performed on shared buffer, they have no way of knowing when server is done
- * reading/writing to them.
- *
  * Author Amanda M. Watson
  * */
 
@@ -149,13 +145,17 @@ fn run_server(mb_arg: *u8) {
                                 get_tid());
                     }
                     status = file_system::fs_read(&request_message, file_buffer);
-                    remove_pages(file_buffer, file_buffer_len);
+                    let ret: i32 = 0;
                     if (status < 0) {
-                        ipc_reply(null, 0, &status as *u32, sizeof(i32));
+                        ret = ipc_reply(file_buffer, file_buffer_len, &status as *u32, sizeof(i32));
                     } else {
-                        ipc_reply(null, 0, &request_message as *u32,
+                        ret = ipc_reply(file_buffer, file_buffer_len, &request_message as *u32,
                                 sizeof(file_message));
 
+                    }
+                    if (ret < 0) {
+
+                        remove_pages(file_buffer, file_buffer_len);
                     }
 
                 } else if (request_message.request_type == FILE_WRITE) {
@@ -166,8 +166,11 @@ fn run_server(mb_arg: *u8) {
                     status = file_system::fs_write(&request_message.name[0],
                             file_buffer, request_message.buffer_len,
                             request_message.file_offset);
-                    remove_pages(file_buffer, file_buffer_len);
-                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
+                    if (ipc_reply(file_buffer, file_buffer_len, &status as *u32,
+                                sizeof(i32)) < 0) {
+
+                        remove_pages(file_buffer, file_buffer_len);
+                    }
 
                 } else if (request_message.request_type == FILE_APPEND) {
                     if (file_verbose) {
@@ -176,8 +179,11 @@ fn run_server(mb_arg: *u8) {
                     }
                     status = file_system::fs_append(&request_message.name[0],
                             file_buffer, request_message.buffer_len);
-                    remove_pages(file_buffer, file_buffer_len);
-                    ipc_reply(null, 0, &status as *u32, sizeof(i32));
+                    if (ipc_reply(file_buffer, file_buffer_len, &status as *u32,
+                                sizeof(i32)) < 0) {
+
+                        remove_pages(file_buffer, file_buffer_len);
+                    }
 
                 }
             }
@@ -288,14 +294,15 @@ fn file_create(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: i
  * - offset: byte offset into the existing file at which read should begin.
  *   Returns with error if offset exceeds exiting file length.
  * - timeout: number of cycles to wait for server to reply. 
- *   NOTE that, if timeout occurs between the time the server receives the request 
- *   and finishes it, the server will still copy the memory at the buffer location, 
- *   even if it changes on the client side. This could be a correctness problem
- *   if, say, the client times out, and then tries to use the buffer that is
- *   still being shared/written to  
  *
- *   returns 0 if write if successful, negative error code on failure
+ *  returns 0 if write if successful, negative error code on failure
  *
+ * NOTE that, if the invoking thread times out after the server receives the
+ * request, it will lose access to the buffer.  This is done (as opposed to say,
+ * sharing the buffer between the client and server) to prevent the client from
+ * placing (potentially sensitive) information in the buffer as the server
+ * continues to write it to a file (the server will not know the client has
+ * timed out until it tries to reply)
  * */
 fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
         u32, timeout : i32) -> i32 {
@@ -320,8 +327,8 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
      * buffer_len bytes */
     let long_message_len = round_up(*buffer_len, PAGE_SIZE);
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
-            sizeof(file_message), null, null, &message as *u8, 
-            &message_size, timeout, true);
+            sizeof(file_message), buffer, &long_message_len, &message as *u8, 
+            &message_size, timeout, false);
 
     if (message_size == sizeof(i32)) {
         return *(&message as *i32);
@@ -357,6 +364,14 @@ fn file_read(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: *u32, offset:
  *   file.
  *
  *   returns 0 if write if successful, negative error code on failure
+ *
+ * 
+ * NOTE that, if the invoking thread times out after the server receives the
+ * request, it will lose access to the buffer.  This is done (as opposed to say,
+ * sharing the buffer between the client and server) this is to prevent the
+ * server from overwriting client data on the buffer as the client continues to
+ * run  (the server will not know the client has
+ * timed out until it tries to reply)
  * */
 fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
         u32, timeout: i32) -> i32 {
@@ -380,8 +395,8 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
      * buffer_len bytes */
     let long_message_len = round_up(buffer_len, PAGE_SIZE);   
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
-            sizeof(file_message), null, null, &response as *u8, 
-            &response_size, timeout, true);
+            sizeof(file_message), buffer, &long_message_len, &response as *u8, 
+            &response_size, timeout, false);
 
     if (ret >= 0) {
         return response as i32
@@ -389,6 +404,13 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
 
     ret
 }
+
+/ * NOTE that, if the invoking thread times out after the server receives the
+ * request, it will lose access to the buffer.  This is done (as opposed to say,
+ * sharing the buffer between the client and server) this is to prevent the
+ * server from overwriting client data on the buffer as the client continues to
+ * run  (the server will not know the client has
+ * timed out until it tries to reply)
 
 fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: 
         i32) -> i32 {
@@ -410,8 +432,8 @@ fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout:
      * buffer_len bytes */
     let long_message_len = round_up(buffer_len, PAGE_SIZE);   
     let ret = ipc_send_long(fs_desc, buffer, long_message_len, &message as *u8,
-            sizeof(file_message), null, null, &response as *u8, 
-            &response_size, timeout, true);
+            sizeof(file_message), buffer, &long_message_len, &response as *u8, 
+            &response_size, timeout, false);
 
     if (ret >= 0) {
         return response as i32
