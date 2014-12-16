@@ -7,7 +7,7 @@
  * mapped into the server's address space for transfer, then unmapped before
  * wakeup
  *
- * All requests made to the server are synchronous, but can specify timeouts.
+ * All requests made to the server are synchronous, but clients can specify timeouts.
  *
  * TODO server threads should probably be elastic (respond to frequency of
  * requests)
@@ -405,13 +405,37 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
     ret
 }
 
-/* NOTE that, if the invoking thread times out after the server receives the
+
+/* Appends buffer to the end of existing file.  
+ *
+ * - fs_desc: descriptor for file server.  Returns error if descriptor is
+ *   invalid for invoking thread  
+ * - name: name of file being written to.  Returns with error if name exceeds
+ *   NAME_MAX, contains invalid characters, or refers to a file that does not
+ *   exist in the file system 
+ * - buffer: contains content being written to file. Returns error if buffer 
+ *   is not page-aligned 
+ * - buffer_len: length of buffer contents being written to file (does not have
+ *   to correspond to length. Rounded up to page, which
+ *   is shared with server. Returns error if
+ *   rounded up length exceeds server buffer length
+ * - timeout: number of cycles to wait for server to reply. 
+ *   NOTE that, if timeout occurs between the time the server receives the request 
+ *   and finishes it, the server will still copy the memory at the buffer location, 
+ *   even if it changes on the client side.  This could present a vulnerability
+ *   if, say, the client writes sensitive information to the buffer before the
+ *   copy to the filesystem, and a malicious process then reads from the
+ *   file.
+ *
+ *   returns 0 if write if successful, negative error code on failure
+ * 
+ * NOTE that, if the invoking thread times out after the server receives the
  * request, it will lose access to the buffer.  This is done (as opposed to say,
  * sharing the buffer between the client and server) this is to prevent the
  * server from overwriting client data on the buffer as the client continues to
  * run  (the server will not know the client has
  * timed out until it tries to reply)
-
+ */
 fn file_append(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, timeout: 
         i32) -> i32 {
 
