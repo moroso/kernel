@@ -1,10 +1,20 @@
-use syslib::{abscond, mailbox_new, mailbox_remove};
+/* bad_test.mb: tests error handling in the case of an uncooperative server by
+ * sending requests to the bad server.  Attempts to receive a long and short
+ * message into a buffer from the bad server.  Test is successful if "***SUCCESS***" is
+ * printed at the end.
+ *
+ * Author Amanda M. Watson
+*/
+
+use syslib::{abscond, mailbox_new, mailbox_remove, remove_pages};
 use server::new_server;
 use bad::{BAD_SERVER_ID, bad_server_request};
 use mallot::{find_pages};
 use shared::consts::PAGE_SIZE;
 
+// timeout for request.  should be non-negative
 const TIMEOUT: i32 = 60;
+// number of times requests get sent to server
 const NUM_ITERS: u32 = 100;
 
 fn main() -> i32 {
@@ -14,13 +24,18 @@ fn main() -> i32 {
         printf!("TEST ERROR: constructing new mailbox\n");
         abscond(-1);
     }
+  
+    // setting up bad server
     let bad_mb = new_server(BAD_SERVER_ID, 100, mb); 
+
     mailbox_remove(mb as u32);
     printf!("received bad mb\n");
     if (bad_mb < 0) {
         printf!("ERR initializing bad server\n");
         abscond(-1);
     }
+
+
     let long_buffer = find_pages(1);
     if (long_buffer == null) {
         printf!("TEST ERROR: cannot allocate buffer\n");
@@ -41,6 +56,8 @@ fn main() -> i32 {
     }
 
     printf!("***SUCCESS***\n");
+  
+    remove_pages(long_buffer, PAGE_SIZE);
     abscond(0);
     0
 }

@@ -2,11 +2,13 @@
  * Author Amanda M. Watson
  */
 
+// specifies the starting address of a buffer (source or dest) and its length
 struct buffer_t {
     addr: *u8,
     len: u32,
 }
 
+// the arguments passed to the ipc syscalls
 struct ipc_args {
     // TODO change to i32
     dest_id: u32,
