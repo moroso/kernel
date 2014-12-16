@@ -46,10 +46,7 @@ const FILE_DELETE: u32 = 2; // delete file
 const FILE_READ: u32 = 3; // read from file
 const FILE_WRITE: u32 = 4; // write to file
 
-/* DON'T BE A JERK, COMPILER */
 static file_server_active: bool = true; 
-static threads_dormant: u32 = 0; // number of threads needing wakeup
-static threads_active: u32 = 0; // number of active threads in server
 
 /* sent to the server alongside buffer to provide information about the file and
  * request */

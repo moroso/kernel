@@ -15,10 +15,10 @@
  * 
  * All server threads belong to the same process and, by default, have one
  * mailbox.  Mailboxes, however, can be added by client threads in the
- * developer-defined client function 
+ * developer-defined client function (run_server, specified in server_init)
  *
  * Author Amanda M. Watson
-*/
+ */
 
 use prelude::string::*;
 use prelude::syslib::*;
@@ -32,11 +32,22 @@ use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 use prelude::name::*;
 
+// maximum len for arg to perform
+const PERFORM_MAX_LEN: u32 = 100;
+
+// when set to true, prints updates as server progresses 
+static server_verbose: bool = false;
+
 // we spin on the values of these two variables, and hope the CPU/compiler
 // doesn't re-order instructions
 static threads_dormant: u32 = 0; // number of threads needing wakeup
 static threads_active: u32 = 0; // number of active threads in server
 
+/* exit code for server threads.  Should be called by threads exiting in the
+ * run_server function specified by server_init.  Exits invoking thread.
+ * - server_active denotes whether server is currently active
+ * - err: the error code the worker exits with
+ */
 fn server_thread_exit(server_active: *bool, err: i32) {
     atomic_add(&threads_active, -1); 
     if (err < 0) {
@@ -45,12 +56,21 @@ fn server_thread_exit(server_active: *bool, err: i32) {
     abscond(err);
 }
 
+/* inits worker threads in the run_server function specified by server_init
+ * - mb: server descriptor.  waits on mailbox until woken up with an error
+ *   status by server_init. 
+ *
+ * return 0 if server thread is ready to work.  a negative error code if there
+ * was an error in setup
+ **/
 fn server_thread_init(mb: u32) -> i32 {
 
     let status: i32 = -1; 
     assert!(ipc_recv_i32(mb as u32, &status, -1, null) >= 0);
     if (status < 0) {
-        printf!("err %d (%d)\n", get_tid(), status);
+        if (server_verbose) {
+            printf!("err %d (%d)\n", get_tid(), status);
+        }
         return -1;
     }
 
@@ -64,6 +84,21 @@ fn server_thread_init(mb: u32) -> i32 {
     0
 }
 
+/* creates a new server by replicating a new process and running its server init
+ * program.  
+ * 
+ * - prog_name name of server/program that runs it.  the new process will run a
+ *   program prog_name.mb, so this program must exist in the kernel file
+ *   system.  Must be fewer than PERFORM_MAX_LEN chars
+ * - num_threads number of worker threads for the server.  returns with error if
+ *   num_threads threads fail to be initialized.
+ * - desc: if non-negative, the invoking thread will wait on desc until signaled
+ *   by the new server with either success or failure.  No timeouts are
+ *   specified 
+ *
+ * Returns success if server program is successfully up and running, negative
+ * error code otherwise
+ */
 fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
 
     // pay no mind -- I am just real bad at arrays in this language
@@ -73,13 +108,13 @@ fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
     desc_buffer[2] = null;
 
     // TODO steal max arg len from kernel
-    let desc_word: u8[100];
-    let threads_word: u8[100];
+    let desc_word: u8[PERFORM_MAX_LEN];
+    let threads_word: u8[PERFORM_MAX_LEN];
 
     desc_buffer[0] = &desc_word[0];
     desc_buffer[1] = &threads_word[0];
-    snprintf!(&desc_word[0], 100, "%d", desc);
-    snprintf!(&threads_word[0], 100, "%d", num_threads);
+    snprintf!(&desc_word[0], PERFORM_MAX_LEN, "%d", desc);
+    snprintf!(&threads_word[0], PERFORM_MAX_LEN, "%d", num_threads);
 
 
     let ret = repl();
@@ -93,11 +128,38 @@ fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
         }
         return new_mb;
     }
-    printf!("calling perform on %s\n", prog_name);
+    if (server_verbose) {
+        printf!("calling perform on %s\n", prog_name);
+    }
     perform(prog_name, desc_buffer);
     -1
 }
 
+/* Called from server program to initialize server.  creates server mailbox,
+ * spins up to num_threads worker threads, blocks until they are all active,
+ * (if specified) registers mailbox with name server and wakes up thread waiting on desc.  
+ * If an error is encountered during setup, sends error code to worker threads and desc.  
+ *
+ * - name name of server.  this is the name that gets registered with the name
+ *   server.
+ * - server_active denotes whether server threads are properly set up and open
+ *   to accepting requests.  Set to true or false depending on whether setup is
+ *   successful  
+ * - num_threads number of worker threads in server.  Returns with error if
+ *   sufficient threads are unable to be created.
+ * - run_server function run by server threads to process client requests
+ * - desc the descriptor for the mailbox on which the thread that created the
+ *   server is blocked.  if desc is non-negative, sends server initialization
+ *   results to thread waiting on desc.  Timeout is specified in case the
+ *   invoking thread failed to wait.
+ * - ns_register denotes whether new server should be registered with the name
+ *   server.
+ * - Timeout specifies how many cycles to wait on a signal to desc.  a timeout
+ *   of -1 denotes an infinite wait.
+ *
+ * Does not return.
+ *
+ */
 fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 
         desc: i32, ns_register: bool, timeout: i32) -> i32 {
 
@@ -106,7 +168,11 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
 
     /* file server creates own mailbox */
     let mb: i32 = -1;
-    printf!("\tcreating mailbox: ");
+
+    if (server_verbose) {
+        printf!("\tcreating mailbox: ");
+    }
+
     if ((mb = mailbox_new()) < 0) {
         if (desc >= 0) {
             // on error send, error code to descriptor 
@@ -116,11 +182,15 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
         }
         abscond(-1);
     }
-    printf!("SUCCESS!\n");
+    if (server_verbose) {
+        printf!("SUCCESS!\n");
+    }
     let i: u32;
     // spin up the specified number of threads; quit early if thread
     // creation fails
-    printf!("\tspinning up %d worker threads:", num_threads);
+    if (server_verbose) {
+        printf!("\tspinning up %d worker threads:", num_threads);
+    }
     for (i = 0; i < num_threads; i+=1) {
         if ((ret = thr_create(run_server, mb as *u8)) < 0) {
             // TODO task_vanish or cond var
@@ -129,7 +199,9 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
             break; 
         } 
     }
-    printf!("SUCCESS!\n");
+    if (server_verbose) {
+        printf!("SUCCESS!\n");
+    }
     assert!(mb >= 0);
 
     if (status >= 0) {
@@ -139,22 +211,29 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
         // descriptor, which happens after the threads wake up
         *server_active = true;
     }
-    
+
     if (ns_register) {
-        printf!("\tregisterring mb in name server: ");
+        if (server_verbose) {
+            printf!("\tregisterring mb in name server: ");
+        }
         if (name_server_register(name, mb as u32, -1) < 0)  {
-            printf!("ERR registerring file server\n");
+            if (server_verbose) {
+                printf!("ERR registerring file server\n");
+            }
             status = -6;
         } 
-
-        printf!("\tSUCCESS!\n");
+        if (server_verbose) {
+            printf!("\tSUCCESS!\n");
+        }
     }
 
     // wake up child threads either with success (run server) or error
     // (abscond immediately)
     // do this before waking the proc waiting on desc in case they attempt to wait on our
     // mailbox and ruin everything 
-    printf!("\tsetup complete!  waking up worker threads: ");
+    if (server_verbose) {
+        printf!("\tsetup complete!  waking up worker threads: ");
+    }
     for (i = 0; i < num_threads; i+=1) {
         let ret = ipc_send_i32(mb as u32, &status, null, null, false, -1);
         if (ret < 0) {
@@ -162,7 +241,9 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
         }
         assert!(ret >= 0);
     }
-    printf!("SUCCESS!\n");
+    if (server_verbose) {
+        printf!("SUCCESS!\n");
+    }
     // wake up thread waiting on given mailbox
     if (desc >= 0) {
 
@@ -178,17 +259,23 @@ fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn
                 ipc_send_i32(mb as u32, &status, null, null, false, -1);
             }
         } else if (desc >= 0) {
-            printf!("\tsending descriptor to invoking proc: ");
+            if (server_verbose) {
+                printf!("\tsending descriptor to invoking proc: ");
+            }
             // if the sender isn't waiting, we're blocked forever.
             // This is probably better than timing out and leaving
             // the sender potentially blocked
             ipc_forward_mb(desc as u32, mb as u32, null, 0, null, null,
                     false, -1);
-            printf!("SUCCESS\n");
+            if (server_verbose) {
+                printf!("SUCCESS\n");
+            }
         }
     }
     mailbox_remove(desc as u32);
-    printf!("**%s: SETUP COMPLETE\n", name);
+    if (server_verbose) {
+        printf!("**%s: SETUP COMPLETE\n", name);
+    }
     abscond(0);
     0
 }
