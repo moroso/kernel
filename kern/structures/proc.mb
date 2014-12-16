@@ -6,7 +6,7 @@ use structures::proc_dir::*;
 use locks::mutex::*;
 use locks::cond::*;
 use utils::slab_alloc::*;
-use ipc::desc_table::*;
+use structures::desc_table::*;
 
 struct exit_status_t {
     status: u32,

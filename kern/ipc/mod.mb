@@ -65,7 +65,7 @@ use utils::list::*;
 use entry::get_ticks;
 use structures::mailbox::*;
 use shared::ipc_defs::*;
-mod desc_table;
+use structures::desc_table::*;
 
 /* instructs a thread receiving the invoker on how to conduct the transfer.
  * Receiver may alter fields to denote how much memory is transferred to the
@@ -300,7 +300,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     message_send.options = args_kern.options; 
 
     /* the mailbox being forwarded to the destination */
-    let mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
+    let mailbox_fwd = mb_desc_lookup(args_kern.desc_src as
             u32);
     message_send.mailbox_src = mailbox_fwd; 
     message_send.desc_dest = args_kern.desc_dest;
@@ -316,7 +316,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
             args_kern.timeout, option, &err);  
 
     /* end the lookup for now -- we will re-do it on the actual transfer */
-    desc_table::mb_end_lookup(mailbox_fwd);
+    mb_end_lookup(mailbox_fwd);
 
     /*** if there was an error during the process, return ***/
     if (err < 0) {
@@ -369,14 +369,14 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
         message_dest->options = args_kern.options;
 
-        if ((mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
+        if ((mailbox_fwd = mb_desc_lookup(args_kern.desc_src as
                         u32)) != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
             if (message_dest->desc_dest >= 0) {
-                message_dest->desc_dest = desc_table::mb_table_add(&proc_dest->mb_desc, mailbox_fwd);
+                message_dest->desc_dest = mb_table_add(&proc_dest->mb_desc, mailbox_fwd);
             }
-            desc_table::mb_end_lookup(mailbox_fwd);
+            mb_end_lookup(mailbox_fwd);
         }
         if (message_dest->long_dest.len > 0) {
 
@@ -566,7 +566,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
             assert!(proc_dest != null);
             if (args_kern.desc_dest >= 0) {
                 args_kern.desc_dest =
-                    desc_table::mb_table_add(&(get_tcb()->proc->mb_desc),
+                    mb_table_add(&(get_tcb()->proc->mb_desc),
                             message_src->mailbox_src);
             }
         }
@@ -679,7 +679,7 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     let message_src: *message_node = last_send->message as *message_node;
 
     if (desc >= 0 && message_src->desc_dest >= 0) {
-        mailbox_fwd = desc_table::mb_desc_lookup(desc as
+        mailbox_fwd = mb_desc_lookup(desc as
                 u32);
         if (mailbox_fwd == null) {
             // place last_send back for later invocation, return with error 
@@ -692,10 +692,10 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     let err: i32 = 0;
     /// send descriptor ///
     if (mailbox_fwd != null) {
-        message_src->desc_dest = desc_table::mb_table_add(&last_send->tcb->proc->mb_desc, 
+        message_src->desc_dest = mb_table_add(&last_send->tcb->proc->mb_desc, 
                 mailbox_fwd);
 
-        desc_table::mb_end_lookup(mailbox_fwd);
+        mb_end_lookup(mailbox_fwd);
 
         // if the descriptor failed to be added, return with failure and do not
         // transfer the other messages 
