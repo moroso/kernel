@@ -5,3 +5,4 @@ mod proc;
 mod proc_dir;
 mod tcb_dir;
 mod mailbox;
+mod desc_table;

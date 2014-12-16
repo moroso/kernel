@@ -15,7 +15,7 @@ use utils::stdlib::*;
 use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock,
                            preempt_enable, enable_interrupts};
 use locks::rendezvous::*;
-use ipc::desc_table::*;
+use structures::desc_table::*;
 
 extern fn get_eflags() -> u32;
 
