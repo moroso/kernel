@@ -70,7 +70,7 @@ fn yield(tid: i32) -> i32 {
 }
 
 fn mailbox_remove(desc: u32) {
-    syscall_1(shared::syscall_consts::INT_MAILBOX_REMOVE, desc);
+    //syscall_1(shared::syscall_consts::INT_MAILBOX_REMOVE, desc);
 }
 
 fn remove_pages(addr_start: *u8, len: u32) -> i32 {

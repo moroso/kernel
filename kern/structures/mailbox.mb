@@ -145,11 +145,13 @@ fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
     *err = 0;
     let mb = mb_desc_lookup(desc);
     if (mb == null) {
+        printf!("HERE %d\n", desc);
         *err = MB_ERR_DEST;
         return null;
     }
 
     if (!(mb->active)) {
+
         *err = MB_ERR_DEST;
         mb_table_dead_entry_remove(desc, mb);   
         mb_end_lookup(mb);
