@@ -378,6 +378,9 @@ fn mailbox_remove(desc: u32) {
 }
 
 
+/* removes last_send from location in tcb so that invoking thread can reply to
+ * it.  sets timeout flag to false, and atomically removes the node.  returns
+ * null if no node exists */
 fn last_send_remove() -> *rend_node {
     let enable = cond_preempt_disable();
     if (list_is_empty(&get_tcb()->last_send)) {
@@ -394,6 +397,7 @@ fn last_send_remove() -> *rend_node {
     last_send
 }
 
+/* restore a node removed from last_send.  used to handle errors in ipc_reply */
 fn last_send_unremove(node: *rend_node) {
     list_insert_head(&node->rend_link, &(get_tcb()->last_send));
     assert!(node->can_timeout == false || node->timeout ==
