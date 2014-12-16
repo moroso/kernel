@@ -1,6 +1,17 @@
 /* ipc/mod.mb
  * Contains implementation of ipc request primitives, send, recv and reply 
+ *
+ * arguments to ipc_send and ipc_recv are passed through an ipc_args struct
+ * (defined in shared/ipc_defs.mb), in part because there are so many, 
+ * and in part to make way for the IPC fast path (we need to store the message
+ * in the other GPRs, which are usually used as syscall args). 
+ *
+ * for error codes, see shared/ipc_defs.mb 
  * 
+ * TODO IPC fast path.  There is code for it in C, but some tricky assembly (like
+ * in L4) needs to be done to set up the transfer without disrupting the
+ * register values from userspace.
+ *
  * Author: Amanda M. Watson
 */
 
@@ -45,9 +56,31 @@ struct message_node {
 // ends up receiving it
 const SHORT_BUFFER_MAX: u32 = 200;
 
-/* places long message in destination PD, returns length transferred */
+/* transfers long message between page directories
+ * - PD_src: page directory message is coming from. 
+ * - addr_src: address at which source message begine in PD_src. Assumes address
+ *   is aligned 
+ * - len_src: length of source transfer.
+ * - PD_dest: page directory message is being transfered to 
+ * - addr_dest: starting address at which source message is being transferred.
+ *   Assumes address is aligned.
+ * - len_dest: length of destination buffer.  If buffer length is smaller than
+ *   the source message, the transfer length is truncated to len_dest.
+ * - shared: denotes whether message should remain shared with the source PD.
+ *   if shared is set to false, pages are unmapped from the source PD.
+ *
+ *  Returns length of message transferred
+ *
+ *  NOTE that if any page in the source message fails to be transferred to the
+ *  destination (due to OOM, the page no longer being mapped into the source, or
+ *  the destination buffer having memory mapped in), the transfer truncates to
+ *  the end of the valid transfer and ends prematurely.
+ */
 fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
         addr_dest: *u8, len_dest: u32, shared: u32) -> u32 {
+
+    assert!(is_addr_aligned(addr_src));
+    assert!(is_addr_aligned(addr_dest));
     /*** transfer long message ***/
     let transfer_len: i32 = min!(len_src as i32, len_dest as i32);
     if (transfer_len <= 0) {

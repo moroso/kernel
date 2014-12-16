@@ -30,9 +30,7 @@
  * cond_vars), and instead have the transfer performed by whichever thread is
  * not currently blocked on receipt.  
  *
- * TODO there are also two dubious design choices: the choice of recursion in
- * the replay case for rend_wait (which is bounded by 1 for now but won't be once
- * there can be multiple receivers), and the on-the-fly dynamic memory
+ * We have a dubious design decision: on-the-fly dynamic memory
  * allocation for asynchronous messages (it is perhaps more tasteful to assume
  * the invoker has dynamically allocated their message)
  *
@@ -108,11 +106,11 @@ fn rend_timeout_insert(rend_insert: *rend_node) {
     let node: *rend_node = null;
     // insert before the node with the larger timeout
     list_foreach_entry!(node, &rend_timeout_list, rend_node, timeout_link, {
-            if (node->timeout > rend_insert->timeout) {
-            list_insert_before(&rend_insert->timeout_link, &node->timeout_link); 
-            cond_preempt_enable(enable);
-            return();
-            }
+                if (node->timeout > rend_insert->timeout) {
+                    list_insert_before(&rend_insert->timeout_link, &node->timeout_link); 
+                    cond_preempt_enable(enable);
+                    return();
+                }
             });
     // if there exists no larger node, insert at the end 
     list_insert_tail(&rend_insert->timeout_link, &rend_timeout_list);
@@ -131,17 +129,17 @@ fn rend_timeout_remove(timeout: u32) {
             // wake up previous link (we don't do current so we can reset all
             // the pointers and such)
             if (node_prev != null) {
-            if (node_prev->can_timeout) {
-            list_del(&node_prev->rend_link); 
-            rend_signal(null, 0, node_prev, REND_ERR_TIMEOUT);
+                if (node_prev->can_timeout) {
+                    list_del(&node_prev->rend_link); 
+                    rend_signal(null, 0, node_prev, REND_ERR_TIMEOUT);
+                }
+                node_prev = null;
             }
-            node_prev = null;
-            }
-            if (node->timeout > timeout) { 
-            break;    
-            } 
-            node_prev = node;
-            });
+                if (node->timeout > timeout) { 
+                    break;    
+                } 
+                node_prev = node;
+        });
 
     if (node_prev != null && node_prev->can_timeout) {
         list_del(&node_prev->rend_link); 
@@ -166,6 +164,9 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
     let own_head: *list_head; 
 
     let my_node: *rend_node; 
+    // if message as asynchronous, allocate a node rather than placing it on the
+    // stack, and copy the message to a dynamic buffer in case the invoker
+    // placed it on the stack 
     if (option != SEND_ASYNC) {
         let stack_node: rend_node;
         my_node = &stack_node;
@@ -187,12 +188,7 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         message = new_message;
     }
 
-    my_node->message = message;
-    my_node->message_len = message_len;
-    my_node->option = option;
-    my_node->can_timeout = true;
-    my_node->err = 0;
-    my_node->timeout = timeout;
+
     list_init_node(&my_node->timeout_link);
     list_init_node(&my_node->rend_link);
 
@@ -207,72 +203,102 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
         own_head = &rend->recv_head;
     }
 
-    let enable = cond_preempt_disable();
+    // I'll be honest -- if i had gotos, I'd use gotos
+    // when a message is sent with option SEND_SYNC_REPLY, it requires that the
+    // receiver perform the transfer.  In the case that a receiver is already
+    // waiting when the sender calls rend_wait, it wakes up the receiver and
+    // goes to sleep on its list to be woken.  The receiver then loops around
+    // and attempts to collect the sender.  Potentially loops until rend is no
+    // longer active, or the message times out 
+    // TODO this design is a little hacky.  Some improvements to make it more
+    // elegant would be nice. 
+    let replay_flag = true;
+    while (replay_flag) {
+        
+        replay_flag = false;
+        my_node->message = message;
+        my_node->message_len = message_len;
+        my_node->option = option;
+        my_node->can_timeout = true;
+        my_node->err = 0;
+        my_node->timeout = timeout;
 
-    my_node->timeout = timeout; 
+        let enable = cond_preempt_disable();
 
-    if (!rend->rend_active) {
-        *err = REND_ERR_DEAD; 
-        if (option == SEND_ASYNC) {
-            slub_free(my_node as *u32, sizeof(rend_node));
-            slub_free(message as *u32, message_len);
-        }
-        return null;
-    }
+        if (!rend->rend_active) {
 
-
-    /* see if there is another node on the other side to grab */
-    if (!list_is_empty(other_head)) {
-        let other_node: *rend_node = list_head_entry!(other_head,
-                rend_node, rend_link);
-        assert!(other_node != null);
-        other_node->can_timeout = false;
-        list_del(&other_node->rend_link);
-
-        if (option != SEND_SYNC_REPLY) {
             cond_preempt_enable(enable);
-            *message_recv = other_node->message;
+            *err = REND_ERR_DEAD; 
+
             if (option == SEND_ASYNC) {
                 slub_free(my_node as *u32, sizeof(rend_node));
-                slub_free(message, message_len);
+                slub_free(message as *u32, message_len);
             }
-            *err = 0;
 
-            assert!(!in_list(&my_node->timeout_link));
-            assert!(in_list(&other_node->timeout_link) || other_node->timeout ==
-                    -1);
+            return null;
+        } 
 
-            cond_preempt_enable(enable);
-            return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
-        } else {
-            rend_signal(null, 0, other_node, REND_ERR_REPLAY);
+        /* see if there is another node on the other side to grab */
+        if (!list_is_empty(other_head)) {
+            let other_node: *rend_node = list_head_entry!(other_head,
+                    rend_node, rend_link);
+            assert!(other_node != null);
+            other_node->can_timeout = false;
+            list_del(&other_node->rend_link);
+
+            if (option != SEND_SYNC_REPLY) {
+                cond_preempt_enable(enable);
+                *message_recv = other_node->message;
+                if (option == SEND_ASYNC) {
+                    slub_free(my_node as *u32, sizeof(rend_node));
+                    slub_free(message, message_len);
+                }
+
+
+                *err = 0;
+
+                assert!(!in_list(&my_node->timeout_link));
+                assert!(in_list(&other_node->timeout_link) || other_node->timeout ==
+                        -1);
+
+                cond_preempt_enable(enable);
+                return other_node; // we allocate this on the stack, but it's asleep and direct-mapped, so we're ok
+            } else {
+                rend_signal(null, 0, other_node, REND_ERR_REPLAY);
+            }
+        } 
+
+        my_node->tcb = get_tcb();
+
+        list_insert_tail(&my_node->rend_link, own_head); 
+        rend_timeout_insert(my_node);
+        if (option != SEND_ASYNC) {
+            scheduler_update(STATE_COND as i32);
+            if (in_list(&my_node->timeout_link)) {
+                list_del(&my_node->timeout_link);
+            }
+            if (my_node->err == REND_ERR_REPLAY as u32) {
+                // if we are signaled with this error, it means a send needs us
+                // to perform the transfer.  We must wake up and collect it
+                replay_flag = true;
+                assert!(option == RECV);
+            }
         }
-    } 
 
-    my_node->tcb = get_tcb();
 
-    list_insert_tail(&my_node->rend_link, own_head); 
-    rend_timeout_insert(my_node);
-    if (option != SEND_ASYNC) {
-        scheduler_update(STATE_COND as i32);
-        if (in_list(&my_node->timeout_link)) {
-            list_del(&my_node->timeout_link);
-        }
-        if (my_node->err == REND_ERR_REPLAY as u32) {
-            // TODO this is sorta bad.  it is made more ok by the guarantee that
-            // we recurse only once, and there are no dynamic mem
-            // allocations to worry about
-            assert!(option == RECV);
-            cond_preempt_enable(enable);
-            return rend_wait(rend, message, message_len, message_recv,
-                    recv_len, timeout, option, err);
-        }
+
+        // while if we are going through the loop again, it means sending thread
+        // has awoken us and gone to sleep in the hopes that we would wake up
+        // and collect it, it's possible another receiver got to it before us.
+        // Thus, we reenable preemption for the loop case as well, to avoid
+        // spending large amounts of time with preemption disabled, (though each
+        // time we fail, we do call scheduler_update(), so this is arguably
+        // not a proper concern) 
+        cond_preempt_enable(enable);
     }
-
     *message_recv = my_node->message;
     *recv_len = my_node->message_len;
     *err = my_node->err as i32;
-    cond_preempt_enable(enable);
 
     assert!(!in_list(&my_node->timeout_link));
     null

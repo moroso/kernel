@@ -1,8 +1,13 @@
 /* file_system.mb
  *
  * The place where files actually get stored
+ *
  * TODO RW locks make the most sense, but that requires a whole lot of
  * other things first
+ *
+ * TODO deletions from file system.  shouldn't be too hard or anything -- just
+ * add a ref count 
+ *
  * Author Amanda M. Watson
  * */
 
@@ -19,9 +24,13 @@ use prelude::locks::mutex::*;
 use prelude::shared::ipc_defs::IPC_ERR_MIN;
 
 /* file system errors -- offset against ipc */
+// out of memory error 
 static FS_ERR_MEM: i32 = (IPC_ERR_MIN - 1);
+// file is not in file system
 static FS_ERR_NOT_FOUND: i32 = (IPC_ERR_MIN - 2);
+// trying to access an offset outside of the range of the file
 static FS_ERR_OOB: i32 = (IPC_ERR_MIN - 3);
+// file with same name already exists 
 static FS_ERR_DUP: i32 = (IPC_ERR_MIN - 4);
 
 const NAME_MAX: u32 = 400;
@@ -81,8 +90,8 @@ fn fs_lookup(name: *u8) -> *file_node {
                 break;
             } 
             if (strcmp(name, &(node->name)[0]) == 0) {
-            mut_unlock(&fs_lock);
-            return node;
+                mut_unlock(&fs_lock);
+                return node;
             }
 
             });
@@ -176,15 +185,14 @@ fn fs_file_new(name: *u8, data: *u8, data_len: u32) -> i32 {
 				mut_lock(&fs_lock);
 				list_foreach_entry!(node, &fs, file_node, fs_link, {
 												if (strcmp(name, &(node->name)[0]) == 0) {
-												mut_unlock(&fs_lock);
-												printf!("ERR %s already exists (%s)\n", name, &(node->name)[0]);
-												return FS_ERR_DUP;
+												    mut_unlock(&fs_lock);
+												    printf!("ERR %s already exists (%s)\n", name, &(node->name)[0]);
+												    return FS_ERR_DUP;
 												}
 												if (node->name[0] > name[0]) {
-												list_insert_before(&new_file->fs_link, &node->fs_link);
-												mut_unlock(&fs_lock);
-
-												return 0;
+												    list_insert_before(&new_file->fs_link, &node->fs_link);
+												    mut_unlock(&fs_lock);
+											    	return 0;
 												}
 												});
 
