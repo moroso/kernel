@@ -9,7 +9,6 @@ use prelude::shared::ipc_defs::*;
 static IPC_NO_ID: u32 = -1 as u32;
 static IPC_NO_LEN: u32 = 0;
 static IPC_NO_ADDR: *u8 = null;
-static IPC_NO_DESC: i32 = -1; 
 static IPC_NO_TIMEOUT: u32 = -1 as u32;
 static IPC_OPTION_DEFAULT: u32 = 0;
 static IPC_DESC_ACCEPT: i32 = 0;

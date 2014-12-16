@@ -202,6 +202,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
     let mailbox_fwd = desc_table::mb_desc_lookup(args_kern.desc_src as
             u32);
     message_send.mailbox_src = mailbox_fwd; 
+    message_send.desc_dest = args_kern.desc_dest;
 
     let message_recv: *u8;
     let recv_len: u32;
@@ -382,6 +383,7 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     /* create message to send to sender */
     let message_send: message_node;
     mos_memcpy(&message_send.long_dest, &args_kern.long_dest, sizeof(buffer_t));
+    message_send.desc_dest = args_kern.desc_dest;
 
     let message_recv: *u8;
     let recv_len: u32;
@@ -421,7 +423,15 @@ fn ipc_recv(args: *ipc_args) -> i32 {
     if (dest_tcb == null) {
         // new length written into message (sender updates this length)
         args_kern.options = message_send.options;
-        args_kern.desc_dest = message_send.desc_dest;
+
+        // note that no descriptor is added to our descriptor table if
+        // args_kern.desc_dest is negative
+        if (message_send.desc_dest >= 0 && args_kern.desc_dest >= 0) {
+            args_kern.desc_dest = message_send.desc_dest;
+        } else {
+            args_kern.desc_dest = IPC_NO_DESC;
+        }
+
         args_kern.long_dest.len = message_send.long_dest.len;
         args_kern.short_dest.len = min(args_kern.short_dest.len as i32,
                 recv_len as i32) as u32;

@@ -33,10 +33,20 @@ use prelude::ipclib::{ipc_recv_i32, ipc_reply, ipc_reply_mb, ipc_send_all};
 use prelude::shared::ipc_defs::{IPC_ERR_TIMEOUT, IPC_ERR_MIN, IPC_ERR_ARGS,
     IPC_ERR_MAP};
 
+// server id.  Used to open server program and register with the name server
 const BAD_SERVER_ID: *u8 = "bad_server";
+// denotes whether server is accepting requests
 static bad_server_active: bool = false;
+// largest descriptor value the system tolerates 
 const MAX_DESC_NUM: u32 = 63;
 
+
+/* server thread code: waits until all threads have woken up and are ready to
+ * begin work, then receives and processes requests 
+ * mb_arg: the descriptor for the server mailbox, passed as a *u8
+ *
+ * Does not return.  Threads exit when server is no longer active
+*/
 fn bad_server_worker(mb_arg: *u8) {
     let mb = mb_arg as i32;
     assert!(mb >= 0);
@@ -45,9 +55,8 @@ fn bad_server_worker(mb_arg: *u8) {
         server_thread_exit(&bad_server_active, -1); 
     } 
 
-
     let tid = get_tid();
-    let empty_page = null;
+
     /*** active server code ***/
     while(bad_server_active) {
         if (ipc_recv_i32(mb as u32, null, -1, null) >= 0) {
@@ -79,9 +88,18 @@ fn bad_server_worker(mb_arg: *u8) {
     server_thread_exit(&bad_server_active, -1); 
 }
 
+/* called from bad_server program to initialize server.  
+ * - num_threads number of threads server will run.  function returns with error
+ *   if thr_create fails, but setup will continue if threads exit during the
+ *   execution of bad_server_worker
+ * - mb: if mb is positive and corresponds to a valid descriptor, the invoking
+ *   thread will wait on mb until server setup is complete
+ *
+ * Returns 0 if server setup is successful, a negative error code otherwise.
+*/
 fn bad_server_init(num_threads: u32, mb: i32) -> i32 {
     server_init(BAD_SERVER_ID, &bad_server_active, num_threads,
-            bad_server_worker, mb, true, 30)  
+            bad_server_worker, mb, true, -1)  
 }
 
 fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
