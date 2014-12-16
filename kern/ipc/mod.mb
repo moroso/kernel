@@ -12,12 +12,37 @@
  * in L4) needs to be done to set up the transfer without disrupting the
  * register values from userspace.
  *
- * There is a ostensibly dubious design decision regarding how we handle message
+ * There is a seemingly dubious design decision regarding how we handle message
  * truncation.  If a message cannot be sent in its entirity (because part of it
- * is no longer mapped, or the destination buffer isn't large enough), we
+ * is no longer mapped in, or the destination buffer isn't large enough), we
  * truncate the message at the transfer length, update the receiver with the
  * length, but do not inform the sender how much of the message was actually
- * sent.  We do this because 
+ * sent.  We do this because, due to the existence of asynchronous
+ * messages, it's impossible to always know whether a transfer was successful,
+ * and since so many things can go wrong, even when all transfers have completed
+ * successfully, approaches to informing the sender about the transfer of their
+ * messages would have resulted in a more complicated interface and messier error handling
+ * (we'd have to ensure all message transfers could be reversed at any time).
+ * Since the interface is already complicated, its not clear senders and
+ * receivers would have good use for this information in the common case(for instance, 
+ * the server has no way to act on a client-side
+ * receipt error unless the client sends another request) and, in many cases, the sender and
+ * receiver can do a lot to ensure memory remains mapped during the transfer, it seemed
+ * better to optimize for this case, leaving it the responsibility of the
+ * receiver to reply with the transfer outcome if it is important.  
+ *
+ * In the future, we may wish to revisit this decision.  This would involve:
+ * - copying resultant lengths of long and short transfers to args.short_src nd
+ *   args.long_src.  ipclib would have to acommodate by replacing 
+ * - waiting until all memory transfers complete before signaling a waiting
+ *   sender or receiver 
+ * - sharing a long message in memory with the sender until all transfers have
+ *   been successful (to ensure no other thread in the process tries to insert new
+ *   memory at the mapping)
+ * - removing a mailbox/descriptor that got transferred if the transfer falls through.
+ * - possibly returning with error if the destination buffer is smaller than the
+ *   source
+ * 
  * Author: Amanda M. Watson
 */
 
@@ -387,36 +412,56 @@ fn ipc_send(args: *ipc_args) -> i32 {
  * the transfer.  Otherwise, deschedules until a sender becomes available and
  * does the transfer itself.  
  *
- * Arguments are passed in an ipc_args struct.  Their fields are the following: 
+* - args->dest_id: the mailbox descriptor being received on.  function returns IPC_ERR_DEST if
+ *   dest_id is not a valid descriptor, IPC_ERR_DEAD if the mailbox is
+ *   destroyed while the invoking thread waits on it, and IPC_ERR_OWNER if the
+ *   invoking thread does not belong to the proc that owns the mailbox.
  *
- * - dest_id: the mailbox descriptor being sent to.  function returns ERR_DEST if
- *   dest_id is not a valid descriptor or if the invoking thread is not an owner 
- * - long_src: ignored for recv
- * - long_dest: specifies a buffer for a long message from the sender
- *    long_dest.len gets altered to be the final length of the message copied. 
- * - short_src: Ignored for recv
- * - short_dest: specifies a buffer for a short message from sender.  
- *    A maximum of short_dest.len bytes is copied;
- *    short_dest.len is altered to specify number of bytes copied to
- *    short_dest.addr
- * - timeout: how many clock cycles a message should wait for receipt
+ * - args->long_src: ignored
+ *
+ * - args->long_dest: specifies a buffer for a long reply from sender.
+ *   long_dest.len gets altered to be the final length of the message copied.  ignored if
+ *   message is async or doesn't expect a reply.  Returns IPC_ERR_ARGS if
+ *   args->long_dest.addr  does not correspond to a userland address, but
+ *   args->long_dest.len is nonzero; however, no error is thrown if a long
+ *   message is not mapped at the time of transfer; the message is merely
+ *   truncated.  Returns IPC_ERR_ARGS is args->long_dest.addr is not
+ *   page-aligned, or args->long_dest.len is not a multiple of PAGE_SIZE
+ *
+ * - args->short_src: ignored
+ *
+ * - args->short_dest: specifies a buffer for a short reply from sender. A maximum of 
+ *   short_dest.len bytes is copied; short_dest.len is altered to specify number of bytes copied to
+ *   short_dest.addr.  Returns IPC_ERR_MAP if specifed message is not correctly mapped
+ *   into memory by the time the transfer occues.
+ *
+ * - args->desc_src: ignored 
+ *
+ * - args->desc_dest: buffer for descriptor from sender.  args.desc_dest is
+ *   positive, sender can place a mailbox in the invoking thread's descriptor table and pass the
+ *   resultant descriptor to args->desc_dest.  if args->desc_dest is negative, no
+ *   descriptor transfer occurs.  This is done so that the receiver if able to
+ *   consent to whether a new mailbox is added to its table 
+ *
+ * - args->timeout: how many clock cycles a message should wait for a sender
  *    until it expires.  message is unable to timeout while being modified by
- *    ipc_send.  a timeout of -1 means the message does not expire
- * - option retrieves senders sending preferences 
+ *    ipc_send.  a timeout of -1 means the message does not expire.
+ *    Returns IPC_ERR_TIMEOUT if timeout occurs before successful transfer.
  *
- * If the sender is already waiting, the invoking thread will
- * perform the transfer and wake up the sender; else, the sender performs
+ * - args->options: ignored
+ *
+ * If the sender is waiting or the next sender expects a reply, the invoking thread will
+ * perform the transfer and wake up the receiver; else, the sender performs
  * the transfer and wakes up the invoking thread after.  
  *
  * Returns 0 on success, a negative error code on error.  the dest fields in
  * args are altered to denote how much was copied to the specified buffers.
  * Note that message transfers might still be successful, even if a negative
- * error code is returned
- * 
- * function immediately returns error if the last received thread with a reply
- * option has not been replied to
+ * error code is returned.  returns IPC_ERR_REPLY if invoked before last message
+ * received by the invoking thread with option IPC_SYNC_REPLY has timed out or
+ * been replied to.
+ *
  */
-
 fn ipc_recv(args: *ipc_args) -> i32 {
 
     let args_kern: ipc_args;
@@ -582,11 +627,6 @@ fn ipc_recv(args: *ipc_args) -> i32 {
 
 
 
-// policy: send the messages as well as possible.  On an args error, return err
-// without waking up the receiver.  Else, wake them up with whatever messages we
-// can send, and return error.  We send errors for the descriptors and the short
-// message, because we can tell whether an error was encountered, but can't with
-// a long message 
 /* reply: replies to the last sender received by invoking thread; returns with error if no active thread
  * awaits a reply  
  * 
