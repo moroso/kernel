@@ -405,7 +405,7 @@ fn file_write(fs_desc: u32, name: *u8, buffer: *u8, buffer_len: u32, offset:
     ret
 }
 
-/ * NOTE that, if the invoking thread times out after the server receives the
+/* NOTE that, if the invoking thread times out after the server receives the
  * request, it will lose access to the buffer.  This is done (as opposed to say,
  * sharing the buffer between the client and server) this is to prevent the
  * server from overwriting client data on the buffer as the client continues to
