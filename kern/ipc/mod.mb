@@ -12,23 +12,23 @@
  * in L4) needs to be done to set up the transfer without disrupting the
  * register values from userspace.
  *
- * There is a seemingly dubious design decision regarding how we handle message
+ * NOTE There is a seemingly dubious design decision regarding how we handle message
  * truncation.  If a message cannot be sent in its entirity (because part of it
  * is no longer mapped in, or the destination buffer isn't large enough), we
  * truncate the message at the transfer length, update the receiver with the
  * length, but do not inform the sender how much of the message was actually
- * sent.  We do this because, due to the existence of asynchronous
+ * sent.  I decided to make this the policy because, due to the existence of asynchronous
  * messages, it's impossible to always know whether a transfer was successful,
  * and since so many things can go wrong, even when all transfers have completed
  * successfully, approaches to informing the sender about the transfer of their
  * messages would have resulted in a more complicated interface and messier error handling
  * (we'd have to ensure all message transfers could be reversed at any time).
- * Since the interface is already complicated, its not clear senders and
- * receivers would have good use for this information in the common case(for instance, 
+ * Since the interface is already complicated, it's not clear senders and
+ * receivers would have good use for this information in the common case (for instance, 
  * the server has no way to act on a client-side
  * receipt error unless the client sends another request) and, in many cases, the sender and
  * receiver can do a lot to ensure memory remains mapped during the transfer, it seemed
- * better to optimize for this case, leaving it the responsibility of the
+ * better to optimize for the case where it doesn't matter, leaving it the responsibility of the
  * receiver to reply with the transfer outcome if it is important.  
  *
  * In the future, we may wish to revisit this decision.  This would involve:
@@ -38,7 +38,8 @@
  *   sender or receiver 
  * - sharing a long message in memory with the sender until all transfers have
  *   been successful (to ensure no other thread in the process tries to insert new
- *   memory at the mapping)
+ *   memory at the mapping).  This has some annoying implications, but probably
+ *   would not be the end of the world.
  * - removing a mailbox/descriptor that got transferred if the transfer falls through.
  * - possibly returning with error if the destination buffer is smaller than the
  *   source
