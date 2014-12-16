@@ -15,8 +15,8 @@
  * memory. 
  * 3. be forwarded an invalid descriptor.  The server will try to reply back
  * with a descriptor it does not have.  the client SHOULD fail to be forwarded
- * the descriptor and simply return with success, and the server should return
- * with IPC_ERR_MAP  
+ * the descriptor and wait for a valid reply, and the server should return
+ * with IPC_ERR_MB  
  *
  * These options are chosen based on the value of the server tid that is
  * requesting them
@@ -31,7 +31,7 @@ use prelude::rt_abort;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::ipclib::{ipc_recv_i32, ipc_reply, ipc_reply_mb, ipc_send_all};
 use prelude::shared::ipc_defs::{IPC_ERR_TIMEOUT, IPC_ERR_MIN, IPC_ERR_ARGS,
-    IPC_ERR_MAP};
+    IPC_ERR_MB, IPC_ERR_MAP};
 
 // server id.  Used to open server program and register with the name server
 const BAD_SERVER_ID: *u8 = "bad_server";
@@ -42,7 +42,8 @@ const MAX_DESC_NUM: u32 = 63;
 
 
 /* server thread code: waits until all threads have woken up and are ready to
- * begin work, then receives and processes requests 
+ * begin work, then receives and processes requests. Asserts are in place to
+ * make sure errors are handled properly  
  * mb_arg: the descriptor for the server mailbox, passed as a *u8
  *
  * Does not return.  Threads exit when server is no longer active
@@ -66,18 +67,23 @@ fn bad_server_worker(mb_arg: *u8) {
                 continue;
             } else if (tid%3 == 1) {
                 // send a reply with bogus memory
+
+                // check alignment error for long message 
                 assert!(ipc_reply(0xdeadbeef as *u8, PAGE_SIZE, null, 0) ==
                         IPC_ERR_ARGS);  
+                // check length alignment error for long message
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE - 2, null, 0) ==
                         IPC_ERR_ARGS);  
+                // check size limit for short message
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
                             *u32, PAGE_SIZE) == IPC_ERR_ARGS);  
+                // arguments shoud be fine; returns MB error
                 assert!(ipc_reply(0xdeadb000 as *u8, PAGE_SIZE, 0xdeadbeef as
                             *u32, 300) == IPC_ERR_MAP);
             } else {
                 // forward a descriptor we do not have
                 assert!(ipc_reply_mb(null, 0, (get_ticks()%MAX_DESC_NUM) + mb as u32) 
-                        == IPC_ERR_MAP);
+                        == IPC_ERR_MB);
 
                 assert!(ipc_reply(null, 0, null, 0) 
                         != IPC_ERR_ARGS);
@@ -102,6 +108,27 @@ fn bad_server_init(num_threads: u32, mb: i32) -> i32 {
             bad_server_worker, mb, true, -1)  
 }
 
+/* client request for bad server.  Client believes they are requesting memory
+ * from the server, and will attempt to deference if they get it.
+ * - mb: mailbox for bad server, retrieved either by creating server or requesting
+ *   the descriptor from the name server
+ * - long_dest: the address for the buffer receiving the long message from the
+ *   server.  
+ * - long_len: pointer to the length of the destination message, which will be
+ *   at a maximum *long_len.  Returns with error if *long_len starts with a length
+ *   of zero.  If system works as expected, this should be zero if ipc_send
+ *   returns success  
+ * - short_dest: the address for the buffer receiving the short message from the
+ *   server.
+ * - short_len: pointer to the length of the destination message, which will be
+ *   at a maximum *short_len.  Returns with error if *short_len starts with a length
+ *   of zero.  If system works as expected, this should be zero if ipc_send
+ *   returns success  
+ * - desc: destination for a mailbox descriptor.  returns error if *desc is
+ *   negative
+ * 
+ * Returns 0 if error handling successful.  Negative error code otherwise.
+ */
 fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
         short_len: *u32, desc: *i32, timeout: i32) -> i32 {
 
@@ -113,6 +140,9 @@ fn bad_server_request(mb: u32, long_dest: *u8, long_len: *u32, short_dest: *u32,
         return IPC_ERR_MIN - 4;
     }
 
+    if (desc == null || *desc < 0) {
+        return IPC_ERR_MIN - 4;
+    }
 
     let ret = ipc_send_all(mb, null, 0, null, 0, long_dest, long_len,
             short_dest, short_len, -1, desc, timeout, false);

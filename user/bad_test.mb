@@ -27,7 +27,7 @@ fn main() -> i32 {
         abscond(-1);
     }
     let short_buffer = 4;
-    let desc = -1;
+    let desc = 0;
 
     let i: u32;
     for (i = 0; i < NUM_ITERS; i+=1) {

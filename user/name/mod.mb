@@ -1,4 +1,11 @@
 /* name/mod.mb: name server.  services requests for descriptors. 
+ * 
+ * Note that, in the OS userland init stage, the name server is initialized and
+ * moved to descriptor zero for all threads in the user programs.  Unless action
+ * is taken to move another descriptor to index zero or to close the name server
+ * descriptor, user threads can expect to find the server at descriptor
+ * NAME_SERVER.  The request and registry functions assume that the descriptor
+ * is at NAME_SERVER.
  *
  * Author Amanda M. Watson
 **/
