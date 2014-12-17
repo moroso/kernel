@@ -32,6 +32,7 @@ fn ipc_args_init(args: *ipc_args) {
     args->options = IPC_OPTION_DEFAULT;
 }
 
+// send a long message, short message and mailbox descriptor 
 fn ipc_send_all(mb: u32, long_src: *u8, long_src_len: u32, short_src: *u32,
         short_src_len: u32, long_dest: *u8, long_dest_len: *u32, short_dest:
         *u32, short_dest_len: *u32, desc_src: i32, desc_dest: *i32, 
@@ -91,6 +92,8 @@ fn ipc_send_all(mb: u32, long_src: *u8, long_src_len: u32, short_src: *u32,
     ret
 
 }
+
+// send a long and short message
 fn ipc_send_long(mb: u32, long_src: *u8, long_src_len: u32, short_src: *u8,
         short_src_len: u32, long_dest: *u8, long_dest_len: *u32, short_dest:
         *u8, short_dest_len: *u32, timeout: i32, shared: bool) -> i32 {
@@ -99,6 +102,7 @@ fn ipc_send_long(mb: u32, long_src: *u8, long_src_len: u32, short_src: *u8,
             timeout, shared) 
 }
 
+// send a short message
 fn ipc_send_short(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len: *u32,
         async: bool, timeout: i32) -> i32 {
 
@@ -130,6 +134,7 @@ fn ipc_send_short(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len
     ret
 }
 
+// send a short message and receives a short message/mailbox descriptor
 fn ipc_request_mb(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8,
         dest_len: *u32, desc: *i32, async: bool, timeout: i32) -> i32 {
 
@@ -167,6 +172,7 @@ fn ipc_request_mb(mb: u32, src_addr: *u8, src_len: u32, dest_addr: *u8,
     ret
 }
 
+// send an i32-sized short message 
 fn ipc_send_i32(mb: u32, src_i32: *i32, dest_addr: *u8, dest_len: *u32, async:
         bool, timeout: i32) -> i32 {
     let size: u32 = sizeof(i32);
@@ -177,6 +183,7 @@ fn ipc_send_i32(mb: u32, src_i32: *i32, dest_addr: *u8, dest_len: *u32, async:
             timeout)
 }
 
+// send a mailbox descriptor and short message 
 fn ipc_forward_mb(mb: u32, desc: u32, src_addr: *u8, src_len: u32, dest_addr: *u8, dest_len: *u32, async: bool,
         timeout: i32) -> i32 {
     let args: ipc_args;
@@ -205,10 +212,12 @@ fn ipc_forward_mb(mb: u32, desc: u32, src_addr: *u8, src_len: u32, dest_addr: *u
     ret
 }
 
+// receive a mailbox descritor and short message 
 fn ipc_recv_mb(mb: u32, desc: *i32, dest_addr: *u8, dest_len: *u32, timeout: i32, reply_needed: *bool) -> i32 {
     ipc_recv_all(mb, null, null, dest_addr, dest_len, desc, timeout, reply_needed)
 }
 
+// receive a i32-sized short message
 fn ipc_recv_i32(mb: u32, dest_i32: *i32, timeout: i32, reply_needed: *bool) -> i32 {
     let resp_max: u32 = sizeof(u32);
     if (dest_i32 == null) {
@@ -218,12 +227,14 @@ fn ipc_recv_i32(mb: u32, dest_i32: *i32, timeout: i32, reply_needed: *bool) -> i
             reply_needed)
 }
 
+// receive a ling and short message 
 fn ipc_recv_long(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_len: *u32, 
         timeout: i32, reply_needed: *bool) -> i32 {
     ipc_recv_all(mb, long_addr, long_len, short_addr, short_len, null, -1,
             reply_needed)
 }
 
+// receive a long message, short message, and mailbox descriptor 
 fn ipc_recv_all(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_len: *u32,
         desc: *i32, timeout: i32, reply_needed: *bool) -> i32 {
     let args: ipc_args;
@@ -266,11 +277,13 @@ fn ipc_recv_all(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_
     ret
 }
 
+// reply with a long and short message 
 fn ipc_reply(long_addr: *u8, long_len: u32, short_addr: *u32, short_len: u32) ->
 i32 {
     ipc_reply_full(long_addr, long_len, short_addr, short_len, -1)
 }
 
+// reply with a short message and mailbox descriptor 
 fn ipc_reply_mb(short_addr: *u32, short_len: u32, desc: u32) -> i32 {
     ipc_reply_full(null, 0, short_addr, short_len, desc as i32)
 }
