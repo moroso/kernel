@@ -70,7 +70,7 @@ const PAGE_SIZE_BIT: u32 = 1 << 7;
 // denotes whether a page is read-only because it's COW
 const COW_BIT: u32 = 1 << 9;
 
-static vm_debug: bool = false;
+static vm_debug: bool = true;
 
 /* error codes */
 // out of memory
@@ -286,7 +286,8 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
     let old_frame_ref =  get_frame_ref(frame);
     assert!(old_frame_ref > 0);
 
-    let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size);
+    let ret = set_page(frame, log_addr, PD_dest, get_flags(log_addr), size,
+            false);
 
     // No extraneous increments, no sir
     // if setting the page failed, return with failure
@@ -303,7 +304,7 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 }
 
 fn free_page(log_addr: *u8, PD: *PD_t) {
-    
+
     assert!(is_user_addr(log_addr));
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
     let page_entry: **u8 = log_to_phys(log_addr, PD);
@@ -318,7 +319,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     }
     if (vm_debug) {
         if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
-                == (0x40005000 as *u8)) {
+                == (0x40006000 as *u8)) {
             if (has_flags(frame, COW_BIT)) {
                 printf!("REMOVING PAGE: %p COW\n", frame);     
             } else {
@@ -346,13 +347,15 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
  * requires that page being set does not already exist in the directory
+ * - coll_force: whether func should return with err in the case of a collision
  */
-fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
+fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32, coll_force:
+        bool) -> i32 {
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
     assert!(PD != null);
     assert!(is_kernel_addr(frame));
     assert!(PD->PT_entries != null);
-    assert!(log_to_phys(log_addr, PD) == null || *log_to_phys(log_addr, PD) ==
+    assert!(coll_force || log_to_phys(log_addr, PD) == null || *log_to_phys(log_addr, PD) ==
             null);
 
     let pd_entry: u32 = get_pd_entry(log_addr);
@@ -375,7 +378,7 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 
         assert!(*page_table_addr != null);
         let page_table: *u32 = get_aligned_addr(*page_table_addr);
         /* we don't want to overwrite shit */
-        assert!(page_table[pt_entry] == 0);
+        assert!(coll_force || page_table[pt_entry] == 0);
 
         /* set the frame entry and flags */
         page_table[pt_entry] = (frame as u32) | flags | PRESENT_BIT;
@@ -437,7 +440,8 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     mos_memset(new_frame, 0, PAGE_SIZE);
 
     let ret: i32;
-    if ((ret = set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags), size)) < 0) {
+    if ((ret = set_page(new_frame, log_addr, PD, (USER_SUPER_BIT | flags),
+                    size, false)) < 0) {
         free_frame(new_frame, KB);
         return ret;
     }
@@ -557,7 +561,7 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
 fn kernel_direct_map(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     assert!(is_kernel_addr(log_addr));
     assert!(is_addr_aligned(log_addr));
-    set_page(log_addr, log_addr, PD, flags, size)
+    set_page(log_addr, log_addr, PD, flags, size, false)
 }
 
 fn PD_init(PD: *PD_t) -> i32 {
@@ -639,18 +643,22 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     mos_memcpy(frame_new, frame_orig, 4 * frame_size);
     if (vm_debug) {
         if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
-                == (0x40005000 as *u8)) {
-            printf!("replacing %p with %p (%d\n)\n", *frame_orig_addr, frame_new); 
+                == (0x40006000 as *u8)) {
+            printf!("replacing %p with %p (%d)\n", *frame_orig_addr, frame_new); 
         }
     }
-    // TODO this CANNOT be right! can it?  this has to be a race
-    free_page(log_addr, PD); // removes page and decs ref count
+
+    // replace frame and then free original 
     let set_page_result = set_page(frame_new, log_addr, PD,
             USER_SUPER_BIT | READ_WRITE_BIT,
-            frame_size);
+            frame_size, true);
+
+    dec_frame_ref(frame_orig, PD, KB);
+
+
     if (vm_debug) {
         if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
-                == (0x40005000 as *u8)) {
+                == (0x40006000 as *u8)) {
             printf!("END %p\n", *log_to_phys(log_addr, &get_tcb()->proc->PD)); 
         }
     }
@@ -687,9 +695,9 @@ fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, p
             assert!(*log_to_phys(addr_src, PD_src) == null);
         }
         if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
-                    frame_size) < 0) {
+                    frame_size, false) < 0) {
             assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
-                        frame_size) >= 0);
+                        frame_size, false) >= 0);
         } 
         dec_frame_ref(frame_src, PD_dest, frame_size);
 
