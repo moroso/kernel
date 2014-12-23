@@ -70,8 +70,6 @@ const PAGE_SIZE_BIT: u32 = 1 << 7;
 // denotes whether a page is read-only because it's COW
 const COW_BIT: u32 = 1 << 9;
 
-static vm_debug: bool = true;
-
 /* error codes */
 // out of memory
 const VM_ERR_MEM: i32 = -5;
@@ -316,16 +314,6 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
 
     if (frame == null) {
         return ();
-    }
-    if (vm_debug) {
-        if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
-                == (0x40006000 as *u8)) {
-            if (has_flags(frame, COW_BIT)) {
-                printf!("REMOVING PAGE: %p COW\n", frame);     
-            } else {
-                printf!("REMOVING PAGE: %p NO COW\n", frame);   
-            }
-        }
     }
 
     if (ptr_too_low!(frame)) {
@@ -641,12 +629,6 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
     // but should not once we deal with overcommitting
 
     mos_memcpy(frame_new, frame_orig, 4 * frame_size);
-    if (vm_debug) {
-        if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
-                == (0x40006000 as *u8)) {
-            printf!("replacing %p with %p (%d)\n", *frame_orig_addr, frame_new); 
-        }
-    }
 
     // replace frame and then free original 
     let set_page_result = set_page(frame_new, log_addr, PD,
@@ -655,13 +637,6 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
 
     dec_frame_ref(frame_orig, PD, KB);
 
-
-    if (vm_debug) {
-        if (get_tcb()->proc->pid == 14 && get_aligned_addr(log_addr as *u32) as *u8
-                == (0x40006000 as *u8)) {
-            printf!("END %p\n", *log_to_phys(log_addr, &get_tcb()->proc->PD)); 
-        }
-    }
     assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
 

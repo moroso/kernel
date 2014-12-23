@@ -4,6 +4,7 @@ use structures::VM::*;
 use structures::schedule::*;
 use locks::mutex::*;
 use locks::rendezvous::rend_timeout_remove;
+use threadstuffs::abscond::abscond;
 
 const MAX_FAULT_NUMS: u32 = 256;
 
@@ -95,14 +96,32 @@ fn page_fault_handler(regs: *uregs) {
         if (get_tcb() != null) {
             tid = get_tcb()->tid;
         }
-        let frame = *log_to_phys(get_aligned_addr(log_addr as *u32) as *u8, PD);
+        if (is_kernel_addr(log_addr)) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid, get_tcb()->proc->pid,
+                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD) );
+            assert!(false);
+        }
 
-        *frame = 2;
-        printf!("ADDR %p %d\n", log_addr, *log_addr);
-        printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid, get_tcb()->proc->pid,
-                log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD) );
-        printf!("frame: %p\n", frame);
-        assert!(false);
+
+        if (frame_addr == null || *frame_addr == null) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- PAGE UNMAPPED\n", tid, get_tcb()->proc->pid,
+                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD));
+
+        } else if (!has_flags(*frame_addr, USER_SUPER_BIT)) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- INVALID ADDRESS \n", tid, get_tcb()->proc->pid,
+                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD));
+
+        } else if (!has_flags(*frame_addr, READ_WRITE_BIT)) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- READ ONLY PAGE \n", tid, get_tcb()->proc->pid,
+                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD));
+
+        } else { 
+            kmut_unlock(&PD->mut);
+            return ();
+        }
+
+        kmut_unlock(&PD->mut);
+        abscond(-1);
     }
     kmut_unlock(&PD->mut);
 
