@@ -1,5 +1,5 @@
-/* console_test.mb: basic test of console server.  Allocates a buffer and
- * makes a request to use the buffer with the console. 
+/* console_test.mb: basic test of console server.  Allocates two video buffers
+ * and switches between them on the console 
 */
 
 use syslib::{abscond, mailbox_new, mailbox_remove, new_vid_buffer, set_vid_buffer};
@@ -44,13 +44,6 @@ fn main() -> i32 {
         abscond(-1);
     }
     mailbox_remove(new_mb as u32);
-
-    /* TODO buffer allocation syscall; will look something 
-     * like get_buffer(addr: *u8, size: u32) -> i32 
-     * maps a buffer at addr and associates it with a buffer id */
-    let buffer_id = 4; 
-
-    // perform buffer operations
 
     /*** request to use new buffer with console ***/
     if (use_console(console_mb as u32, BUFFER, -1) < 0) {

@@ -65,8 +65,8 @@ fn console_worker(mb_arg: *u8) {
         let request_size: u32 = sizeof(console_request);
         if (ipc_recv_short(mb as u32, &request as *u8, &request_size, -1, null)
                 >= 0  && request_size == sizeof(console_request)) {
-            printf!("%d received a message from thread %d with buffer %d!\n",
-                    request.tid, request.buffer_id);    
+            printf!("%d received a message from thread %d\n",
+                    get_tid(), request.tid);    
 
             /// process buffer request
             let buffer = find_vid_buffer();
