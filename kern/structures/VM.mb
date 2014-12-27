@@ -510,7 +510,9 @@ fn new_vid_buffer(log_addr: *u8) -> i32 {
         kmut_unlock(&(PD->mut));
         return VM_ERR_MEM;
     }
-    let ret = set_page(new_frame, log_addr, PD, READ_WRITE_BIT, KB, false);
+    mos_memset(new_frame, 0, PAGE_SIZE);
+
+    let ret = set_page(new_frame, log_addr, PD, USER_SUPER_BIT | READ_WRITE_BIT, KB, false);
     if (ret < 0) {
         vid_free(new_frame);
     }
