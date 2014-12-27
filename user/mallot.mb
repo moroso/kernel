@@ -178,74 +178,74 @@ fn is_in_cache(element: *u32, cache: *cache_head) -> bool {
 
 /* add element back into cache */
 fn cache_add (element: *u32, cache: *cache_head) {
-				/* TODO check memory bounds */
-				mut_lock(&cache->mut);
-				if (debug) {
-								let found = is_in_cache(element, cache);
-								if (!found) {
+    /* TODO check memory bounds */
+    mut_lock(&cache->mut);
+    if (debug) {
+        let found = is_in_cache(element, cache);
+        if (!found) {
 
-												let power: u32; 
-												for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
-																if is_in_cache(element, &caches[power - POWER_MIN]) {
-																				found = true;
-																				break;
-																}
-												}
-												if (found) {
-																printf!("element incorrectly sized\n");
-												} else {
+            let power: u32; 
+            for (power = POWER_MIN; power <= POWER_MAX; power +=1) {
+                if is_in_cache(element, &caches[power - POWER_MIN]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                printf!("element incorrectly sized\n");
+            } else {
 
-																printf!("not found\n");
-												}
-												assert!(false);
-								}
-				}
+                printf!("not found\n");
+            }
+            assert!(false);
+        }
+    }
 
-				*element = cache->slab as u32;
-				cache->slab = element;
-				mut_unlock(&cache->mut);
+    *element = cache->slab as u32;
+    cache->slab = element;
+    mut_unlock(&cache->mut);
 }
 
 fn mallot_init() -> i32 {
-				// we are doing this sham of an allocation because we can't have a sized
-				// array as a global, due to the compiler's initialization requirement.
-				// Would like if fix.
-				caches = find_pages(1) as *cache_head;
-				if (caches == null) {
-								return -1;
-				}
-				let i: u32;
-				for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
-								let cache = &caches[i - POWER_MIN];
-								if (cache_create(1 << i, cache) < 0) {
-												return -2;
-								}
-				}
-				0
+    // we are doing this sham of an allocation because we can't have a sized
+    // array as a global, due to the compiler's initialization requirement.
+    // Would like if fix.
+    caches = find_pages(1) as *cache_head;
+    if (caches == null) {
+        return -1;
+    }
+    let i: u32;
+    for (i = POWER_MIN; i <= POWER_MAX; i+=1) {
+        let cache = &caches[i - POWER_MIN];
+        if (cache_create(1 << i, cache) < 0) {
+            return -2;
+        }
+    }
+    0
 }
 
 /* NOTE: does NOT support sizes larger than a slab.  For that, you will want to
  * use find_pages */
 fn mallot(size: u32) -> *u32 {
 
-				let cache_num: i32 = find_cache(size);
-				if (cache_num == -1) {
-								return null;
-				}
-				cache_remove(&(caches[cache_num as u32]))
+    let cache_num: i32 = find_cache(size);
+    if (cache_num == -1) {
+        return null;
+    }
+    cache_remove(&(caches[cache_num as u32]))
 }
 
 fn lib(element: *u32, size: u32) {
-				mos_memset(element, 0xc, size);
-				if (size == 0) {
-								return ();
-				}
+    mos_memset(element, 0xc, size);
+    if (size == 0) {
+        return ();
+    }
 
-				let cache_num: i32 = find_cache(size);
-				if (cache_num < 0) {
-								return ();
-				}
-				cache_add(element, &(caches[cache_num as u32]))
+    let cache_num: i32 = find_cache(size);
+    if (cache_num < 0) {
+        return ();
+    }
+    cache_add(element, &(caches[cache_num as u32]))
 }
 
 
