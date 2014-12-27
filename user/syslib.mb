@@ -88,5 +88,9 @@ fn new_vid_buffer(addr: *u8) -> i32 {
 }
 
 fn free_vid_buffer(addr: *u8) {
-    syscall_1(shared::syscall_consts::INT_FREE_VID_PAGE, addr as u32); 
+    syscall_1(shared::syscall_consts::INT_FREE_VID_PAGE, addr as u32);
+}
+
+fn set_vid_buffer(addr: *u8) -> i32 {
+    syscall_1(shared::syscall_consts::INT_SET_VID_BUFFER, addr as u32) as i32
 }

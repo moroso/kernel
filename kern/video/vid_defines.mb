@@ -8,7 +8,10 @@ const VID_MEM_END: u32 = 0xC0000;
 // we assume this number is small -- like 8
 const NUM_VID_PAGES: u32 = ((VID_MEM_END - VID_MEM_START)/PAGE_SIZE);
 
+// VGA ports:
+const VID_CRTC_INDEX: u32 = 0x3d4;
+const VID_CRTC_DATA: u32 = 0x3d5;
 
-
-
-
+// VGA CRTC registers
+const VID_CRTC_REG_START_ADDR_HIGH: u32 = 0xc;
+const VID_CRTC_REG_START_ADDR_LOW: u32 = 0xd;

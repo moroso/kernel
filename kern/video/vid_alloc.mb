@@ -7,7 +7,7 @@ use structures::schedule::*;
 static vid_mem_table: bool[NUM_VID_PAGES];
 static vid_mut: kmut = KMUT_INIT!(vid_mut);
 
-// assume this stage occurs on init 
+// assume this stage occurs on init
 fn vid_init() {
     let i: u32;
     for (i = 0; i < NUM_VID_PAGES; i+=1) {
@@ -36,6 +36,6 @@ fn vid_free(page: *u8) {
     let page_num = (page as u32 - VID_MEM_START)/PAGE_SIZE;
 
     kmut_lock(&vid_mut);
-    vid_mem_table[page_num] = true; 
+    vid_mem_table[page_num] = true;
     kmut_unlock(&vid_mut);
 }
