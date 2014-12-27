@@ -13,6 +13,7 @@ mod loader;
 mod drivers;
 mod sys;
 mod ipc;
+mod video;
 
 mod kernel_main;
 

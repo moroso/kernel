@@ -82,3 +82,11 @@ fn mailbox_move(old_desc: u32, new_desc: u32) -> i32 {
 				syscall_2(shared::syscall_consts::INT_MAILBOX_MOVE, old_desc, new_desc) as
 								i32
 }
+
+fn new_vid_buffer(addr: *u8) -> i32 {
+    syscall_1(shared::syscall_consts::INT_NEW_VID_PAGE, addr as u32) as i32
+}
+
+fn free_vid_buffer(addr: *u8) {
+    syscall_1(shared::syscall_consts::INT_FREE_VID_PAGE, addr as u32); 
+}

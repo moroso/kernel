@@ -15,6 +15,8 @@ use utils::stdlib::*;
 use utils::list::*;
 use structures::schedule::{get_tcb, cond_preempt_disable, cond_preempt_enable};
 use locks::mutex::*;
+use video::vid_alloc::*;
+use video::vid_defines::*;
 
 
 // XXX: these shouldn't be here!
@@ -326,6 +328,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
     let size = get_log_addr_size(log_addr, PD);
     dec_frame_ref(frame, PD, size);
 
+
     *page_entry = null;
     invalidate_tlb(log_addr);
 
@@ -406,6 +409,11 @@ fn get_frame(size: u32) -> *u8 {
 
 fn free_frame(frame: *u8, size: u32) {
 
+    if (frame >= VID_MEM_START as *u8 && frame < VID_MEM_END as *u8) {
+        assert!(size == KB);
+        vid_free(get_aligned_addr(frame as *u32) as *u8);
+        return ();
+    }
     if (size == KB) {
         frame_free(frame);
     } else {
@@ -423,8 +431,6 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
     }
     log_addr = get_aligned_addr(log_addr as *u32) as *u8;
 
-    // TODO I know there's a reason I shouldn't be doing this.  I just can't put
-    // my finger on it
     mos_memset(new_frame, 0, PAGE_SIZE);
 
     let ret: i32;
@@ -445,7 +451,10 @@ fn remove_pages(addr: *u8, len: u32) {
     if (!(is_user_addr(addr_start) && is_user_addr(addr_end))) {
         return ();
     }
+    kmut_lock(&get_tcb()->proc->PD.mut);
     free_user_range(addr_start, addr_end, &get_tcb()->proc->PD);
+    kmut_unlock(&get_tcb()->proc->PD.mut);
+
 }
 
 fn free_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t) {
@@ -488,7 +497,31 @@ fn PD_entries_destroy(entries: **u32) {
     frame_free(entries as *u8);
 }
 
-// TODO locks, management of regions
+fn new_vid_buffer(log_addr: *u8) -> i32 {
+    let PD = &(get_tcb()->proc->PD);
+    kmut_lock(&(PD->mut));
+    let frame_addr: **u8 = log_to_phys(log_addr, PD);
+    if (frame_addr != null && *frame_addr != null) {
+        kmut_unlock(&(PD->mut));
+        return VM_ERR_ALLOC;
+    }
+    let new_frame = vid_alloc();
+    if (new_frame == null) {
+        kmut_unlock(&(PD->mut));
+        return VM_ERR_MEM;
+    }
+    let ret = set_page(new_frame, log_addr, PD, READ_WRITE_BIT, KB, false);
+    if (ret < 0) {
+        vid_free(new_frame);
+    }
+    kmut_unlock(&(PD->mut));
+    ret
+}
+
+fn free_vid_buffer(log_addr: *u8) {
+    free_page(log_addr, &get_tcb()->proc->PD);
+}
+
 fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
     if (len%PAGE_SIZE != 0) {
         return -1;
@@ -515,7 +548,6 @@ fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
     assert!(is_user_addr(addr_start) && is_user_addr(addr_end));
     addr_start = get_aligned_addr(addr_start as *u32) as *u8;
     addr_end = get_aligned_addr(addr_end as *u32) as *u8;
-    // TODO take lock so we can lookup
     let page_read: *u8;
     let ret: i32;
 

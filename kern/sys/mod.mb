@@ -62,7 +62,8 @@ fn sys_init() {
     syscall!(INT_MAILBOX_REMOVE, mailbox::mailbox_remove);
     syscall!(INT_REMOVE_PAGES, remove_pages);
     syscall!(INT_MAILBOX_MOVE, mailbox::mailbox_move);
-
+    syscall!(INT_NEW_VID_PAGE, new_vid_buffer);
+    syscall!(INT_FREE_VID_PAGE, free_vid_buffer);
 }
 
 

@@ -2,11 +2,12 @@
  * makes a request to use the buffer with the console. 
 */
 
-use syslib::{abscond, mailbox_new, mailbox_remove};
+use syslib::{abscond, mailbox_new, mailbox_remove, new_vid_buffer};
 use server::new_server;
 use console::{CONSOLE_SERVER_ID, use_console};
 
 const NUM_CONSOLE_THREADS: u32 = 16;
+
 fn main() -> i32 {
 
     /*** initialize console server; blocks until server is set up ***/
@@ -30,7 +31,7 @@ fn main() -> i32 {
     // perform buffer operations
 
     /*** request to use new buffer with console ***/
-    if (use_console(console_mb as u32, buffer_id, 16, -1) < 0) {
+    if (use_console(console_mb as u32, 0xdeadb000 as *u8, -1) < 0) {
         printf!("ERROR: console\n");
         abscond(-1);
     }
