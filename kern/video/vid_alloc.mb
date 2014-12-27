@@ -1,0 +1,42 @@
+use video::vid_defines::*;
+use locks::mutex::*;
+use consts::PAGE_SIZE;
+use structures::VM::is_addr_aligned;
+use structures::schedule::*;
+
+static vid_mem_table: bool[NUM_VID_PAGES];
+static vid_mut: kmut = KMUT_INIT!(vid_mut);
+
+// assume this stage occurs on init 
+fn vid_init() {
+    let i: u32;
+    for (i = 0; i < NUM_VID_PAGES; i+=1) {
+        vid_mem_table[i] = true;
+    }
+}
+
+fn vid_alloc() -> *u8 {
+    kmut_lock(&vid_mut);
+    let i: u32;
+    for (i = 0; i < NUM_VID_PAGES; i+=1) {
+        if (vid_mem_table[i] == true) {
+            vid_mem_table[i] = false;
+            kmut_unlock(&vid_mut);
+
+            return ((i * PAGE_SIZE) + VID_MEM_START) as *u8;
+        }
+    }
+    kmut_unlock(&vid_mut);
+    null
+}
+
+fn vid_free(page: *u8) {
+    assert!(page >= VID_MEM_START as *u8 && page < VID_MEM_END as *u8);
+    assert!(is_addr_aligned(page));
+    let page_num = (page as u32 - VID_MEM_START)/PAGE_SIZE;
+
+    kmut_lock(&vid_mut);
+    assert!(vid_mem_table[page_num] == false);
+    vid_mem_table[page_num] = true; 
+    kmut_unlock(&vid_mut);
+}
