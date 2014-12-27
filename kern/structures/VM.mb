@@ -108,12 +108,12 @@ fn make_entry(pd: u32, pt: u32, ofs: u32) -> *u8 {
 }
 
 /* page-aligns addr */
-fn get_aligned_addr(addr: *u32) -> *u32 {
+fn get_aligned_addr<T>(addr: *T) -> *T {
     ((addr as u32)&(PD_MASK | PT_MASK)) as *u32
 }
 
-fn is_addr_aligned(addr: *u8) -> bool {
-    (addr == get_aligned_addr(addr as *u32) as *u8)
+fn is_addr_aligned<T>(addr: *T) -> bool {
+    (addr == get_aligned_addr(addr as *u32))
 }
 
 fn is_user_addr<T>(addr: *T) -> bool {
@@ -306,7 +306,7 @@ fn reuse_frame(log_addr: *u8, PD_source: *PD_t, PD_dest: *PD_t) -> i32 {
 fn free_page(log_addr: *u8, PD: *PD_t) {
 
     assert!(is_user_addr(log_addr));
-    log_addr = get_aligned_addr(log_addr as *u32) as *u8;
+    log_addr = get_aligned_addr(log_addr);
     let page_entry: **u8 = log_to_phys(log_addr, PD);
     if (page_entry == null) {
         return ();
@@ -342,7 +342,7 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  */
 fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32, coll_force:
         bool) -> i32 {
-    log_addr = get_aligned_addr(log_addr as *u32) as *u8;
+    log_addr = get_aligned_addr(log_addr);
     assert!(PD != null);
     assert!(is_kernel_addr(frame));
     assert!(PD->PT_entries != null);
@@ -387,8 +387,8 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32, coll_fo
     if (is_user_addr(log_addr)) {
         inc_frame_ref(frame);
     }
-    if (get_aligned_addr((*(log_to_phys(log_addr, PD) as *u32)) as *u32) !=
-            get_aligned_addr(frame as *u32) as *u32)
+    if (get_aligned_addr((*(log_to_phys(log_addr, PD)))) !=
+            get_aligned_addr(frame))
     {
         printf!("page not actually set in set_page(): %x %x\n",
                 *(log_to_phys(log_addr, PD) as *u32), frame);
@@ -411,7 +411,7 @@ fn free_frame(frame: *u8, size: u32) {
 
     if (frame >= VID_MEM_START as *u8 && frame < VID_MEM_END as *u8) {
         assert!(size == KB);
-        vid_free(get_aligned_addr(frame as *u32) as *u8);
+        vid_free(get_aligned_addr(frame));
         return ();
     }
     if (size == KB) {
@@ -429,7 +429,7 @@ fn new_user_page(log_addr: *u8, PD: *PD_t, flags: u32, size: u32) -> i32 {
         return VM_ERR_MEM;
 
     }
-    log_addr = get_aligned_addr(log_addr as *u32) as *u8;
+    log_addr = get_aligned_addr(log_addr);
 
     mos_memset(new_frame, 0, PAGE_SIZE);
 
@@ -548,8 +548,8 @@ fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
 fn new_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t, flags: u32, size:
         u32) -> i32 {
     assert!(is_user_addr(addr_start) && is_user_addr(addr_end));
-    addr_start = get_aligned_addr(addr_start as *u32) as *u8;
-    addr_end = get_aligned_addr(addr_end as *u32) as *u8;
+    addr_start = get_aligned_addr(addr_start);
+    addr_end = get_aligned_addr(addr_end);
     let page_read: *u8;
     let ret: i32;
 
@@ -643,10 +643,10 @@ fn PD_init(PD: *PD_t) -> i32 {
  * allowed to fail.  */
 fn cow_copy(log_addr: *u8, PD: *PD_t) {
 
-    log_addr = get_aligned_addr(log_addr as *u32) as *u8;
+    log_addr = get_aligned_addr(log_addr);
     let frame_orig_addr: **u8 = log_to_phys(log_addr, PD);
     assert!(frame_orig_addr != null);
-    let frame_orig: *u8 = get_aligned_addr(*frame_orig_addr as *u32) as *u8;
+    let frame_orig: *u8 = get_aligned_addr(*frame_orig_addr);
 
 
     // if we are the only one holding the page, let's make it writable again
