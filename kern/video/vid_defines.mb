@@ -1,0 +1,14 @@
+/* vid_defines.mb: some constants regarding video memory
+ *
+*/
+use consts::PAGE_SIZE;
+
+const VID_MEM_START: u32 = 0xB8000;
+const VID_MEM_END: u32 = 0xC0000;
+// we assume this number is small -- like 8
+const NUM_VID_PAGES: u32 = ((VID_MEM_END - VID_MEM_START)/PAGE_SIZE);
+
+
+
+
+
