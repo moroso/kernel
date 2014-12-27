@@ -36,7 +36,6 @@ fn vid_free(page: *u8) {
     let page_num = (page as u32 - VID_MEM_START)/PAGE_SIZE;
 
     kmut_lock(&vid_mut);
-    assert!(vid_mem_table[page_num] == false);
     vid_mem_table[page_num] = true; 
     kmut_unlock(&vid_mut);
 }
