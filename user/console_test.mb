@@ -1,0 +1,32 @@
+use syslib::{abscond, mailbox_new, mailbox_remove};
+use server::*;
+use console::*;
+
+const NUM_CONSOLE_THREADS: u32 = 16;
+fn main() -> i32 {
+
+    /*** initialize console server; blocks until server is set up ***/
+    let new_mb = mailbox_new();
+    if (new_mb < 0) {
+        printf!("ERROR: initializing new mailbox\n");
+        abscond(-1);
+    }
+    let console_mb: i32;
+    if ((console_mb = new_server(CONSOLE_SERVER_ID, NUM_CONSOLE_THREADS, new_mb)) < 0) {
+        printf!("ERROR: initializing console server\n");
+        abscond(-1);
+    }
+    mailbox_remove(new_mb as u32);
+ 
+    let buffer_id = 4; // TODO buffer allocation syscall
+
+    /*** request to use new buffer with console ***/
+    if (use_console(console_mb as u32, buffer_id, 16, -1) < 0) {
+        printf!("ERROR: console\n");
+        abscond(-1);
+    }
+
+    printf!("***SUCCESS***\n");
+    abscond(0);
+    0
+}

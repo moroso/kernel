@@ -86,8 +86,7 @@ fn run_file_query(args: *u8) {
             printf!("ERROR: file append\n");
             abscond(-1);
         }
-    }        
-
+    }         
 
     abscond(0);
 }
@@ -140,6 +139,7 @@ fn main() -> i32 {
             printf!("TEST ERROR: allocating page_read\n");
             abscond(-1);
         }
+
         if (file_read(fs_mb as u32, FILE_NAME, page_read, &read_size, 0, -1) < 0) {
             printf!("ERROR reading file\n");
             abscond(-1);
