@@ -17,3 +17,4 @@ const INT_REMOVE_PAGES: u32 = 18;
 const INT_MAILBOX_MOVE: u32 = 19;
 const INT_NEW_VID_PAGE: u32 = 20;
 const INT_FREE_VID_PAGE: u32 = 21;
+const INT_SET_VID_BUFFER: u32 = 22;

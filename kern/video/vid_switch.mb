@@ -1,0 +1,41 @@
+use video::vid_defines::*;
+use structures::VM::{get_aligned_addr, is_addr_aligned, log_to_phys, VM_ERR_MEM};
+use structures::schedule::get_tcb;
+use locks::mutex::{kmut_lock, kmut_unlock};
+
+extern fn outb(x: u32, y: u32);
+
+fn set_vid_buffer(log_addr: *u8) -> i32 {
+    let PD = &(get_tcb()->proc->PD);
+    kmut_lock(&(PD->mut));
+    let frame_addr: **u8 = log_to_phys(log_addr, PD);
+
+    if (frame_addr == null) {
+        kmut_unlock(&(PD->mut));
+        return VM_ERR_MEM;
+    }
+
+    let phys_addr: *u8 = get_aligned_addr(*frame_addr);
+
+    kmut_unlock(&(PD->mut));
+
+    if (phys_addr as u32 < VID_MEM_START ||
+        phys_addr as u32 >= VID_MEM_END) {
+        return VM_ERR_MEM;
+    }
+
+    let offset: u32 = (phys_addr as u32 - VID_MEM_START) / 2;
+
+    let offset_high: u32 = offset >> 8;
+    let offset_low: u32 = offset & 0xff;
+
+    assert!(offset_high & 0xff == offset_high);
+
+    outb(VID_CRTC_INDEX, VID_CRTC_REG_START_ADDR_HIGH);
+    outb(VID_CRTC_DATA, offset_high);
+
+    outb(VID_CRTC_INDEX, VID_CRTC_REG_START_ADDR_LOW);
+    outb(VID_CRTC_DATA, offset_low);
+
+    0
+}
