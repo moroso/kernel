@@ -1,6 +1,10 @@
+/* console_test.mb: basic test of console server.  Allocates a buffer and
+ * makes a request to use the buffer with the console. 
+*/
+
 use syslib::{abscond, mailbox_new, mailbox_remove};
-use server::*;
-use console::*;
+use server::new_server;
+use console::{CONSOLE_SERVER_ID, use_console};
 
 const NUM_CONSOLE_THREADS: u32 = 16;
 fn main() -> i32 {
@@ -17,8 +21,13 @@ fn main() -> i32 {
         abscond(-1);
     }
     mailbox_remove(new_mb as u32);
- 
-    let buffer_id = 4; // TODO buffer allocation syscall
+
+    /* TODO buffer allocation syscall; will look something 
+     * like get_buffer(addr: *u8, size: u32) -> i32 
+     * maps a buffer at addr and associates it with a buffer id */
+    let buffer_id = 4; 
+
+    // perform buffer operations
 
     /*** request to use new buffer with console ***/
     if (use_console(console_mb as u32, buffer_id, 16, -1) < 0) {
