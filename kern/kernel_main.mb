@@ -22,6 +22,7 @@ use drivers::timer::*;
 use sys::*;
 use structures::tcb_dir::*;
 use utils::list::*;
+use video::vid_alloc::vid_init;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -93,7 +94,7 @@ fn create_idle_tcb() {
 
 fn kernel_main() -> u32 {
     kernel_setup();
-
+    vid_init();
     let new_tcb: *tcb;
     new_tcb = thr_create(user_thread, null, 0);
     tcb_dir_add(new_tcb);
