@@ -1,0 +1,77 @@
+use prelude::server::*;
+use prelude::rt_abort;
+use prelude::syslib::get_tid;
+use prelude::ipclib::{ipc_recv_short, ipc_send_short, ipc_reply_i32};
+
+const CONSOLE_SERVER_ID: *u8 = "console_server";
+static console_server_active: bool = false;
+
+struct console_request {
+    tid: u32,
+    buffer_id: u32,
+    buffer_size: u32,
+}
+
+fn console_worker(mb_arg: *u8) {
+    /*** setup ***/
+    let mb = mb_arg as i32;
+    assert!(mb >= 0);
+
+
+    if (server_thread_init(mb as u32) < 0) {
+        server_thread_exit(&console_server_active, -1); 
+    } 
+
+    let request: console_request;
+
+    while(console_server_active) {
+        let status: i32 = 0;
+        let request_size: u32 = sizeof(console_request);
+        if (ipc_recv_short(mb as u32, &request as *u8, &request_size, -1, null)
+                >= 0  && request_size == sizeof(console_request)) {
+            printf!("received a message from thread %d with buffer %d!\n",
+                    request.tid, request.buffer_id);    
+
+            /// process buffer request
+
+            ipc_reply_i32(&status); 
+        }
+
+    }
+
+    server_thread_exit(&console_server_active, 0); 
+
+
+} 
+
+fn console_init(num_threads: u32, mb: i32) -> i32 {
+    server_init(CONSOLE_SERVER_ID, &console_server_active, num_threads,
+            console_worker, mb, true, -1);        
+    -1
+}
+
+/* writes buffer to console.  Client blocks until request is serviced by server.  
+ * fails if console server is unable or unwilling to display buffer  
+ *
+ * console_mb: mailbox descriptor for the console.  Must be a valid descriptor.
+ * buffer_id: id for buffer retrieved from get_buffer syscall
+ * buffer_size: size of content in buffer
+ * timeout: how long client should wait for request before timing out. 
+*/
+fn use_console(console_mb: u32, buffer_id: u32, buffer_size: u32, timeout: i32) -> i32 {
+    let request: console_request;
+    request.tid = get_tid();
+    request.buffer_id = buffer_id;
+    request.buffer_size = buffer_size;   
+
+    let status: i32 = 0;
+    let status_size: u32 = sizeof(i32);
+    let ret = ipc_send_short(console_mb, &request as *u8, sizeof(console_request), &status
+            as *u8, &status_size, false, timeout);
+
+    if (ret < 0) {
+        return ret;
+    }
+
+    status
+}

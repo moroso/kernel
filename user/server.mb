@@ -157,7 +157,7 @@ fn new_server(prog_name: *u8, num_threads: u32, desc: i32) -> i32 {
  * - Timeout specifies how many cycles to wait on a signal to desc.  a timeout
  *   of -1 denotes an infinite wait.
  *
- * Does not return.
+ * Does not return on success.
  *
  */
 fn server_init(name: *u8, server_active: *bool, num_threads: u32, run_server: fn(*u8)->(), 

@@ -60,7 +60,7 @@ struct file_message {
 // number of pages each server thread allocates to store file data 
 static FILE_BUFFER_PAGES: u32 = 3;
 // number of bytes in buffer
-static FILE_BUFFER_MAX: u32 = 3 * PAGE_SIZE;
+static FILE_BUFFER_MAX: u32 = (3 * PAGE_SIZE);
 
 /*** server code ***/
 

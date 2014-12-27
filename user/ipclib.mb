@@ -227,7 +227,15 @@ fn ipc_recv_i32(mb: u32, dest_i32: *i32, timeout: i32, reply_needed: *bool) -> i
             reply_needed)
 }
 
-// receive a ling and short message 
+
+// receive a short message 
+fn ipc_recv_short(mb: u32, short_addr: *u8, short_len: *u32, 
+        timeout: i32, reply_needed: *bool) -> i32 {
+    ipc_recv_all(mb, null, null, short_addr, short_len, null, -1,
+            reply_needed)
+}
+
+// receive a long and short message 
 fn ipc_recv_long(mb: u32, long_addr: *u8, long_len: *u32, short_addr: *u8, short_len: *u32, 
         timeout: i32, reply_needed: *bool) -> i32 {
     ipc_recv_all(mb, long_addr, long_len, short_addr, short_len, null, -1,
@@ -283,7 +291,12 @@ i32 {
     ipc_reply_full(long_addr, long_len, short_addr, short_len, -1)
 }
 
+// reply with an i32-sized message
+fn ipc_reply_i32(message: *i32) -> i32 {
+		ipc_reply_full(null, 0, message as *u32, sizeof(i32), -1)
+} 
+
 // reply with a short message and mailbox descriptor 
 fn ipc_reply_mb(short_addr: *u32, short_len: u32, desc: u32) -> i32 {
-    ipc_reply_full(null, 0, short_addr, short_len, desc as i32)
+				ipc_reply_full(null, 0, short_addr, short_len, desc as i32)
 }
