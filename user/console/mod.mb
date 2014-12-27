@@ -12,6 +12,7 @@ struct console_request {
     buffer_size: u32,
 }
 
+/* initializes server thread and processes requests */
 fn console_worker(mb_arg: *u8) {
     /*** setup ***/
     let mb = mb_arg as i32;
@@ -44,13 +45,19 @@ fn console_worker(mb_arg: *u8) {
 
 } 
 
+/* called from console program to initialize server
+ *
+ * num_threads: number of worker threads in server
+ * mb: mailbox to send a wakeup message to. ignored if mb is negative 
+ * returns on failure 
+ */
 fn console_init(num_threads: u32, mb: i32) -> i32 {
     server_init(CONSOLE_SERVER_ID, &console_server_active, num_threads,
             console_worker, mb, true, -1);        
     -1
 }
 
-/* writes buffer to console.  Client blocks until request is serviced by server.  
+/* sends buffer use request to console.  Client blocks until request is serviced by server.  
  * fails if console server is unable or unwilling to display buffer  
  *
  * console_mb: mailbox descriptor for the console.  Must be a valid descriptor.
