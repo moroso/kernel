@@ -500,28 +500,51 @@ fn PD_entries_destroy(entries: **u32) {
 fn new_vid_buffer(log_addr: *u8) -> i32 {
     let PD = &(get_tcb()->proc->PD);
     kmut_lock(&(PD->mut));
-    let frame_addr: **u8 = log_to_phys(log_addr, PD);
-    if (frame_addr != null && *frame_addr != null) {
+    let i: u32;
+
+    // Make sure that we don't wrap off the end of memory.
+    if (log_addr + VID_REGION_SIZE * PAGE_SIZE < log_addr) {
         kmut_unlock(&(PD->mut));
         return VM_ERR_ALLOC;
     }
-    let new_frame = vid_alloc();
-    if (new_frame == null) {
+    for (i = 0; i < VID_REGION_SIZE; i += 1) {
+        let frame_addr: **u8 = log_to_phys(log_addr + i * PAGE_SIZE, PD);
+        if (frame_addr != null && *frame_addr != null) {
+            kmut_unlock(&(PD->mut));
+            return VM_ERR_ALLOC;
+        }
+    }
+    let new_frames = vid_alloc();
+    if (new_frames == null) {
         kmut_unlock(&(PD->mut));
         return VM_ERR_MEM;
     }
-    mos_memset(new_frame, 0, PAGE_SIZE);
+    mos_memset(new_frames, 0, PAGE_SIZE * VID_REGION_SIZE);
 
-    let ret = set_page(new_frame, log_addr, PD, USER_SUPER_BIT | READ_WRITE_BIT, KB, false);
-    if (ret < 0) {
-        vid_free(new_frame);
+    let ret: i32;
+    for (i = 0; i < VID_REGION_SIZE; i += 1) {
+        ret = set_page(new_frames + i * PAGE_SIZE,
+                       log_addr + i * PAGE_SIZE,
+                       PD, USER_SUPER_BIT | READ_WRITE_BIT, KB, false);
+        if (ret < 0) {
+            // If it failed, we have to free any pages we've already allocated.
+            let j: u32;
+            for (j = 0; j < i; j += 1) {
+                free_page(log_addr + j * PAGE_SIZE, &get_tcb()->proc->PD);
+            }
+            vid_free(new_frames);
+            break;
+        }
     }
     kmut_unlock(&(PD->mut));
     ret
 }
 
 fn free_vid_buffer(log_addr: *u8) {
-    free_page(log_addr, &get_tcb()->proc->PD);
+    let i: u32;
+    for (i = 0; i < VID_REGION_SIZE; i += 1) {
+        free_page(log_addr + i * PAGE_SIZE, &get_tcb()->proc->PD);
+    }
 }
 
 fn new_pages(addr: *u8, len: u32, size: u32) ->i32 {
