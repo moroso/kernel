@@ -4,13 +4,13 @@ use consts::PAGE_SIZE;
 use structures::VM::is_addr_aligned;
 use structures::schedule::*;
 
-static vid_mem_table: bool[NUM_VID_PAGES];
+static vid_mem_table: bool[NUM_VID_REGIONS];
 static vid_mut: kmut = KMUT_INIT!(vid_mut);
 
 // assume this stage occurs on init
-fn vid_init() {
+fn vid_alloc_init() {
     let i: u32;
-    for (i = 0; i < NUM_VID_PAGES; i+=1) {
+    for (i = 0; i < NUM_VID_REGIONS; i+=1) {
         vid_mem_table[i] = true;
     }
 }
@@ -18,12 +18,12 @@ fn vid_init() {
 fn vid_alloc() -> *u8 {
     kmut_lock(&vid_mut);
     let i: u32;
-    for (i = 0; i < NUM_VID_PAGES; i+=1) {
+    for (i = 0; i < NUM_VID_REGIONS; i+=1) {
         if (vid_mem_table[i] == true) {
             vid_mem_table[i] = false;
             kmut_unlock(&vid_mut);
 
-            return ((i * PAGE_SIZE) + VID_MEM_START) as *u8;
+            return ((i * PAGE_SIZE * VID_REGION_SIZE) + VID_MEM_START) as *u8;
         }
     }
     kmut_unlock(&vid_mut);

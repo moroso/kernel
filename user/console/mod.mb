@@ -3,7 +3,7 @@ use prelude::rt_abort;
 use prelude::syslib::{get_tid, new_vid_buffer, free_vid_buffer};
 use prelude::ipclib::{ipc_recv_short, ipc_send_long, ipc_reply_i32, ipc_reply};
 use prelude::locks::mutex::*;
-use prelude::shared::consts::{PAGE_SIZE, USER_MEM_START};
+use prelude::shared::consts::{PAGE_SIZE, USER_MEM_START, VID_REGION_SIZE};
 
 const CONSOLE_SERVER_ID: *u8 = "console_server";
 static console_server_active: bool = false;
@@ -74,7 +74,7 @@ fn console_worker(mb_arg: *u8) {
                 status = -1;
                 ipc_reply_i32(&status); 
             } else {
-                if (ipc_reply(buffer, PAGE_SIZE, &status as *u32, sizeof(i32)) <
+                if (ipc_reply(buffer, PAGE_SIZE * VID_REGION_SIZE, &status as *u32, sizeof(i32)) <
                         0) {
                     free_vid_buffer(buffer);
                 }
@@ -111,7 +111,7 @@ fn use_console(console_mb: u32, buffer: *u8, timeout: i32) -> i32 {
     request.tid = get_tid();
     let status: i32 = 0;
     let status_size: u32 = sizeof(i32);
-    let buffer_len: u32 = PAGE_SIZE;
+    let buffer_len: u32 = PAGE_SIZE * VID_REGION_SIZE;
     let ret = ipc_send_long(console_mb, null, 0, &request as *u8,
             sizeof(console_request), buffer, &buffer_len, &status
             as *u8, &status_size, timeout, false);

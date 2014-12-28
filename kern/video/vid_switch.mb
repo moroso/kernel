@@ -1,9 +1,116 @@
+use consts::PAGE_SIZE;
 use video::vid_defines::*;
 use structures::VM::{get_aligned_addr, is_addr_aligned, log_to_phys, VM_ERR_MEM};
 use structures::schedule::get_tcb;
 use locks::mutex::{kmut_lock, kmut_unlock};
 
+// TODO: this really should take a u8.
 extern fn outb(x: u32, y: u32);
+extern fn inb(x: u32) -> u8;
+
+/* Initialize mode 13h. */
+fn set_mode_13h() {
+    // The following closely follows the write_regs function from
+    // http://files.osdev.org/mirrors/geezer/osd/graphics/modes.c
+    let i: u32 = 0;
+    let j: u32 = 0;
+
+    const VID_NUM_SEQ_REGS: u32 = 5;
+    const VID_NUM_CRTC_REGS: u32 = 25;
+    const VID_NUM_GC_REGS: u32 = 9;
+    const VID_NUM_AC_REGS: u32 = 21;
+    const VID_NUM_REGS: u32 = 61;
+
+    let regs = [
+        /* MISC */
+	      0x63,
+        /* SEQ */
+	      0x03, 0x01, 0x0F, 0x00, 0x0E,
+        /* CRTC */
+	      0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F,
+	      0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	      0x9C, 0x0E, 0x8F, 0x28,	0x40, 0x96, 0xB9, 0xA3,
+	      0xFF,
+        /* GC */
+	      0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x05, 0x0F,
+	      0xFF,
+        /* AC */
+	      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	      0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+	      0x41, 0x00, 0x0F, 0x00,	0x00
+            ];
+
+    outb(VID_MISC_WRITE, regs[i] as u32);
+    i += 1;
+
+    assert!(i == 1);
+
+    for (j = 0; j < VID_NUM_SEQ_REGS; {j += 1; i += 1}) {
+        outb(VID_SEQ_INDEX, j as u32);
+        outb(VID_SEQ_DATA, regs[i] as u32);
+    }
+
+    assert!(i == 1 + VID_NUM_SEQ_REGS);
+
+    outb(VID_CRTC_INDEX, 0x03);
+    outb(VID_CRTC_DATA, (inb(VID_CRTC_DATA) | 0x80) as u32);
+    outb(VID_CRTC_INDEX, 0x11);
+    outb(VID_CRTC_DATA, (inb(VID_CRTC_DATA) & ~0x80) as u32);
+
+    for (j = 0; j < VID_NUM_CRTC_REGS; {j += 1; i += 1}) {
+        outb(VID_CRTC_INDEX, j as u32);
+        outb(VID_CRTC_DATA, regs[i] as u32);
+    }
+
+    assert!(i == 1 + VID_NUM_SEQ_REGS + VID_NUM_CRTC_REGS);
+
+    for (j = 0; j < VID_NUM_GC_REGS; {j += 1; i += 1}) {
+        outb(VID_GC_INDEX, j as u32);
+        outb(VID_GC_DATA, regs[i] as u32);
+    }
+
+    assert!(i == 1 + VID_NUM_SEQ_REGS + VID_NUM_CRTC_REGS + VID_NUM_GC_REGS);
+
+    for (j = 0; j < VID_NUM_AC_REGS; {j += 1; i += 1}) {
+        inb(VID_INSTAT_READ);
+        outb(VID_AC_INDEX, j as u32);
+        outb(VID_AC_WRITE, regs[i] as u32);
+    }
+
+    assert!(i == 1 + VID_NUM_SEQ_REGS + VID_NUM_CRTC_REGS + VID_NUM_GC_REGS + VID_NUM_AC_REGS);
+
+    inb(VID_INSTAT_READ);
+    outb(VID_AC_INDEX, 0x20);
+
+    set_palette();
+}
+
+fn set_color(index: u8, red: u8, green: u8, blue: u8) {
+    outb(VID_DAC_WRITE_INDEX, index as u32);
+    outb(VID_DAC_DATA, red as u32);
+    outb(VID_DAC_DATA, green as u32);
+    outb(VID_DAC_DATA, blue as u32);
+}
+
+fn set_palette() {
+    // TODO: update this to something more reasonable.
+    let i: u8;
+    for (i = 0; i < 64; i += 1 ) {
+        set_color(i, i, 0, 0);
+    }
+
+    for (i = 0; i < 64; i += 1 ) {
+        set_color(i + 64, 0, i, 0);
+    }
+
+    for (i = 0; i < 64; i += 1 ) {
+        set_color(i + 128, 0, 0, i);
+    }
+
+    for (i = 0; i < 64; i += 1 ) {
+        set_color(i + 192, i, i, i);
+    }
+}
 
 fn set_vid_buffer(log_addr: *u8) -> i32 {
     let PD = &(get_tcb()->proc->PD);
@@ -24,12 +131,15 @@ fn set_vid_buffer(log_addr: *u8) -> i32 {
         return VM_ERR_MEM;
     }
 
-    let offset: u32 = (phys_addr as u32 - VID_MEM_START) / 2;
+    let offset: u32 = (phys_addr as u32 - VID_MEM_START);
 
-    let offset_high: u32 = offset >> 8;
+    // Ensure that the address is at the start of a region.
+    if (offset % (PAGE_SIZE * VID_REGION_SIZE) != 0) {
+        return VM_ERR_MEM;
+    }
+
+    let offset_high: u32 = (offset >> 8) & 0xff;
     let offset_low: u32 = offset & 0xff;
-
-    assert!(offset_high & 0xff == offset_high);
 
     outb(VID_CRTC_INDEX, VID_CRTC_REG_START_ADDR_HIGH);
     outb(VID_CRTC_DATA, offset_high);
