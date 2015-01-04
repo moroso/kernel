@@ -10,7 +10,6 @@ use locks::mutex::*;
 use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
-use video::vid_switch::set_vid_buffer;
 mod mailbox;
 
 extern fn enable_interrupts();
@@ -65,7 +64,6 @@ fn sys_init() {
     syscall!(INT_MAILBOX_MOVE, mailbox::mailbox_move);
     syscall!(INT_NEW_VID_PAGE, new_vid_buffer);
     syscall!(INT_FREE_VID_PAGE, free_vid_buffer);
-    syscall!(INT_SET_VID_BUFFER, set_vid_buffer);
 }
 
 
