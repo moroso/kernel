@@ -1,3 +1,1 @@
 mod vid_alloc;
-mod vid_switch;
-mod vid_defines;

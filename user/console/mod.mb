@@ -14,8 +14,8 @@ struct console_request {
     buffer_size: u32,
 }
 
-static heap_end: *u8 = 0xffffe000 as *u8; 
-static heap_pointer: *u8 = 0x4001e000 as *u8;  
+static heap_end: *u8 = 0xffffe000 as *u8;
+static heap_pointer: *u8 = 0x4001e000 as *u8;
 static page_lock: mut_t = MUTEX_INIT!();
 
 // finds an address that can get backed by video mem
@@ -27,14 +27,14 @@ fn find_vid_buffer() -> *u8 {
 
     while((heap_pointer-=PAGE_SIZE) != heap_cur) {
         if (heap_pointer < USER_MEM_START as *u8) {
-            heap_pointer = heap_end; 
-        }    
+            heap_pointer = heap_end;
+        }
         if ((ret = new_vid_buffer(heap_pointer)) >= 0) {
             let new_addr = heap_pointer;
             mut_unlock(&page_lock);
             return new_addr;
         }
-        // if we don't get a collision or wrapping error, return immediately  
+        // if we don't get a collision or wrapping error, return immediately
         // TODO error codes
         if (ret != -6 && ret != -1) {
             heap_pointer+=PAGE_SIZE;
@@ -70,6 +70,7 @@ fn console_worker(mb_arg: *u8) {
 
             /// process buffer request
             let buffer = find_vid_buffer();
+            printf!("Found buffer: %x\n", buffer);
             if (buffer == null) {
                 status = -1;
                 ipc_reply_i32(&status); 

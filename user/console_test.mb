@@ -3,30 +3,39 @@
  * makes a request to use the buffer with the console.
 */
 
-use syslib::{abscond, mailbox_new, mailbox_remove, new_vid_buffer, set_vid_buffer};
+use syslib::{abscond, mailbox_new, mailbox_remove, new_vid_buffer};
 use server::new_server;
 use console::{CONSOLE_SERVER_ID, use_console};
 
-static BUFFER: *u8 = 0xdeadb000 as *u8;
-static BUFFER2: *u8 = 0xdeaeb000 as *u8;
+static BUFFER: *u8 = 0xdead0000 as *u8;
 
 const NUM_CONSOLE_THREADS: u32 = 16;
+
+fn putpixel(buf: *u8, x: u32, y: u32, r: u8, g: u8, b: u8) {
+    buf[(y*800+x)*3 + 0] = b;
+    buf[(y*800+x)*3 + 1] = g;
+    buf[(y*800+x)*3 + 2] = r;
+}
 
 fn draw_stuff(buf: *u8) {
     let i: u32 = 0;
     let j: u32 = 0;
 
-    for (i = 0; i < 0x40; i += 1) {
+    for (i = 0; i < 0x100; i += 1) {
         for (j = 0; j < 50; j += 1) {
-            buf[96 + i + j * 320] = i as u8;
-            buf[96 + i + j * 320 + 50 * 320] = i as u8 + 0x40;
-            buf[96 + i + j * 320 + 50 * 320 * 2] = i as u8 + 0x80;
-            buf[96 + i + j * 320 + 50 * 320 * 3] = i as u8 + 0xC0;
+            putpixel(buf, 400 - 256 + i, j, i as u8, 0, 0);
+            putpixel(buf, 400 - 256 + i, j + 50, 0, i as u8, 0);
+            putpixel(buf, 400 - 256 + i, j + 100, 0, 0, i as u8);
 
-            buf[223 - i + j * 320] = i as u8;
-            buf[223 - i + j * 320 + 50 * 320] = i as u8 + 0x40;
-            buf[223 - i + j * 320 + 50 * 320 * 2] = i as u8 + 0x80;
-            buf[223 - i + j * 320 + 50 * 320 * 3] = i as u8 + 0xC0;
+            putpixel(buf, 400 + 255 - i, j, i as u8, 0, 0);
+            putpixel(buf, 400 + 255 - i, j + 50, 0, i as u8, 0);
+            putpixel(buf, 400 + 255 - i, j + 100, 0, 0, i as u8);
+        }
+    }
+
+    for (i = 0; i < 0x100; i += 1) {
+        for (j = 0; j < 0x100; j += 1) {
+            putpixel(buf, i + 400 - 128, j + 200, i as u8, j as u8, (i ^ j) as u8);
         }
     }
 }
@@ -46,10 +55,10 @@ fn main() -> i32 {
     }
     mailbox_remove(new_mb as u32);
 
-    /* TODO buffer allocation syscall; will look something 
-     * like get_buffer(addr: *u8, size: u32) -> i32 
+    /* TODO buffer allocation syscall; will look something
+     * like get_buffer(addr: *u8, size: u32) -> i32
      * maps a buffer at addr and associates it with a buffer id */
-    let buffer_id = 4; 
+    let buffer_id = 4;
 
     // perform buffer operations
 
@@ -59,17 +68,8 @@ fn main() -> i32 {
         abscond(-1);
     }
 
-    /*** request to use new buffer with console ***/
-    if (use_console(console_mb as u32, BUFFER2, -1) < 0) {
-        printf!("ERROR: console\n");
-        abscond(-1);
-    }
-
+    printf!("Buffer: %x\n", BUFFER);
     draw_stuff(BUFFER);
-
-    while (true) {
-        set_vid_buffer(BUFFER);
-    }
 
     printf!("***SUCCESS***\n");
     abscond(0);

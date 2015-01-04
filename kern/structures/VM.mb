@@ -16,7 +16,6 @@ use utils::list::*;
 use structures::schedule::{get_tcb, cond_preempt_disable, cond_preempt_enable};
 use locks::mutex::*;
 use video::vid_alloc::*;
-use video::vid_defines::*;
 
 
 // XXX: these shouldn't be here!
@@ -228,12 +227,17 @@ fn get_frame_ref(frame: *u8) -> u32 {
 }
 
 fn dec_frame_ref(frame: *u8, PD: *PD_t, size: u32) -> u32 {
+    let frame_num: u32 = (frame as u32)/PAGE_SIZE;
+
+    if frame_num >= MAX_FRAME_NUM {
+        // Pages above MAX_FRAME_NUM aren't refcounted.
+        return 1;
+    }
     if (!(!ptr_too_low!(frame) && frame < USER_MEM_START as *u8)) {
         printf!("%p\n", frame);
     }
     assert!(!ptr_too_low!(frame) && frame < USER_MEM_START as *u8);
 
-    let frame_num: u32 = (frame as u32)/PAGE_SIZE;
     if (!(frame_num > 0 && frame_num < MAX_FRAME_NUM)) {
         printf!("tid: %d frame: %p frame_num: %d\n", get_tcb()->tid, frame,
                 frame_num);
@@ -259,6 +263,10 @@ fn dec_frame_ref(frame: *u8, PD: *PD_t, size: u32) -> u32 {
 
 fn inc_frame_ref(frame: *u8) {
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
+    if frame_num >= MAX_FRAME_NUM {
+        // Pages above MAX_FRAME_NUM aren't refcounted.
+        return ();
+    }
     assert!(frame_num > 0 && frame_num < MAX_FRAME_NUM);
     let ref_count: *u32 = &(frame_table[frame_num]);
     atomic_add(ref_count, 1);
@@ -344,7 +352,10 @@ fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32, coll_fo
         bool) -> i32 {
     log_addr = get_aligned_addr(log_addr);
     assert!(PD != null);
-    assert!(is_kernel_addr(frame));
+    let frame_num: u32 = (frame as u32)/PAGE_SIZE;
+    if frame_num <= MAX_FRAME_NUM {
+        assert!(is_kernel_addr(frame));
+    }
     assert!(PD->PT_entries != null);
     assert!(coll_force || log_to_phys(log_addr, PD) == null || *log_to_phys(log_addr, PD) ==
             null);
@@ -409,7 +420,7 @@ fn get_frame(size: u32) -> *u8 {
 
 fn free_frame(frame: *u8, size: u32) {
 
-    if (frame >= VID_MEM_START as *u8 && frame < VID_MEM_END as *u8) {
+    if (get_aligned_addr(frame) == vid_buffer_addr) {
         assert!(size == KB);
         vid_free(get_aligned_addr(frame));
         return ();
@@ -503,11 +514,11 @@ fn new_vid_buffer(log_addr: *u8) -> i32 {
     let i: u32;
 
     // Make sure that we don't wrap off the end of memory.
-    if (log_addr + VID_REGION_SIZE * PAGE_SIZE < log_addr) {
+    if (log_addr + vid_buffer_pages * PAGE_SIZE < log_addr) {
         kmut_unlock(&(PD->mut));
         return VM_ERR_ALLOC;
     }
-    for (i = 0; i < VID_REGION_SIZE; i += 1) {
+    for (i = 0; i < vid_buffer_pages; i += 1) {
         let frame_addr: **u8 = log_to_phys(log_addr + i * PAGE_SIZE, PD);
         if (frame_addr != null && *frame_addr != null) {
             kmut_unlock(&(PD->mut));
@@ -519,10 +530,12 @@ fn new_vid_buffer(log_addr: *u8) -> i32 {
         kmut_unlock(&(PD->mut));
         return VM_ERR_MEM;
     }
-    mos_memset(new_frames, 0, PAGE_SIZE * VID_REGION_SIZE);
+    // TODO: memset these new pages?
+    //mos_memset(new_frames, 0, (PAGE_SIZE * vid_buffer_pages) as u32);
 
     let ret: i32;
-    for (i = 0; i < VID_REGION_SIZE; i += 1) {
+    printf!("Starting page alloc\n");
+    for (i = 0; i < vid_buffer_pages; i += 1) {
         ret = set_page(new_frames + i * PAGE_SIZE,
                        log_addr + i * PAGE_SIZE,
                        PD, USER_SUPER_BIT | READ_WRITE_BIT, KB, false);
@@ -542,7 +555,7 @@ fn new_vid_buffer(log_addr: *u8) -> i32 {
 
 fn free_vid_buffer(log_addr: *u8) {
     let i: u32;
-    for (i = 0; i < VID_REGION_SIZE; i += 1) {
+    for (i = 0; i < vid_buffer_pages; i += 1) {
         free_page(log_addr + i * PAGE_SIZE, &get_tcb()->proc->PD);
     }
 }
