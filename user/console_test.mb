@@ -3,9 +3,10 @@
  * makes a request to use the buffer with the console.
 */
 
-use syslib::{abscond, mailbox_new, mailbox_remove, new_vid_buffer};
+use syslib::{abscond, mailbox_new, mailbox_remove, new_pages};
 use server::new_server;
 use console::{CONSOLE_SERVER_ID, use_console};
+use shared::consts::{VID_REGION_SIZE, PAGE_SIZE};
 
 static BUFFER: *u8 = 0xdead0000 as *u8;
 
@@ -55,12 +56,13 @@ fn main() -> i32 {
     }
     mailbox_remove(new_mb as u32);
 
-    /* TODO buffer allocation syscall; will look something
-     * like get_buffer(addr: *u8, size: u32) -> i32
-     * maps a buffer at addr and associates it with a buffer id */
-    let buffer_id = 4;
-
     // perform buffer operations
+
+    if (new_pages(BUFFER, PAGE_SIZE * VID_REGION_SIZE, 1024) < 0) {
+        printf!("ERROR: allocating buffer\n");
+        abscond(-1);
+    }
+    draw_stuff(BUFFER);
 
     /*** request to use new buffer with console ***/
     if (use_console(console_mb as u32, BUFFER, -1) < 0) {
@@ -68,8 +70,6 @@ fn main() -> i32 {
         abscond(-1);
     }
 
-    printf!("Buffer: %x\n", BUFFER);
-    draw_stuff(BUFFER);
 
     printf!("***SUCCESS***\n");
     abscond(0);
