@@ -122,7 +122,7 @@ fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
 
     let page: i32;
     for (page = 0; page < transfer_len; page+=(PAGE_SIZE as i32)) {
-        if (page_transfer(addr_src + page,
+        if (!is_user_addr(addr_src + page) || !is_user_addr(addr_dest + page) || page_transfer(addr_src + page,
                     addr_dest + page,
                     PD_src,
                     PD_dest, shared) < 0) {
