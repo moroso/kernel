@@ -5,7 +5,7 @@ use prelude::ipclib::{ipc_recv_long, ipc_send_long, ipc_reply_i32, ipc_reply};
 use prelude::locks::mutex::*;
 use prelude::shared::consts::{PAGE_SIZE, USER_MEM_START, VID_REGION_SIZE};
 use prelude::mallot::find_pages;
-use prelude::utils::stdlib::mos_memcpy;
+use prelude::utils::stdlib::{mos_memcpy, mos_memset};
 
 const CONSOLE_SERVER_ID: *u8 = "console_server";
 static console_server_active: bool = false;
@@ -20,25 +20,23 @@ static buffer_lock: mut_t = MUTEX_INIT!();
 static VID_BUFFER: *u8 = 0xdeadb000 as *u8;
 static BUFFER_SIZE: u32 = PAGE_SIZE * VID_REGION_SIZE;
 
+// number of buffers the console server can give up.  This can be dynamic if we
+// want 
+const NUM_BUFS: u32 = 10;
+static buffer_table: (*u8)[NUM_BUFS];
+static table_lock: mut_t = MUTEX_INIT!();
+
+
 /* initializes server thread and processes requests */
 fn console_worker(mb_arg: *u8) {
 
     /*** setup ***/
     let mb = mb_arg as i32;
-    assert!(mb >= 0);
-
-    // we do this here so that no threads proceed before each worker has its own
-    // buffer -- otherwise, we could accidentally do re-allocations in the loop
-    let request_buffer = find_pages(VID_REGION_SIZE);
+    assert!(mb >= 0); 
 
     if (server_thread_init(mb as u32) < 0) {
         server_thread_exit(&console_server_active, -1); 
     } 
-
-    if (request_buffer == null) {
-        server_thread_exit(&console_server_active, -2); 
-
-    }
 
     let request: console_request;
 
@@ -47,20 +45,48 @@ fn console_worker(mb_arg: *u8) {
         let status: i32 = 0;
         let request_size: u32 = sizeof(console_request);
         let page_req_size: u32 = BUFFER_SIZE;
-        if (ipc_recv_long(mb as u32, request_buffer, &page_req_size, &request as *u8, &request_size, -1, null)
-                >= 0  && request_size == sizeof(console_request) &&
-                page_req_size == BUFFER_SIZE) {
-            // do any computation we need to decide whether the request should be given
-            // access to the screen
+        if (ipc_recv_long(mb as u32, null, null, &request as *u8, &request_size, -1, null)
+                >= 0  && request_size == sizeof(console_request)) {
+            
+            mut_lock(&table_lock);
+            let i: u32;
+            // find an emtpy buffer entry -- we do this assuming NUM_BUFS is something small
+            for (i = 0; i < NUM_BUFS; i+=1) {
+                if ((buffer_table[i]) == null) {
+                    break;
+                }
+            }
+            if (i == NUM_BUFS) {
+                mut_unlock(&table_lock);
+                status = -2;
+                ipc_reply(null, 0, &status as
+                        *u32, sizeof(i32));
+                continue;
 
-            mut_lock(&buffer_lock);
-            mos_memcpy(VID_BUFFER, request_buffer, BUFFER_SIZE);
-            mut_unlock(&buffer_lock);
+            }
+            // mark the entry so it doesn't get used and we can safely drop the
+            // lock 
+            buffer_table[i] = 0x1 as *u8;
+            mut_unlock(&table_lock);
+
+            let request_buffer = find_pages(VID_REGION_SIZE);
+            if (request_buffer == null) {
+                status = -1;
+                ipc_reply(null, 0, &status as
+                        *u32, sizeof(i32));
+                continue;
+
+            } 
+            buffer_table[i] = request_buffer;
+            status = i as i32;
+
+            /*            mut_lock(&buffer_lock);
+                          mos_memcpy(VID_BUFFER, request_buffer, BUFFER_SIZE);
+                          mut_unlock(&buffer_lock);*/
 
             ipc_reply(request_buffer, BUFFER_SIZE, &status as
                     *u32, sizeof(i32));
 
-            remove_pages(request_buffer, BUFFER_SIZE);
         } 
 
     } 
@@ -79,6 +105,7 @@ fn console_init(num_threads: u32, mb: i32) -> i32 {
     if (new_vid_buffer(VID_BUFFER) < 0) {
         return -2;
     }
+    mos_memset(&buffer_table[0], 0, NUM_BUFS * sizeof(*u8));
     server_init(CONSOLE_SERVER_ID, &console_server_active, num_threads,
             console_worker, mb, true, -1);        
     -1
@@ -98,9 +125,9 @@ fn use_console(console_mb: u32, buffer: *u8, timeout: i32) -> i32 {
     let status: i32 = 0;
     let status_size: u32 = sizeof(i32);
     let buffer_len: u32 = BUFFER_SIZE;
-    let ret = ipc_send_long(console_mb, buffer, buffer_len, &request as *u8,
+    let ret = ipc_send_long(console_mb, null, 0, &request as *u8,
             sizeof(console_request), buffer, &buffer_len, &status
-            as *u8, &status_size, timeout, false);
+            as *u8, &status_size, timeout, true);
 
     if (ret < 0) {
         return ret;

@@ -41,6 +41,8 @@ fn draw_stuff(buf: *u8) {
     }
 }
 
+
+
 fn main() -> i32 {
 
     /*** initialize console server; blocks until server is set up ***/
