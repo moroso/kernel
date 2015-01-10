@@ -1,6 +1,25 @@
+/* console/mod.mb: implementation of console client and server functions.  The
+ * console allocates frame buffers and is responsible for displaying the frame
+ * buffer on the screen
+ * 
+ * TODO ensure clients relinquish frame buffers on exit?  we could do an
+ * in-kernel registration syscall that does some ref count checks, but the more
+ * intelligent thing to do would be to have exception ports/handlers of some sort 
+ * TODO error handling in server if buffer doesn't transfer correctly
+ * TODO associate buffers in table with some info (like tid, if there is some
+ * method of authentication between client and server?) so that we can make sure
+ * only frame buffer owners delete their frame buffers
+ * (we can also do some cartoon security YOLO approach where we place a value in
+ * the buffer they send us as verify that it shows up in the associated buffer
+ * in our table, but that would be kinda ludicrous)
+ *
+ * Author Amanda M. Watson
+*/
+
 use prelude::server::*;
 use prelude::rt_abort;
-use prelude::syslib::{get_tid, new_vid_buffer, free_vid_buffer, remove_pages};
+use prelude::syslib::{get_tid, new_vid_buffer, free_vid_buffer, remove_pages,
+    yield};
 use prelude::ipclib::{ipc_recv_long, ipc_send_long, ipc_reply_i32, ipc_reply_share};
 use prelude::locks::mutex::*;
 use prelude::shared::consts::{PAGE_SIZE, USER_MEM_START, VID_REGION_SIZE};
@@ -18,14 +37,16 @@ struct console_request {
 
 static buffer_lock: mut_t = MUTEX_INIT!();
 static VID_BUFFER: *u8 = 0xdeadb000 as *u8;
-static BUFFER_SIZE: u32 = PAGE_SIZE * VID_REGION_SIZE;
+static VID_BUFFER_SIZE: u32 = PAGE_SIZE * VID_REGION_SIZE;
 
 // number of buffers the console server can give up.  This can be dynamic if we
 // want 
 const NUM_BUFS: u32 = 10;
 static buffer_table: (*u8)[NUM_BUFS];
 static table_lock: mut_t = MUTEX_INIT!();
-
+// index of frame buffer currently being drawn to screen.  a negative value
+// means that no such buffer currently exists
+static fb_cur: i32 = -1;
 
 /* initializes server thread and processes requests */
 fn console_worker(mb_arg: *u8) {
@@ -34,9 +55,27 @@ fn console_worker(mb_arg: *u8) {
     let mb = mb_arg as i32;
     assert!(mb >= 0); 
 
-    if (server_thread_init(mb as u32) < 0) {
+    let active_threads: i32;
+    if ((active_threads = server_thread_init(mb as u32)) < 0) {
         server_thread_exit(&console_server_active, -1); 
     } 
+
+    // if we are the first thread to wake up, we get designated as the thread
+    // that copies the frame buffer to VESA mem
+    // Note that this is all sort of a hack to please x86 -- OSOROM has a more
+    // sane arch that lets us use anything as a video mem buffer
+    if (active_threads == 0) {
+        while(console_server_active) {
+            mut_lock(&buffer_lock);
+            if (fb_cur >= 0) {
+                // remember to do the proper things for buffer deletions
+                mos_memcpy(VID_BUFFER, buffer_table[fb_cur as u32], VID_BUFFER_SIZE);
+            }
+            mut_unlock(&buffer_lock);
+            yield(-1);
+        }
+    }
+
 
     let request: console_request;
 
@@ -44,10 +83,10 @@ fn console_worker(mb_arg: *u8) {
 
         let status: i32 = 0;
         let request_size: u32 = sizeof(console_request);
-        let page_req_size: u32 = BUFFER_SIZE;
+        let page_req_size: u32 = VID_BUFFER_SIZE;
         if (ipc_recv_long(mb as u32, null, null, &request as *u8, &request_size, -1, null)
                 >= 0  && request_size == sizeof(console_request)) {
-            
+
             mut_lock(&table_lock);
             let i: u32;
             // find an emtpy buffer entry -- we do this assuming NUM_BUFS is something small
@@ -79,14 +118,22 @@ fn console_worker(mb_arg: *u8) {
             buffer_table[i] = request_buffer;
             status = i as i32;
 
-
-            ipc_reply_share(request_buffer, BUFFER_SIZE, &status as
-                    *u32, sizeof(i32));
+            // if there is no buffer currently being displayed, switch
+            // automatically  TODO this policy should probably not last once we
+            // have proper infrastructure 
             mut_lock(&buffer_lock);
-            while (true) {
-                mos_memcpy(VID_BUFFER, request_buffer, BUFFER_SIZE);
+            if (fb_cur < 0) {
+                fb_cur = i as i32;
             }
             mut_unlock(&buffer_lock);
+
+            if (ipc_reply_share(request_buffer, VID_BUFFER_SIZE, &status as
+                        *u32, sizeof(i32)) < 0) {
+                mut_lock(&table_lock);
+                buffer_table[i] = null;
+                mut_unlock(&table_lock);
+
+            }
 
         } 
 
@@ -100,35 +147,49 @@ fn console_worker(mb_arg: *u8) {
  * num_threads: number of worker threads in server
  * mb: mailbox to send a wakeup message to. ignored if mb is negative 
  * returns on failure 
+ * requires at least two server threads
  */
 fn console_init(num_threads: u32, mb: i32) -> i32 {
+    if (num_threads < 2) {
+        return -3;
+    }
     // get the VESA buffer for ourselves
     if (new_vid_buffer(VID_BUFFER) < 0) {
         return -2;
     }
     mos_memset(&buffer_table[0], 0, NUM_BUFS * sizeof(*u8));
+
     server_init(CONSOLE_SERVER_ID, &console_server_active, num_threads,
             console_worker, mb, true, -1);        
     -1
 }
 
-/* sends buffer use request to console.  Client blocks until request is serviced by server.  
- * fails if console server is unable or unwilling to display buffer  
+/* sends frame buffer allocation request to console.  On success, the server
+ * creates a new frame buffer for the client of size VID_BFFER, which it is able
+ * to "switch to" to display the client's buffer contents.  Client blocks until request is serviced by server.  
+ * fails if console server is unable or unwilling to allocate buffer.
  *
  * console_mb: mailbox descriptor for the console.  Must be a valid descriptor.
- * buffer_id: id for buffer retrieved from get_buffer syscall
- * buffer_size: size of content in buffer
+ * buffer: destination for new frame buffer.  Must have VID_BUFFER_SIZE bytes
+ * available for transfer 
  * timeout: how long client should wait for request before timing out. 
  */
-fn use_console(console_mb: u32, buffer: *u8, timeout: i32) -> i32 {
+fn request_buffer(console_mb: u32, buffer: *u8, timeout: i32) -> i32 {
     let request: console_request;
     request.tid = get_tid();
     let status: i32 = 0;
     let status_size: u32 = sizeof(i32);
-    let buffer_len: u32 = BUFFER_SIZE;
+    let buffer_len: u32 = VID_BUFFER_SIZE;
     let ret = ipc_send_long(console_mb, null, 0, &request as *u8,
             sizeof(console_request), buffer, &buffer_len, &status
             as *u8, &status_size, timeout, true);
+
+    if (buffer_len < VID_BUFFER_SIZE) {
+        // TODO server needs to know this happened, too.  we probably want to
+        // report this in ipc_reply
+        remove_pages(buffer, buffer_len);
+        return -9;
+    }
 
     if (ret < 0) {
         return ret;
