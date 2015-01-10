@@ -3,7 +3,7 @@
  * makes a request to use the buffer with the console.
 */
 
-use syslib::{abscond, mailbox_new, mailbox_remove, new_pages};
+use syslib::{abscond, mailbox_new, mailbox_remove, new_pages, yield};
 use server::new_server;
 use console::{CONSOLE_SERVER_ID, request_buffer};
 use shared::consts::{VID_REGION_SIZE, PAGE_SIZE};
@@ -18,27 +18,49 @@ fn putpixel(buf: *u8, x: u32, y: u32, r: u8, g: u8, b: u8) {
     buf[(y*800+x)*3 + 2] = r;
 }
 
-fn draw_stuff(buf: *u8) {
+fn draw_stuff(buf: *u8, color: u32) {
     let i: u32 = 0;
     let j: u32 = 0;
+    let space_x: u32 = 0;
+    let space_y: u32 = 0;
+    let space: u32 = 4;
 
-    for (i = 0; i < 0x100; i += 1) {
-        for (j = 0; j < 50; j += 1) {
-            putpixel(buf, 400 - 256 + i, j, i as u8, 0, 0);
-            putpixel(buf, 400 - 256 + i, j + 50, 0, i as u8, 0);
-            putpixel(buf, 400 - 256 + i, j + 100, 0, 0, i as u8);
-
-            putpixel(buf, 400 + 255 - i, j, i as u8, 0, 0);
-            putpixel(buf, 400 + 255 - i, j + 50, 0, i as u8, 0);
-            putpixel(buf, 400 + 255 - i, j + 100, 0, 0, i as u8);
-        }
-    }
-
+    let screen_width = 800;
+    let screen_height = 600;
     for (i = 0; i < 0x100; i += 1) {
         for (j = 0; j < 0x100; j += 1) {
-            putpixel(buf, i + 400 - 128, j + 200, i as u8, j as u8, (i ^ j) as u8);
+            for (space_x = 0; space_x < space; space_x +=1) {
+                for (space_y = 0; space_y < space; space_y+=1) {
+                    if ((i*space + space_x) >= screen_width || (j*space +
+                                space_y) >=
+                            screen_height) {
+                        continue;
+                    }
+                    putpixel(buf, i*space + space_x, j*space + space_y, (i +
+                                color) as u8, j as u8, ((i + color) ^ j) as u8);
+                }
+            }
+
         }
     }
+
+    for (i = 0; i < (screen_width/4); i += 1) {
+        for (j = 0; j < 70; j += 1) {
+            if (j%8 < 3) {
+            continue;
+}
+            putpixel(buf, (2*i), 530 + j, i as u8, (i/4) as u8,  (i/2) as u8);
+            putpixel(buf, (2*i+1), 530 + j, i as u8, (i/4) as u8, (i/2) as u8);
+
+            putpixel(buf, (screen_width - 0x100) +  255 - (2*i), 530 + j, i as
+                    u8, (i/4) as u8,  (i/2) as u8);
+            putpixel(buf, (screen_width - 0x100) +  255 - (2*i+1), 530 + j, i as
+                    u8, (i/4) as u8, (i/2) as u8);
+
+
+        }
+    }
+
 }
 
 
@@ -66,7 +88,9 @@ fn main() -> i32 {
         abscond(-1);
     }
 
-    draw_stuff(BUFFER);
+    yield(-1);
+
+    draw_stuff(BUFFER, 0);
 
     printf!("***SUCCESS***\n");
     abscond(0);
