@@ -60,18 +60,13 @@ fn main() -> i32 {
 
     // perform buffer operations
 
-    if (new_pages(BUFFER, PAGE_SIZE * VID_REGION_SIZE, 1024) < 0) {
-        printf!("ERROR: allocating buffer\n");
-        abscond(-1);
-    }
-    draw_stuff(BUFFER);
-
     /*** request to use new buffer with console ***/
     if (use_console(console_mb as u32, BUFFER, -1) < 0) {
         printf!("ERROR: console\n");
         abscond(-1);
     }
 
+    draw_stuff(BUFFER);
 
     printf!("***SUCCESS***\n");
     abscond(0);

@@ -1,7 +1,7 @@
 use prelude::server::*;
 use prelude::rt_abort;
 use prelude::syslib::{get_tid, new_vid_buffer, free_vid_buffer, remove_pages};
-use prelude::ipclib::{ipc_recv_long, ipc_send_long, ipc_reply_i32, ipc_reply};
+use prelude::ipclib::{ipc_recv_long, ipc_send_long, ipc_reply_i32, ipc_reply_share};
 use prelude::locks::mutex::*;
 use prelude::shared::consts::{PAGE_SIZE, USER_MEM_START, VID_REGION_SIZE};
 use prelude::mallot::find_pages;
@@ -59,8 +59,7 @@ fn console_worker(mb_arg: *u8) {
             if (i == NUM_BUFS) {
                 mut_unlock(&table_lock);
                 status = -2;
-                ipc_reply(null, 0, &status as
-                        *u32, sizeof(i32));
+                ipc_reply_i32(&status);
                 continue;
 
             }
@@ -72,20 +71,22 @@ fn console_worker(mb_arg: *u8) {
             let request_buffer = find_pages(VID_REGION_SIZE);
             if (request_buffer == null) {
                 status = -1;
-                ipc_reply(null, 0, &status as
-                        *u32, sizeof(i32));
+                ipc_reply_i32(&status);
+
                 continue;
 
             } 
             buffer_table[i] = request_buffer;
             status = i as i32;
 
-            /*            mut_lock(&buffer_lock);
-                          mos_memcpy(VID_BUFFER, request_buffer, BUFFER_SIZE);
-                          mut_unlock(&buffer_lock);*/
 
-            ipc_reply(request_buffer, BUFFER_SIZE, &status as
+            ipc_reply_share(request_buffer, BUFFER_SIZE, &status as
                     *u32, sizeof(i32));
+            mut_lock(&buffer_lock);
+            while (true) {
+                mos_memcpy(VID_BUFFER, request_buffer, BUFFER_SIZE);
+            }
+            mut_unlock(&buffer_lock);
 
         } 
 
