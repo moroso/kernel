@@ -5,7 +5,7 @@
 
 use syslib::{abscond, mailbox_new, mailbox_remove, new_pages};
 use server::new_server;
-use console::{CONSOLE_SERVER_ID, use_console};
+use console::{CONSOLE_SERVER_ID, request_buffer};
 use shared::consts::{VID_REGION_SIZE, PAGE_SIZE};
 
 static BUFFER: *u8 = 0xdead0000 as *u8;
@@ -61,7 +61,7 @@ fn main() -> i32 {
     // perform buffer operations
 
     /*** request to use new buffer with console ***/
-    if (use_console(console_mb as u32, BUFFER, -1) < 0) {
+    if (request_buffer(console_mb as u32, BUFFER, -1) < 0) {
         printf!("ERROR: console\n");
         abscond(-1);
     }

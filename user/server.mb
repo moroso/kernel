@@ -61,7 +61,8 @@ fn server_thread_exit(server_active: *bool, err: i32) {
  * - mb: server descriptor.  waits on mailbox until woken up with an error
  *   status by server_init. 
  *
- * return 0 if server thread is ready to work.  a negative error code if there
+ * returns a positive value n if the server thread is ready to work, which
+ * denotes the value of threads_active before the atomic add.  a negative error code if there
  * was an error in setup
  **/
 fn server_thread_init(mb: u32) -> i32 {
@@ -81,8 +82,7 @@ fn server_thread_init(mb: u32) -> i32 {
     }
     assert!(threads_dormant >= 0);
 
-    atomic_add(&threads_active, 1); 
-    0
+    atomic_add(&threads_active, 1) 
 }
 
 /* creates a new server by replicating a new process and running its server init
