@@ -5,6 +5,7 @@ use structures::schedule::*;
 use locks::mutex::*;
 use locks::rendezvous::rend_timeout_remove;
 use threadstuffs::abscond::abscond;
+use drivers::keyboard::keyboard_handler;
 
 const MAX_FAULT_NUMS: u32 = 256;
 
@@ -64,7 +65,7 @@ fn entry_init() {
 
     register(PAGE_FAULT, page_fault_handler);
     register(TIMER_INTER, timer_handler);
-    register(KBD_INTER, timer_handler);
+    register(KBD_INTER, keyboard_handler);
 }
 
 extern fn pic_acknowledge_any_master();
@@ -126,6 +127,8 @@ fn page_fault_handler(regs: *uregs) {
     kmut_unlock(&PD->mut);
 
 }
+
+
 
 fn timer_handler(regs: *uregs) {
     ticks += 1;
