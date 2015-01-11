@@ -1,0 +1,47 @@
+use entry::{uregs, pic_acknowledge_any_master};
+use utils::macro_util::*;
+extern fn inb(addr: u32) -> u32;
+
+// in my defense, processing scancodes is annoying
+extern fn process_scancode(keypress: u32) -> u32;
+
+// some helpful masks
+const KH_CHAR_SHIFT: u32 = 0;
+const KH_CHAR_SMASK: u32 = 0x0FF;
+const KH_RMODS_SHIFT: u32 = 16;
+const KH_RMODS_SMASK: u32 = 0x000F;
+const KH_RESULT_MAKE: u32 = 0x1;
+const KH_RESULT_HASDATA: u32 = 0x04;
+
+// extract character field from return type
+macro kh_getchar!(k) {
+    ((($k >> KH_CHAR_SHIFT) & KH_CHAR_SMASK) as u8)
+}
+
+// return true if the status word k contains a character value
+macro kh_hasdata!(k) {
+    ((($k>>KH_RMODS_SHIFT)&KH_RESULT_HASDATA) != 0)
+}
+
+// return true if k results from a key going down (valid only is kh_hasdata is
+// nonzero)
+macro kh_ismake!(k) {
+    ((($k>>KH_RMODS_SHIFT)&KH_RESULT_MAKE) != 0)
+} 
+
+// port where new scan codes are located.  old code must be read before a new
+// interrupt can get serviced
+const KEYBOARD_PORT: u32 = 0x60;
+
+fn keyboard_handler(regs: *uregs) {
+    let scan_code = inb(KEYBOARD_PORT);
+    // "expensive operation" my ass
+    let aug_c = process_scancode(scan_code);
+    if ((kh_hasdata!(aug_c) && kh_ismake!(aug_c))) {
+        let c: u8 = kh_getchar!(aug_c);
+        printf!("%c", c, aug_c);
+    }
+
+    pic_acknowledge_any_master();
+
+}
