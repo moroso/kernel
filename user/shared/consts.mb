@@ -2,5 +2,8 @@ const INT_MAX: u32 = 0xffffffff;
 const USER_MEM_START: u32 = 1024 * 1024 * 1024;
 const USER_MEM_END: u32 = INT_MAX;
 const PAGE_SIZE: u32 = 4096;
-
+// The size of a video region. If we ever change the video mode, this will have
+// to be changed as well.
+// TODO: some syscall that will give us video info, so we can compute this.
+const VID_REGION_SIZE: u32 = 352;
 

@@ -20,8 +20,10 @@ use entry::*;
 use structures::tcb_dir::tcb_dir_add;
 use drivers::timer::*;
 use sys::*;
+use structures::multiboot::multiboot_info;
 use structures::tcb_dir::*;
 use utils::list::*;
+use video::vid_alloc::vid_init;
 
 /*** Helpful register functions ***/
 extern fn get_cr0() -> u32;
@@ -70,7 +72,8 @@ fn kernel_setup() {
 
     /*** Create an initial page directory and enable paging ***/
     init_PD = slub_alloc(sizeof(PD_t)) as *PD_t; // should be sizeof()
-    assert!(PD_init(init_PD) >= 0);
+    let pd_init_result = PD_init(init_PD);
+    assert!(pd_init_result >= 0);
     entry_init();
     load_PD(init_PD);
     enable_paging();
@@ -91,8 +94,15 @@ fn create_idle_tcb() {
     schedule(new_tcb, QUEUE_FRONT);
 }
 
-fn kernel_main() -> u32 {
+fn kernel_main(mb_info: *multiboot_info) -> u32 {
     kernel_setup();
+
+    let mode_info = mb_info->vbe_mode_info;
+    let framebuffer = mode_info->PhysBasePtr;
+    let width = mode_info->XResolution;
+    let height = mode_info->YResolution;
+    let depth = mode_info->BitsPerPixel / 8;
+    vid_init(framebuffer, width, height, depth);
 
     let new_tcb: *tcb;
     new_tcb = thr_create(user_thread, null, 0);
@@ -103,9 +113,10 @@ fn kernel_main() -> u32 {
     assert!(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 
-    create_idle_tcb(); 
+    create_idle_tcb();
 
     preempt_enable();
+
     /*** Switch to the first thread in the run queue and jump to its execution ***/
     scheduler_update(-1);
     while (true) {};

@@ -122,7 +122,7 @@ fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
 
     let page: i32;
     for (page = 0; page < transfer_len; page+=(PAGE_SIZE as i32)) {
-        if (page_transfer(addr_src + page,
+        if (!is_user_addr(addr_src + page) || !is_user_addr(addr_dest + page) || page_transfer(addr_src + page,
                     addr_dest + page,
                     PD_src,
                     PD_dest, shared) < 0) {
@@ -642,11 +642,21 @@ fn ipc_recv(args: *ipc_args) -> i32 {
  *
  * Returns 0 on success, negative error code of failure.  
  *
- * TODO hide rend manipulation behind a layer of abstraction, as with the other
- * functions
  */
-fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
-        desc: i32) -> i32 {
+fn reply(args: *ipc_args) -> i32 {
+
+    /* copying arguments into the kernel */   
+    let args_kern: ipc_args;
+    if (copy_from_user((&args_kern) as *u8, args as *u8, sizeof(ipc_args)) < 0) {
+        return IPC_ERR_MAP;
+    } 
+
+    let message_long = args_kern.long_src.addr;
+    let long_len = args_kern.long_src.len;
+    let message_short = args_kern.short_src.addr;
+    let short_len = args_kern.short_src.len;
+    let desc = args_kern.desc_src;
+    let shared = args_kern.options&IPC_SHARE;
 
     let mailbox_fwd = null;
     // check to see if addresses all point to user addresses
@@ -707,7 +717,9 @@ fn reply(message_long: *u8, long_len: u32, message_short: *u32, short_len: u32,
     /// send long message ///
     /* long message transfer */
     let transfer_len = transfer_long(&(get_tcb()->proc->PD), message_long, long_len, 
-            &(last_send->tcb->proc->PD), message_src->long_dest.addr, message_src->long_dest.len, 0);
+            &(last_send->tcb->proc->PD), message_src->long_dest.addr,
+            message_src->long_dest.len, shared);
+
     message_src->long_dest.len = transfer_len;
 
     /// copy short message -- on error, message length is truncated to 0 

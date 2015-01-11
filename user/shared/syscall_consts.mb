@@ -15,3 +15,5 @@ const INT_YIELD: u32 = 16;
 const INT_MAILBOX_REMOVE: u32 = 17;
 const INT_REMOVE_PAGES: u32 = 18;
 const INT_MAILBOX_MOVE: u32 = 19;
+const INT_NEW_VID_PAGE: u32 = 20;
+const INT_FREE_VID_PAGE: u32 = 21;

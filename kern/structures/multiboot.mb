@@ -1,0 +1,45 @@
+use structures::vesa::vesa_mode_info;
+
+struct multiboot_info {
+    flags: u32,
+    mem_lower: u32,
+    mem_upper: u32,
+    boot_device: u8[4],
+    cmdline: *u8,
+
+    // Boot modules (unused in our configuration)
+    mods_count: u32,
+    mods_addr: *u8,
+
+    // ELF section header information (unused in our configuration)
+    syms_num: u32,
+    syms_size: u32,
+    syms_addr: *u8,
+    syms_shndx: u32,
+
+    // Memory map buffer (unused in our configuration)
+    mmap_count: u32,
+    mmap_addr: *u8,
+
+    // Drive info buffer
+    drives_length: u32,
+    drives_addr: *u8,
+
+    // ROM configuration table
+    config_table: *u8,
+
+    // Boot loader name
+    boot_loader_name: *u8,
+
+    // APM table
+    apm_table: *u8,
+
+    // Video
+    // TODO: make structs for these, too.
+    vbe_control_info: *u8,
+    vbe_mode_info: *vesa_mode_info,
+    vbe_mode: u16,
+    vbe_interface_seg: u16,
+    vbe_interface_off: u16,
+    vbe_interface_len: u16,
+}
