@@ -136,6 +136,63 @@ fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
     transfer_len as u32
 }
 
+// sends async short messages to a mailbox from the kernel
+ fn ipc_send_kern(desc: u32, short_message: *u8, message_len: u32, desc_table:
+         *mb_desc_table) -> i32 {
+
+     assert!(message_len < PAGE_SIZE);
+     assert!(!is_user_addr(short_message));
+
+     /*** create message that relays ipc info to receiver ***/
+     let message_send: message_node;
+
+     message_send.short_src.addr = short_message as *u8;
+     message_send.short_src.len = message_len; 
+     message_send.options = OPTION_ASYNC; 
+
+     let err: i32 = 0;
+     let message_recv: *u8;
+     let message_size: u32;
+
+     let dest_tcb = mb_send(desc, 
+             &message_send as *u32, sizeof(message_node),
+             (&message_recv) as **u32, &message_size, -1, OPTION_ASYNC, &err, desc_table);  
+
+    /*** if there was an error during the process, return ***/
+    if (err < 0) {
+
+        if (err == MB_ERR_DEST) {
+
+            return IPC_ERR_DEST;
+        }
+
+        if (err == REND_ERR_TIMEOUT) {
+            return IPC_ERR_TIMEOUT;
+        }
+
+        // if tcb died before we could transfer, return with error
+        if (err == REND_ERR_DEAD) {
+
+            return IPC_ERR_DEAD;
+        }
+
+        return IPC_ERR_INTERNAL;
+    }
+
+    if (dest_tcb != null) {
+
+        let message_dest: *message_node = message_recv as *message_node;
+
+        message_dest->options = OPTION_ASYNC;
+
+        /*** transfer short message and wake up receiver ***/
+        mb_end_send(short_message as *u32, message_len, 0);
+    }
+
+    0
+
+ }
+
 
 /* ipc_send: sends a long and/or short message to an active recipiant
  * arguments are passed in the form of the 'args' struct.  Returns IPC_ERR_MAP
@@ -208,12 +265,12 @@ fn transfer_long(PD_src: *PD_t, addr_src: *u8, len_src: u32, PD_dest: *PD_t,
  * the transfer and wakes up the invoking thread after.  If a reply is expected,
  * the sender blocks until it is collected by a receiver, or it times out.
  *
- * Returns 0 on success, a negative error code on error.  the dest fields in
- * args are altered to denote how much was copied to the specified buffers.
- * Note that message transfers might still be successful, even if a negative
- * error code is returned
- *
- */
+* Returns 0 on success, a negative error code on error.  the dest fields in
+* args are altered to denote how much was copied to the specified buffers.
+* Note that message transfers might still be successful, even if a negative
+* error code is returned
+*
+*/ 
 fn ipc_send(args: *ipc_args) -> i32 {
 
     /* copying arguments into the kernel */   
@@ -301,7 +358,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
 
     /* the mailbox being forwarded to the destination */
     let mailbox_fwd = mb_desc_lookup(args_kern.desc_src as
-            u32);
+            u32, &(get_tcb()->proc->mb_desc));
     message_send.mailbox_src = mailbox_fwd; 
     message_send.desc_dest = args_kern.desc_dest;
 
@@ -313,7 +370,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
             &message_send as *u32, sizeof(message_node),
             &message_recv as **u32,
             &recv_len, 
-            args_kern.timeout, option, &err);  
+            args_kern.timeout, option, &err, &(get_tcb()->proc->mb_desc));  
 
     /* end the lookup for now -- we will re-do it on the actual transfer */
     mb_end_lookup(mailbox_fwd);
@@ -370,7 +427,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
         message_dest->options = args_kern.options;
 
         if ((mailbox_fwd = mb_desc_lookup(args_kern.desc_src as
-                        u32)) != null) {
+                        u32, &(get_tcb()->proc->mb_desc))) != null) {
             let proc_dest = dest_tcb->proc;
             assert!(proc_dest != null);
             if (message_dest->desc_dest >= 0) {
@@ -413,7 +470,7 @@ fn ipc_send(args: *ipc_args) -> i32 {
  * the transfer.  Otherwise, deschedules until a sender becomes available and
  * does the transfer itself.  
  *
-* - args->dest_id: the mailbox descriptor being received on.  function returns IPC_ERR_DEST if
+ * - args->dest_id: the mailbox descriptor being received on.  function returns IPC_ERR_DEST if
  *   dest_id is not a valid descriptor, IPC_ERR_DEAD if the mailbox is
  *   destroyed while the invoking thread waits on it, and IPC_ERR_OWNER if the
  *   invoking thread does not belong to the proc that owns the mailbox.
@@ -690,7 +747,7 @@ fn reply(args: *ipc_args) -> i32 {
 
     if (desc >= 0 && message_src->desc_dest >= 0) {
         mailbox_fwd = mb_desc_lookup(desc as
-                u32);
+                u32, &(get_tcb()->proc->mb_desc));
         if (mailbox_fwd == null) {
             // place last_send back for later invocation, return with error 
             last_send_unremove(last_send);

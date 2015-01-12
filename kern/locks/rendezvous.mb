@@ -248,8 +248,10 @@ fn rend_wait(rend: *rend, message: *u32, message_len: u32, message_recv: **u32,
             list_del(&other_node->rend_link);
 
             if (option != SEND_SYNC_REPLY) {
+
                 cond_preempt_enable(enable);
                 *message_recv = other_node->message;
+
                 if (option == SEND_ASYNC) {
                     slub_free(my_node as *u32, sizeof(rend_node));
                     slub_free(message, message_len);

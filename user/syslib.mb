@@ -88,3 +88,7 @@ fn new_vid_buffer(addr: *u8) -> i32 {
 fn free_vid_buffer(addr: *u8) {
     syscall_1(shared::syscall_consts::INT_FREE_VID_PAGE, addr as u32);
 }
+
+fn int_register(inter_num: u32, desc: u32) -> i32 {
+    syscall_2(shared::syscall_consts::INT_INT_REGISTER, inter_num, desc) as i32
+}
