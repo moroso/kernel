@@ -10,6 +10,7 @@ use locks::mutex::*;
 use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
+use entry::devices::int_register;
 mod mailbox;
 
 extern fn enable_interrupts();
@@ -64,6 +65,7 @@ fn sys_init() {
     syscall!(INT_MAILBOX_MOVE, mailbox::mailbox_move);
     syscall!(INT_NEW_VID_PAGE, new_vid_buffer);
     syscall!(INT_FREE_VID_PAGE, free_vid_buffer);
+    syscall!(INT_INT_REGISTER, int_register);
 }
 
 

@@ -121,12 +121,16 @@ fn mb_init(mb: *mailbox_t, proc: *proc) -> i32 {
  */
 
 fn mb_send(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
-        recv_len: *u32, timeout: u32, option: u32, err: *i32) -> *tcb {
+        recv_len: *u32, timeout: u32, option: u32, err: *i32 , table:
+        *mb_desc_table) -> *tcb {
+
+    if (table != &get_tcb()->proc->mb_desc) {
+        assert!(option == SEND_ASYNC);
+    }
 
     *err = 0;
-    let mb = mb_desc_lookup(desc);
+    let mb = mb_desc_lookup(desc, table);
     if (mb == null) {
-        printf!("HERE %d\n", desc);
         *err = MB_ERR_DEST;
         return null;
     }
@@ -254,7 +258,7 @@ fn mb_recv(desc: u32, message: *u32, message_len: u32, message_recv: **u32,
     assert!(option != null && err != null);
 
     /* look up mailbox in descriptor table */
-    let mb = mb_desc_lookup(desc);
+    let mb = mb_desc_lookup(desc, &(get_tcb()->proc->mb_desc));
     if (mb == null) {
         *err = MB_ERR_DEST;
         return null;

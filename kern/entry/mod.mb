@@ -6,6 +6,7 @@ use locks::mutex::*;
 use locks::rendezvous::rend_timeout_remove;
 use threadstuffs::abscond::abscond;
 use drivers::keyboard::keyboard_handler;
+mod devices;
 
 const MAX_FAULT_NUMS: u32 = 256;
 

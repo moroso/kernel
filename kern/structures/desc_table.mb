@@ -61,13 +61,10 @@ fn mb_desc_init(table: *mb_desc_table, parent_proc: *proc) {
 
 /* given a mailbox descriptor, returns corresponding entry in table.  returns 
  * null if id cannot be a valid descriptor */
-fn mb_desc_lookup(id: u32) -> *mailbox_t {
-    let proc = get_tcb()->proc;
+fn mb_desc_lookup(id: u32, table: *mb_desc_table) -> *mailbox_t {
     if (id >= MB_TABLE_SIZE || id < 0) {
         return null;
     }
-    assert!(proc != null);
-    let table = &(proc->mb_desc);
     kmut_lock(&table->mut);
     let mb = table->desc_table[id];    
     if (mb != null) {
@@ -108,14 +105,28 @@ fn mb_table_add(table: *mb_desc_table, mb: *mailbox_t) -> i32 {
     let i: u32;
     for (i = 0; i < MB_TABLE_SIZE; i+=1) {
         if (table->desc_table[i] == null) {
-            (table->desc_table)[i] = mb;
-            inc_mb_ref(mb);
+            mb_entry_edit_unsafe(table, mb, i);
             kmut_unlock(&table->mut); 
             return i as i32;
         }
     }
     kmut_unlock(&table->mut); 
     DESC_ERR_FULL
+}
+
+fn mb_entry_edit_unsafe(table: *mb_desc_table, mb: *mailbox_t, desc: u32) {
+    (table->desc_table)[desc] = mb;
+    inc_mb_ref(mb);
+}
+
+fn mb_entry_edit(table: *mb_desc_table, mb: *mailbox_t, desc: u32) -> i32 {
+    if (desc > MB_TABLE_SIZE) {
+        return -1;
+    }
+    kmut_lock(&table->mut); 
+    mb_entry_edit_unsafe(table, mb, desc);
+    kmut_unlock(&table->mut); 
+    0
 }
 
 // check to see if the descriptor corresponds to the mailbox before removing 

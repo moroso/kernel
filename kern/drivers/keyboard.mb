@@ -1,5 +1,6 @@
 use entry::{uregs, pic_acknowledge_any_master};
 use utils::macro_util::*;
+use entry::devices::send_int;
 extern fn inb(addr: u32) -> u32;
 
 // in my defense, processing scancodes is annoying
@@ -39,9 +40,10 @@ fn keyboard_handler(regs: *uregs) {
     let aug_c = process_scancode(scan_code);
     if ((kh_hasdata!(aug_c) && kh_ismake!(aug_c))) {
         let c: u8 = kh_getchar!(aug_c);
-        printf!("%c", c, aug_c);
+        pic_acknowledge_any_master();
+        send_int(0, &c as *u8, sizeof(u8));
+        return ()
     }
-
     pic_acknowledge_any_master();
-
+    return ();
 }

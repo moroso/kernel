@@ -19,9 +19,9 @@
 use prelude::server::*;
 use prelude::rt_abort;
 use prelude::syslib::{get_tid, new_vid_buffer, free_vid_buffer, remove_pages,
-    yield, mailbox_new};
+    yield, mailbox_new, int_register};
 use prelude::ipclib::{ipc_recv_long, ipc_send_long, ipc_reply_i32,
-    ipc_reply_share, ipc_recv_i32};
+    ipc_reply_share, ipc_recv_short};
 use prelude::locks::mutex::*;
 use prelude::shared::consts::{PAGE_SIZE, USER_MEM_START, VID_REGION_SIZE};
 use prelude::mallot::find_pages;
@@ -85,11 +85,17 @@ fn console_worker(mb_arg: *u8) {
         if (keyboard_mb < 0) {
             server_thread_exit(&console_server_active, -2);
         }
+
+        if (int_register(0, keyboard_mb as u32) < 0) {
+            server_thread_exit(&console_server_active, -3);
+        }
         // syscall that gives mailbox id to kernel table
-        let scan_code: i32;
+        let char_new: u8;
+        let char_new_size: u32 = sizeof(u8);
 
         while(console_server_active) {
-            ipc_recv_i32(keyboard_mb as u32, &scan_code, -1, null);
+            ipc_recv_short(keyboard_mb as u32, &char_new, &char_new_size, -1, null);
+            printf!("console %c\n", char_new);
             yield(-1);
         }
         server_thread_exit(&console_server_active, 0); 
