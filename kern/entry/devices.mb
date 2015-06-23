@@ -1,0 +1,37 @@
+/* */
+use locks::mutex::*;
+use ipc::ipc_send_kern;
+use shared::ipc_defs::ipc_args;
+use structures::desc_table::*;
+use structures::schedule::get_tcb;
+
+const NUM_DRIVERS: u32 = 20;
+
+// contains descriptors of mailboxes that collect device interrupts -- NOTE this
+// can be per-proc if we want.  Currently, it's universal
+static exception_table: mb_desc_table;
+
+fn exception_table_init() {
+    mb_desc_init(&exception_table, null);
+}
+
+fn send_int(exception_id: u32, message: *u8, message_len: u32) -> i32 {
+    if (exception_id > NUM_DRIVERS) {
+        return -8;
+    }
+    ipc_send_kern(exception_id, message, message_len, &exception_table) 
+}
+
+// we overwrite anything in int_num
+fn int_register(int_num: u32, desc: u32) -> i32 {
+    let mailbox = mb_desc_lookup(desc, &(get_tcb()->proc->mb_desc));    
+    if (mailbox == null) {
+        return -1;
+    }
+
+    if (mb_entry_edit(&exception_table, mailbox, int_num) < 0) {
+        return -2;
+    }
+
+    0
+}
