@@ -19,4 +19,6 @@ mod video;
 
 mod kernel_main;
 
-fn main(mb_info: *multiboot_info) -> u32 { kernel_main::kernel_main(mb_info) }
+extern static __mb_info: *multiboot_info;
+
+fn main() -> u32 { kernel_main::kernel_main(__mb_info) }
