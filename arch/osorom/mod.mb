@@ -1,3 +1,11 @@
+struct timer_t {
+    count: u32,
+    top: u32,
+    control: u32,
+}
+
+static TIMER : *timer_t = 0x80000000 as *timer_t;
+
 extern "bare" fn enable_interrupts() {
     asm!("{ r0 <- PFLAGS; }"
          "{ r0 <- r0 | 1; }"
@@ -7,6 +15,20 @@ extern "bare" fn enable_interrupts() {
 
 extern "bare" fn disable_interrupts() {
     asm!("{ r0 <- PFLAGS; r1 <- ~1; }"
+         "{ r0 <- r0 & r1; }"
+         "{ PFLAGS <- r0; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn enable_paging() {
+    asm!("{ r0 <- PFLAGS; }"
+         "{ r0 <- r0 | 2; }"
+         "{ PFLAGS <- r0; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn disable_paging() {
+    asm!("{ r0 <- PFLAGS; r1 <- ~2; }"
          "{ r0 <- r0 & r1; }"
          "{ PFLAGS <- r0; }"
          "{ b r31 + 1; }");
@@ -143,4 +165,12 @@ extern "bare" fn xchg(orig: *u32, val: u32) -> u32 {
          "{ *sc(r0) <- r1; }"
          "{ !p0 -> b __xchg; }"
          "{ b r31 + 1; r0 <- r2; }");
+}
+
+extern "bare" fn enter_usermode() {
+    asm!("{ r1 <- PFLAGS; r0 <- r31 + 0x10; }"
+         "{ p0 <- r1 & 1; }"
+         "{ p0 -> r0 <- r0 | 2; }"
+         "{ EPC <- r0; }"
+         "{ eret; }");
 }
