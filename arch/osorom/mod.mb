@@ -32,12 +32,14 @@ extern "bare" fn get_exception_handler_address() -> u32 {
          "{ b r31 + 1; }");
 }
 
+static stackptrptr: *u32 = 0x110000 as *u32;
+
 extern "bare" fn isr_asm() {
     // This is our interrupt handler wrapper. It is responsible for saving all state
     // that needs to be saved, and then calling the main interrupt handler.
     asm!(// TODO: change 0xdeadbeef to a more reasonable address; ideally
          // we'll reference a global.
-            "{ SP0 <- r0; r0 <- long; long 0xdeadbeef; }"
+            "{ SP0 <- r0; r0 <- long; long 0x110000; }"
             "{ SP1 <- r1; r0 <- *l(r0); }"
             // r0 contains the starting address of the current kstack.
             // We stash the value of p0 in the lowest bit of it for later.
@@ -47,12 +49,12 @@ extern "bare" fn isr_asm() {
             // If we were in userspace, we read the kstack address from a special
             // memory location (and it's now in r0). If we're in the kernel, r30
             // already contains a pointer to a valid part of the active kstack.
-            "{  p0 -> *l(r30 + 0x80) <- r30; "
+            "{  p0 -> *l(r30 + 0x78) <- r30; "
             // Note: the lowest two bits of the address for word-sized stores are
             // ignored, so this is safe even though the low bit of r0 may be set.
-            "  !p0 -> *l(r0 + 0x80) <- r30; "
-            "   p0 -> r30 <- r30 + 0x84; "
-            "  !p0 -> r30 <- r0 + 0x84; }"
+            "  !p0 -> *l(r0 + 0x78) <- r30; "
+            "   p0 -> r30 <- r30 + 0x88; "
+            "  !p0 -> r30 <- r0 + 0x88; }"
             // We now start saving registers on the stack. Register order is:
             // 0x88 0x84    0x10 0xc         0x8         0x4 (offsets relative to r30)
             // r0,  r1, ... r30, r31, [ predicate regs ] EPC.
@@ -71,8 +73,13 @@ extern "bare" fn isr_asm() {
             "{ r5 <- EA0; *l(r30 - 0x74) <- r5; }"
             "{ r6 <- EA1; *l(r30 - 0x70) <- r6; }"
             "{ *l(r30 - 0x6c) <- r7; *l(r30 - 0x68) <- r8; r7 <- 3; }"
+
             // once coprocessor regs are in GPRs we can turn interrupts on.
-            "{ PFLAGS <- r7; *l(r30 - 0x64) <- r9; }"
+            // TODO: Do we actually want to turn them on here? Leaving them off for now
+            // so that the handler can clear interrupt bits if needed.
+            //"{ PFLAGS <- r7; *l(r30 - 0x64) <- r9; }"
+            "{                 *l(r30 - 0x64) <- r9; }"
+
             "{ *l(r30 - 0x60) <- r10; *l(r30 - 0x5c) <- r11; }"
             "{ *l(r30 - 0x58) <- r12; *l(r30 - 0x54) <- r13; }"
             "{ *l(r30 - 0x50) <- r14; *l(r30 - 0x4c) <- r15; }"
@@ -89,7 +96,7 @@ extern "bare" fn isr_asm() {
 
             // Save EPC (which is in r1), and call the actual interrupt handler!
             // TODO: we'll need to replace this with the mangled name.
-            "{ bl __isr; *l(r30 - 0x04) <- r1; }"
+            "{ bl __isr; *l(r30 - 0x04) <- r1; r7 <- r30 - 0x04; }"
 
             // Now we have to restore all state. r30, r1, and r0 wait until later.
             "{ r31 <- *l(r30 - 0x0c); r29 <- *l(r30 - 0x14); }"
@@ -118,8 +125,16 @@ extern "bare" fn isr_asm() {
             );
     }
 
-fn isr(ec0: u32, epc: u32, ec1: u32, ec2: u32, ec3: u32, ea0: u32, ea1: u32) {
-    // TODO: handle the interrupt!
+fn isr(ec0: u32, epc: u32, ec1: u32, ec2: u32, ec3: u32, ea0: u32, ea1: u32, new_epc: *u32) {
+    // TODO: *actually* handle the interrupt!
+    printf!("In handler\n");
+    if ec0 & 0x1f == 0x08 {
+        printf!("Interrupt %x\n", ec1);
+        TIMER->control = 0x06;
+    } else {
+        *new_epc += 0x10;
+    }
+    printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
 }
 
 /* TODO: label support in asm so we don't need to use the mangled name. */
