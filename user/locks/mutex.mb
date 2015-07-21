@@ -4,7 +4,7 @@
 */
 
 use prelude::syslib::*;
-use prelude::locks::mut_asm::*;
+use prelude::arch::xchg;
 
 macro MUTEX_INIT!() {
     ::prelude::locks::mutex::mut_t {

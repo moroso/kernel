@@ -1,0 +1,56 @@
+use consts::EF_IF;
+use structures::tcb::context;
+
+const NUM_FASTPATH_REGS: u32  = 5; // number of GPRs being used in fastpath
+
+extern fn get_cr0() -> u32;
+extern fn set_cr0(val: u32);
+
+extern fn get_cr3() -> u32;
+extern fn set_cr3(val: u32);
+
+extern fn get_cr4() -> u32;
+extern fn set_cr4(val: u32);
+
+extern fn disable_interrupts();
+extern fn enable_interrupts();
+
+extern fn get_eflags() -> u32;
+
+/* Used in the main kernel function to turn on paging once a page directory is
+ * loaded.  Paging should probably not be turned off at any point in the kernel */
+fn enable_paging() {
+    // set the Page Size Extension bit in cr4 to enable variable length pages
+    let cr4: u32 = get_cr4();
+    set_cr4(cr4 | (1 << 4));
+
+    // set the paging bit in cr0 to enable paging
+    // set write protect bit so we fault on read-only pages in the kernel
+    let cr0: u32 = get_cr0();
+    cr0 |= ((1 << 31) | (1 << 16));
+    set_cr0(cr0);
+}
+
+fn set_page_directory_address(addr: u32) {
+    set_cr3(addr);
+}
+
+fn get_page_directory_address() -> u32 {
+    get_cr3()
+}
+
+fn are_ints_enabled() -> bool {
+    if (get_eflags() & EF_IF == 1) {
+        return true;
+    }
+    false
+}
+
+extern fn actually_switch_contexts_with_asm(new_esp: *context, old_esp: **context);
+extern fn fastpath_send_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]);
+extern fn fastpath_recv_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]);
+extern fn machine_phys_frames() -> u32;
+
+extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
+
+extern fn invalidate_tlb(frame: *u8);

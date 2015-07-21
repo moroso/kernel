@@ -13,6 +13,7 @@ mod utils;
 mod ipclib;
 mod server;
 mod console;
+mod arch;
 
 fn print_char(x: i32) -> i32 {
     let c: u8 = x as u8;

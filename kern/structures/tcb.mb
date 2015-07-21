@@ -13,9 +13,10 @@ use structures::tcb_dir::*;
 use utils::buddy_alloc::{frame_alloc, frame_free};
 use utils::stdlib::*;
 use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock,
-                           preempt_enable, enable_interrupts};
+                           preempt_enable};
 use locks::rendezvous::*;
 use structures::desc_table::*;
+use arch::enable_interrupts;
 
 extern fn get_eflags() -> u32;
 

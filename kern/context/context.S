@@ -1,3 +1,5 @@
+//TODO(porting): move this file out of where it is now, to some arch-specific
+// asm directory?
 .global actually_switch_contexts_with_asm
 actually_switch_contexts_with_asm:
   pushl %ebp

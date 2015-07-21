@@ -1,0 +1,51 @@
+/* TODO: label support in asm so we don't need to use the mangled name. */
+extern "bare" fn xchg(orig: *u32, val: u32) -> u32 {
+    asm!("{ r2 <- *ll(r0); }"
+         "{ *sc(r0) <- r1; }"
+         "{ !p0 -> b __xchg; }"
+         "{ b r31 + 1; r0 <- r2; }");
+}
+
+/* TODO: label support in asm so we don't need to use the mangled name. */
+extern "bare" fn atomic_add(val: *u32, inc_val: u32) -> i32 {
+    asm!("{ r2 <- *ll(r0); }"
+         "{ r2 <- r2 + r1; }"
+         "{ *sc(r0) <- r2; }"
+         "{ !p0 -> b __atomic_add; }"
+         "{ b r31 + 1; r0 <- r2; }");
+}
+
+extern "bare" fn syscall_0(idx: u32) -> u32 {
+    asm!("{ syscall; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn syscall_1(idx: u32, arg1: u32) -> u32;
+    asm!("{ syscall; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn syscall_2(idx: u32, arg1: u32, arg2: u32) -> u32;
+    asm!("{ syscall; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn syscall_3(idx: u32, arg1: u32, arg2: u32, arg3: u32) -> u32;
+    asm!("{ syscall; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn syscall_4(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32) -> u32;
+    asm!("{ syscall; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn syscall_5(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32, arg5: u32) -> u32;
+    asm!("{ syscall; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn repl_with_stack(stack: *u8, function: fn(*u8)->(), args: *u8) -> i32 {
+    //TODO(porting): this function needs to be written!
+    0
+}

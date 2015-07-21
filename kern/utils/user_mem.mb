@@ -5,8 +5,7 @@
 use utils::stdlib::*;
 use utils::string::*;
 use structures::VM::*;
-
-extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
+use arch::userspace_copy;
 
 fn copy_from_user(to: *u8, from: *u8, n: u32) -> i32 {
     if (n == 0) {

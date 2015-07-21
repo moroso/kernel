@@ -1,11 +1,5 @@
 use prelude::shared;
-extern fn syscall_0(idx: u32) -> u32;
-extern fn syscall_1(idx: u32, arg1: u32) -> u32;
-extern fn syscall_2(idx: u32, arg1: u32, arg2: u32) -> u32;
-extern fn syscall_3(idx: u32, arg1: u32, arg2: u32, arg3: u32) -> u32;
-extern fn syscall_4(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32) -> u32;
-extern fn syscall_5(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32, arg5:
-u32) -> u32;
+use prelude::arch::{syscall_0, syscall_1, syscall_2, syscall_3, syscall_4, syscall_5};
 
 // A system call
 fn test_sys(arg: u32) -> u32 {

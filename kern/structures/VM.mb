@@ -16,18 +16,10 @@ use utils::list::*;
 use structures::schedule::{get_tcb, cond_preempt_disable, cond_preempt_enable};
 use locks::mutex::*;
 use video::vid_alloc::*;
+use arch::*;
 
-
-// XXX: these shouldn't be here!
-extern fn invalidate_tlb(frame: *u8);
-extern fn get_cr0() -> u32;
-extern fn get_cr2() -> u32;
-extern fn get_cr3() -> u32;
-extern fn get_cr4() -> u32;
-extern fn set_cr0(val: u32);
-extern fn set_cr3(val: u32);
-extern fn set_cr4(val: u32);
-
+//TODO(porting): the following should probably really be considered arch-specific,
+// though for both of our architectures it doesn't actually matter.
 const PAGES_PER_PT: u32 = 1024;
 const PTS_PER_DIR: u32 = 1024;
 
@@ -124,20 +116,6 @@ fn is_kernel_addr<T>(addr: *T) -> bool {
 
 /*** VM Implementation ***/
 
-/* Used in the main kernel function to turn on paging once a page directory is
- * loaded.  Paging should probably not be turned off at any point in the kernel */
-fn enable_paging() {
-    // set the Page Size Extension bit in cr4 to enable variable length pages
-    let cr4: u32 = get_cr4();
-    set_cr4(cr4 | (1 << 4));
-
-    // set the paging bit in cr0 to enable paging
-    // set write protect bit so we fault on read-only pages in the kernel
-    let cr0: u32 = get_cr0();
-    cr0|= ((1 << 31) | (1 << 16));
-    set_cr0(cr0);
-}
-
 /* loads the virtual -> physical mappings from PD into %cr3 */
 fn load_PD(PD: *PD_t) {
     assert!(!(ptr_too_low!(PD)));
@@ -147,11 +125,11 @@ fn load_PD(PD: *PD_t) {
                 !ptr_too_low!(*log_to_phys(4096 as *u8, PD)))) {
         printf!("tcb: %p\n", get_tcb());
         printf!("tid %d\n", get_tcb()->tid);
-    } 
+    }
 
     assert!(!ptr_too_low!(log_to_phys(4096 as *u8, PD))  &&
-            !ptr_too_low!(*log_to_phys(4096 as *u8, PD))); 
-    set_cr3(PD->PT_entries as u32);
+            !ptr_too_low!(*log_to_phys(4096 as *u8, PD)));
+    set_page_directory_address(PD->PT_entries as u32);
 }
 
 /* Given a valid logical address and a page directory, returns address of the physical
@@ -490,7 +468,7 @@ fn free_user_range(addr_start: *u8, addr_end: *u8, PD: *PD_t) {
 fn PD_destroy(PD: *PD_t, replace_entries: **u32) {
     let failed_entries: **u32 = PD->PT_entries;
     PD->PT_entries = replace_entries;
-    if (get_cr3() as **u32 == failed_entries) {
+    if (get_page_directory_address() as **u32 == failed_entries) {
         load_PD(PD);
     }
     PD_entries_destroy(failed_entries);
@@ -498,7 +476,7 @@ fn PD_destroy(PD: *PD_t, replace_entries: **u32) {
 
 fn PD_entries_destroy(entries: **u32) {
     // ensure we are not destroying the directory loaded into cr3
-    assert!(get_cr3() as **u32 != entries);
+    assert!(get_page_directory_address() as **u32 != entries);
 
     // free all user pages
     let dummy_PD: PD_t;

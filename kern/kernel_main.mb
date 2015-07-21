@@ -25,22 +25,7 @@ use structures::tcb_dir::*;
 use utils::list::*;
 use video::vid_alloc::vid_init;
 use entry::devices::exception_table_init;
-
-/*** Helpful register functions ***/
-extern fn get_cr0() -> u32;
-extern fn get_cr2() -> u32;
-extern fn get_cr3() -> u32;
-extern fn get_cr4() -> u32;
-extern fn set_cr0(val: u32);
-extern fn set_cr3(val: u32);
-extern fn set_cr4(val: u32);
-extern fn get_esp() -> u32;
-extern fn set_esp0(val: u32);
-extern fn enable_interrupts();
-extern fn disable_interrupts();
-extern fn set_eflags(val: u32);
-
-
+use arch::*;
 
 fn user_thread(dummy: *u8) {
 

@@ -2,6 +2,7 @@ use consts::*;
 use utils::list::*;
 use utils::early_alloc::early_alloc;
 use locks::mutex::*;
+use arch::machine_phys_frames;
 
 // Bitmaps!
 struct bitmap {
@@ -191,8 +192,6 @@ static frame_arena: *buddy_arena = null;
 // Must be power of two
 macro ROUND_DOWN!(n, align) { (($n) & ~(($align)-1)) }
 macro ROUND_UP!(n, align) { ROUND_DOWN!(($n)+(($align)-1), $align) }
-
-extern fn machine_phys_frames() -> u32;
 
 fn frame_init() {
     let frames_per_block = 1 << MAX_ORDER;

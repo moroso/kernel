@@ -1,3 +1,6 @@
+use consts::PAGE_SIZE;
+use structures::tcb::context;
+
 struct timer_t {
     count: u32,
     top: u32,
@@ -5,6 +8,9 @@ struct timer_t {
 }
 
 static TIMER : *timer_t = 0x80000000 as *timer_t;
+
+//TODO(porting): should probably increase this; we have a ton of registers!
+const NUM_FASTPATH_REGS: u32  = 5; // number of GPRs being used in fastpath
 
 extern "bare" fn enable_interrupts() {
     asm!("{ r0 <- PFLAGS; }"
@@ -18,6 +24,11 @@ extern "bare" fn disable_interrupts() {
          "{ r0 <- r0 & r1; }"
          "{ PFLAGS <- r0; }"
          "{ b r31 + 1; }");
+}
+
+extern "bare" fn are_ints_enabled() -> bool {
+    asm!("{ r0 <- PFLAGS; }"
+         "{ b r31 + 1; r0 <- r0 & 1; }");
 }
 
 extern "bare" fn enable_paging() {
@@ -159,14 +170,6 @@ fn isr(ec0: u32, epc: u32, ec1: u32, ec2: u32, ec3: u32, ea0: u32, ea1: u32, new
     printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
 }
 
-/* TODO: label support in asm so we don't need to use the mangled name. */
-extern "bare" fn xchg(orig: *u32, val: u32) -> u32 {
-    asm!("{ r2 <- *ll(r0); }"
-         "{ *sc(r0) <- r1; }"
-         "{ !p0 -> b __xchg; }"
-         "{ b r31 + 1; r0 <- r2; }");
-}
-
 extern "bare" fn enter_usermode() {
     asm!("{ r1 <- PFLAGS; r0 <- r31 + 0x10; }"
          "{ p0 <- r1 & 1; }"
@@ -174,3 +177,22 @@ extern "bare" fn enter_usermode() {
          "{ EPC <- r0; }"
          "{ eret; }");
 }
+
+fn machine_phys_frames() -> u32 {
+    // The OSOROM has 512MB of memory.
+    let total_mem_bytes = 1 << 29;
+
+    total_mem_bytes / PAGE_SIZE
+}
+
+extern "bare" fn invalidate_tlb(frame: *u8) {
+    asm!("{ flush.itlb r0; }"
+         "{ flush.dtlb r0; }"
+         "{ b r31 + 1; }");
+}
+
+//TODO(porting): actually implement these.
+extern fn actually_switch_contexts_with_asm(new_esp: *context, old_esp: **context);
+extern fn fastpath_send_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]);
+extern fn fastpath_recv_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]);
+extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;

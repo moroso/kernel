@@ -27,11 +27,7 @@ use structures::tcb::*;
 use structures::VM::*;
 use context::*;
 use structures::tcb_dir::*;
-
-extern fn disable_interrupts();
-extern fn enable_interrupts();
-extern fn get_cr3() -> u32; // hm.
-extern fn get_eflags() -> u32;
+use arch::{are_ints_enabled, get_page_directory_address, NUM_FASTPATH_REGS};
 
 /* Used in schedule() to denote whether a tcb should be added to the front
  * or the back of the run queue.
@@ -182,15 +178,6 @@ fn get_tcb() -> *tcb {
     run_queue.running
 }
 
-
-
-fn are_ints_enabled() -> bool {
-    if (get_eflags()&EF_IF == 1) {
-        return true;
-    }
-    false
-}
-
 // TODO there is a bug if we mess around with interrupts.  This is cheap hack.
 // pls fix
 fn scheduler_unlock(enable: bool) {
@@ -212,10 +199,10 @@ fn run_tcb(new_running: *tcb) {
     assert!(new_running != null);
     assert!(new_running->state == STATE_RUNNABLE);
     run_queue.running = new_running;
-  
+
     if (new_running->proc == null) {
         load_PD(init_PD);
-    } else if ((get_cr3() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
+    } else if ((get_page_directory_address() as *u8) != (&(new_running->proc->PD.PT_entries) as *u8)) {
         /*  if the address space has changed, load a new one */
         load_PD(&(new_running->proc->PD));
     }
@@ -314,7 +301,7 @@ fn scheduler_update(state: i32) {
     scheduler_unlock(enable);
 }
 
-fn fp_recv(buffer: u32[NUM_REGS]) {
+fn fp_recv(buffer: u32[NUM_FASTPATH_REGS]) {
     let enable = scheduler_lock();
 
     let new_running: *tcb = round_robin_remove();
@@ -333,7 +320,7 @@ fn fp_recv(buffer: u32[NUM_REGS]) {
 }
 
 
-fn fp_send(tcb: *tcb, buffer: u32[NUM_REGS]) -> i32{
+fn fp_send(tcb: *tcb, buffer: u32[NUM_FASTPATH_REGS]) -> i32{
     let enable = scheduler_lock();
     assert!(tcb != null);
 

@@ -21,7 +21,6 @@ use prelude::shared::*;
 use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
-use prelude::utils::asm::*;
 use prelude::ipclib::*;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;

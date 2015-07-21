@@ -15,12 +15,10 @@ use prelude::locks::mutex::*;
 use prelude::mallot::*;
 use prelude::string::*;
 use prelude::syslib::*;
-use prelude::utils::asm::*;
 use prelude::ipclib::*;
 use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
-use prelude::utils::asm::*;
 use prelude::server::*;
 use prelude::shared::ipc_defs::IPC_ERR_MIN;
 

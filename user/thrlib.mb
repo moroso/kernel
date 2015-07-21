@@ -1,8 +1,8 @@
 use prelude::shared::consts*;
 use prelude::syslib::*;
-const STACK_SIZE: u32 = 2; // number of pages in new userstack
+use prelude::arch::repl_with_stack;
 
-extern fn repl_with_stack(stack: *u8, function: fn(*u8)->(), args: *u8) -> i32;
+const STACK_SIZE: u32 = 2; // number of pages in new userstack
 
 fn thr_create(function: fn(*u8)->(), args: *u8) -> i32 {
 
@@ -14,12 +14,12 @@ fn thr_create(function: fn(*u8)->(), args: *u8) -> i32 {
         /* if an allocation succeeds, call this the new stack */
         if (new_pages(stack_start, STACK_SIZE *
                     PAGE_SIZE, 1024) >= 0) {
-       
-            // start stack at high address 
+
+            // start stack at high address
             stack_start+=(PAGE_SIZE - (2 * sizeof(u32)));
             return repl_with_stack(stack_start, function, args);
         }
         stack_start+=PAGE_SIZE;
-    }   
+    }
     -1
 }

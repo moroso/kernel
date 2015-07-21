@@ -1,0 +1,12 @@
+extern fn xchg(orig: *u32, val: u32) -> u32;
+
+extern fn syscall_0(idx: u32) -> u32;
+extern fn syscall_1(idx: u32, arg1: u32) -> u32;
+extern fn syscall_2(idx: u32, arg1: u32, arg2: u32) -> u32;
+extern fn syscall_3(idx: u32, arg1: u32, arg2: u32, arg3: u32) -> u32;
+extern fn syscall_4(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32) -> u32;
+extern fn syscall_5(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32, arg5: u32) -> u32;
+
+extern fn repl_with_stack(stack: *u8, function: fn(*u8)->(), args: *u8) -> i32;
+
+extern fn atomic_add(val: *u32, inc_val: u32) -> i32;

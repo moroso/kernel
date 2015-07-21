@@ -26,11 +26,14 @@ use prelude::shared::*;
 use prelude::thrlib::*;
 use prelude::rt_abort;
 use prelude::shared::ipc_defs::*;
-use prelude::utils::asm::*;
 use prelude::ipclib::*;
 use prelude::shared::consts::PAGE_SIZE;
 use prelude::mallot::*;
 use prelude::name::*;
+//TODO(porting): the outside interface to atomic_add really should be elsewhere,
+// and some other library should wrap "arch". Most user code should never have
+// to touch the "arch" module.
+use prelude::arch::atomic_add;
 
 // maximum len for arg to perform
 // TODO steal max arg len from kernel

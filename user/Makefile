@@ -22,6 +22,7 @@ OBJCOPY = $(PREFIX)objcopy
 # UGGGGGGGGH
 MBC=../../compiler/mbc
 MBC_TARGET ?= c
+ARCH ?= x86
 
 # XXX: entry point probably won't be main?
 LDFLAGS = -static -Ttext 40000000 --fatal-warnings -melf_i386 --entry=main
@@ -39,7 +40,7 @@ PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
 all: $(BUILDDIR)/fs_img.o
 
 $(BUILDDIR)/%.c: %.mb $(MBC)
-	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb
+	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
 
 # XXX: This is screwy.
 #$(BUILDDIR)/%.o: %.S

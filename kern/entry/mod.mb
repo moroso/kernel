@@ -77,6 +77,9 @@ struct exception_record {
 }
 extern static user_copy_handler: exception_record;
 
+//TODO(porting): figure out how interrupts/faults will work.
+extern fn get_cr2() -> u32;
+
 fn page_fault_handler(regs: *uregs) {
     // If this happened at the try address userspace copy, then return
     // to the catch address.

@@ -1,5 +1,6 @@
+use prelude::arch::atomic_add;
 
 mod macro_util;
 mod list;
 mod stdlib;
-mod asm;
+
