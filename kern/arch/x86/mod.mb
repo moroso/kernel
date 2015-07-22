@@ -54,3 +54,5 @@ extern fn machine_phys_frames() -> u32;
 extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
 
 extern fn invalidate_tlb(frame: *u8);
+
+extern fn set_esp0(n: u32);

@@ -70,9 +70,8 @@ static stackptrptr: *u32 = 0x110000 as *u32;
 extern "bare" fn isr_asm() {
     // This is our interrupt handler wrapper. It is responsible for saving all state
     // that needs to be saved, and then calling the main interrupt handler.
-    asm!(// TODO: change 0xdeadbeef to a more reasonable address; ideally
-         // we'll reference a global.
-            "{ SP0 <- r0; r0 <- long; long 0x110000; }"
+    asm!(   "{ SP0 <- r0; }"
+            "{ r0 <- SP2; }"
             "{ SP1 <- r1; r0 <- *l(r0); }"
             // r0 contains the starting address of the current kstack.
             // We stash the value of p0 in the lowest bit of it for later.
@@ -191,8 +190,14 @@ extern "bare" fn invalidate_tlb(frame: *u8) {
          "{ b r31 + 1; }");
 }
 
+extern "bare" fn set_esp0(n: u32) {
+    asm!("{ SP2 <- r0; }"
+         "{ b r31 + 1; }");
+}
+
 //TODO(porting): actually implement these.
 extern fn actually_switch_contexts_with_asm(new_esp: *context, old_esp: **context);
 extern fn fastpath_send_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]);
 extern fn fastpath_recv_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]);
 extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
+
