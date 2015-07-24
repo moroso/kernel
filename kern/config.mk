@@ -1,8 +1,9 @@
 # This really nasty config.mk slots into our temporary (?)
 # super hacky build system for testing the kernel on x86.
 
-KERN_GAME_OBJS = kernel.o fs_img.o hacks.o \
-	context/context.o entry/entry_stubs_x86.o entry/entry_x86.o utils/invalidate_tlb.o utils/validate_x86.o
+KERN_GAME_OBJS = kernel.o fs_img.o arch/x86/hacks.o \
+	arch/x86/context.o arch/x86/entry_stubs_x86.o arch/x86/entry_x86.o \
+	arch/x86/invalidate_tlb.o arch/x86/validate_x86.o
 
 
 TABSTOP = 4
