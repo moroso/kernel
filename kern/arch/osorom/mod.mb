@@ -88,14 +88,16 @@ extern "bare" fn isr_asm() {
             "   p0 -> r30 <- r30 + 0x88; "
             "  !p0 -> r30 <- r0 + 0x88; }"
             // We now start saving registers on the stack. Register order is:
-            // 0x88 0x84    0x10 0xc         0x8         0x4 (offsets relative to r30)
-            // r0,  r1, ... r30, r31, [ predicate regs ] EPC.
+            // (offsets relative to r30)
+            // 0x8c 0x88 0x84    0x10 0xc         0x8         0x4
+            // OVF  r0,  r1, ... r30, r31, [ predicate regs ] EPC.
             // Note that r30 was just saved, but none of the others have been saved yet.
             // Error flags are loaded into registers r0 .. r6, with epc in r1.
             // (It's an odd order, but it's convenient!)
 
             // Note: here we restore p0 from the low bit of r0.
-            "{ r0 <- SP0; p0 <- r0 & 1; r30 <- r30 & long; long 0xfffffffe;}"
+            "{ r0 <- OVF; p0 <- r0 & 1; r30 <- r30 & long; long 0xfffffffe;}"
+            "{ r0 <- SP0; *l(r30 - 0x8c) <- r0; }"
             "{ r0 <- SP1; *l(r30 - 0x88) <- r0; }"
             // r0 now has the original r1 value
             "{ r0 <- EC0; *l(r30 - 0x84) <- r0; }"
@@ -149,9 +151,10 @@ extern "bare" fn isr_asm() {
             // disable interrupts, and restore predicates.
             "{  r2 <- *l(r30 - 0x80);  r0 <- *l(r30 - 0x08); r1 <- 0b10; }"
             "{ PFLAGS <- r1; p0 <- r0 & 0b001; p1 <- r0 & 0b010; p2 <- r0 & 0b100; }"
-            // Restore EPC, r1, and r0.
+            // Restore EPC, OVF, r1, and r0.
             "{  r0 <- *l(r30 - 0x88);  r1 <- *l(r30 - 0x04); }"
-            "{ EPC <- r1; r1 <- *l(r30 - 0x84); }"
+            "{ EPC <- r1; r1 <- *l(r30 - 0x8c); }"
+            "{ OVF <- r1; r1 <- *l(r30 - 0x84); }"
             // Return, and finally restore r30.
             "{ eret; r30 <- *l(r30 - 0x10); }"
             );
