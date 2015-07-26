@@ -1,6 +1,5 @@
 use consts::*;
 
-use entry::*;
 use fs::*;
 
 use utils::early_alloc::*;
@@ -16,16 +15,16 @@ use threadstuffs::bide::*;
 use threadstuffs::abscond::*;
 use loader::*;
 use loader::perform::*;
-use entry::*;
 use structures::tcb_dir::tcb_dir_add;
-use drivers::timer::*;
+use arch::drivers::timer::*;
 use sys::*;
 use structures::multiboot::multiboot_info;
 use structures::tcb_dir::*;
 use utils::list::*;
 use video::vid_alloc::vid_init;
-use entry::devices::exception_table_init;
 use arch::*;
+use arch::entry::*;
+use arch::entry::devices::*;
 
 fn user_thread(dummy: *u8) {
 

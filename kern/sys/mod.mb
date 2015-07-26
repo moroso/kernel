@@ -1,5 +1,5 @@
-use entry;
-use entry::*;
+use arch::entry;
+use arch::entry::*;
 use shared::syscall_consts::*;
 use threadstuffs::repl::*;
 use threadstuffs::abscond::*;
@@ -10,7 +10,7 @@ use locks::mutex::*;
 use loader::perform::*;
 use ipc::*;
 use structures::VM::*;
-use entry::devices::int_register;
+use arch::entry::devices::int_register;
 mod mailbox;
 
 extern fn enable_interrupts();

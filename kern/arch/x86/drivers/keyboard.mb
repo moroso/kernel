@@ -1,7 +1,7 @@
 //TODO(porting): we probably want entire separate versions of this file per arch.
-use entry::{uregs, pic_acknowledge_any_master};
+use arch::entry::{uregs, pic_acknowledge_any_master};
 use utils::macro_util::*;
-use entry::devices::send_int;
+use arch::entry::devices::send_int;
 extern fn inb(addr: u32) -> u32;
 
 // in my defense, processing scancodes is annoying

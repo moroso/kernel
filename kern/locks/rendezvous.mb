@@ -44,7 +44,7 @@ use structures::schedule::*;
 use consts::*;
 use utils::slab_alloc::*;
 use utils::stdlib::*;
-use entry::get_ticks;
+use arch::entry::get_ticks;
 use shared::ipc_defs::*;
 
 /* sync options */

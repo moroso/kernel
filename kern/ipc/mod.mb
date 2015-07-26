@@ -62,7 +62,7 @@ use utils::slab_alloc::*;
 use utils::string::*;
 use utils::user_mem::*;
 use utils::list::*;
-use entry::get_ticks;
+use arch::entry::get_ticks;
 use structures::mailbox::*;
 use shared::ipc_defs::*;
 use structures::desc_table::*;

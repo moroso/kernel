@@ -40,7 +40,7 @@ use structures::desc_table::*;
 use utils::slab_alloc::*;
 use utils::list::*;
 use structures::tcb::*;
-use entry::get_ticks;
+use arch::entry::get_ticks;
 
 // the error that's returned if we attempt to wait on a mailbox we do not own
 const MB_ERR_OWNER: i32 = -7;

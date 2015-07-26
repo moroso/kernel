@@ -13,7 +13,7 @@ use utils::buddy_alloc::{frame_alloc, frame_free};
 use consts::{USER_DS, USER_CS, PAGE_SIZE, EF_IF};
 use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_BIT, KB};
 use structures::schedule::get_tcb;
-use entry::uregs;
+use arch::entry::uregs;
 use utils::stdlib::mos_memcpy;
 
 mod perform;

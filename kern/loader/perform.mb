@@ -2,7 +2,7 @@
 use structures::proc::*;
 use structures::schedule::get_tcb;
 use structures::VM::*;
-use entry::*;
+use arch::entry::*;
 use loader::*;
 use utils::stdlib::mos_memcpy;
 use utils::string::{mos_strncpy, mos_strnlen};

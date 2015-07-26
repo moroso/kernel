@@ -1,6 +1,9 @@
 use consts::EF_IF;
 use structures::tcb::context;
 
+mod entry;
+mod drivers;
+
 const NUM_FASTPATH_REGS: u32  = 5; // number of GPRs being used in fastpath
 
 extern fn get_cr0() -> u32;

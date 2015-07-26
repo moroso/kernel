@@ -14,7 +14,7 @@ use structures::VM::*;
 use structures::schedule::*;
 use threadstuffs::abscond::*;
 use structures::tcb_dir::tcb_dir_add;
-use entry::{uregs, leave_kernel};
+use arch::entry::{uregs, leave_kernel};
 use structures::mailbox::*;
 
 /* function executed by child thread to return to the code the parent was
