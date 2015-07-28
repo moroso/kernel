@@ -75,18 +75,18 @@ extern "bare" fn isr_asm() {
             "{ SP1 <- r1; r0 <- *l(r0); }"
             // r0 contains the starting address of the current kstack.
             // We stash the value of p0 in the lowest bit of it for later.
-            "{ r1 <- EPC; p0 -> r0 <- r0 | 1; }"
+            "{ r1 <- EPC; p0? r0 <- r0 | 1; }"
             // p0 now stores whether we were in kernel mode when this happened.
             "{ p0 <- r1 & 1 }"
             // If we were in userspace, we read the kstack address from a special
             // memory location (and it's now in r0). If we're in the kernel, r30
             // already contains a pointer to a valid part of the active kstack.
-            "{  p0 -> *l(r30 + 0x78) <- r30; "
+            "{  p0? *l(r30 + 0x78) <- r30; "
             // Note: the lowest two bits of the address for word-sized stores are
             // ignored, so this is safe even though the low bit of r0 may be set.
-            "  !p0 -> *l(r0 + 0x78) <- r30; "
-            "   p0 -> r30 <- r30 + 0x88; "
-            "  !p0 -> r30 <- r0 + 0x88; }"
+            "  !p0? *l(r0 + 0x78) <- r30; "
+            "   p0? r30 <- r30 + 0x88; "
+            "  !p0? r30 <- r0 + 0x88; }"
             // We now start saving registers on the stack. Register order is:
             // (offsets relative to r30)
             // 0x8c 0x88 0x84    0x10 0xc         0x8         0x4
@@ -121,9 +121,9 @@ extern "bare" fn isr_asm() {
             "{ *l(r30 - 0x40) <- r18; *l(r30 - 0x3c) <- r19; }"
             // Here we also start saving the predicate registers to r7.
             "{ *l(r30 - 0x38) <- r20; *l(r30 - 0x34) <- r21; r7 <- 0; }"
-            "{ *l(r30 - 0x40) <- r22; *l(r30 - 0x2c) <- r23; p0 -> r7 <- r7 | 0b001; }"
-            "{ *l(r30 - 0x28) <- r24; *l(r30 - 0x24) <- r25; p1 -> r7 <- r7 | 0b010; }"
-            "{ *l(r30 - 0x20) <- r26; *l(r30 - 0x1c) <- r27; p2 -> r7 <- r7 | 0b100; }"
+            "{ *l(r30 - 0x40) <- r22; *l(r30 - 0x2c) <- r23; p0? r7 <- r7 | 0b001; }"
+            "{ *l(r30 - 0x28) <- r24; *l(r30 - 0x24) <- r25; p1? r7 <- r7 | 0b010; }"
+            "{ *l(r30 - 0x20) <- r26; *l(r30 - 0x1c) <- r27; p2? r7 <- r7 | 0b100; }"
             "{ *l(r30 - 0x18) <- r28; *l(r30 - 0x14) <- r29; }"
             // Remember: r30 was already stored!
             "{ *l(r30 - 0x0c) <- r31; *l(r30 - 0x08) <- r7; }"
@@ -175,7 +175,7 @@ fn isr(ec0: u32, epc: u32, ec1: u32, ec2: u32, ec3: u32, ea0: u32, ea1: u32, new
 extern "bare" fn enter_usermode() {
     asm!("{ r1 <- PFLAGS; r0 <- r31 + 0x10; }"
          "{ p0 <- r1 & 1; }"
-         "{ p0 -> r0 <- r0 | 2; }"
+         "{ p0? r0 <- r0 | 2; }"
          "{ EPC <- r0; }"
          "{ eret; }");
 }
