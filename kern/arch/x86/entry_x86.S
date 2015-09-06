@@ -10,7 +10,7 @@ common_entry_asm:
     pushl %ebp # push ebp
     movl %esp, %ebp # move esp to ebp
     pushl %eax # push address of ureg
-    call __entry__kernel_entry
+    call __arch__entry__kernel_entry
     addl $12, %esp
 
 common_exit_asm:
