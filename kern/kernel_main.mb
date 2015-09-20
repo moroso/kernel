@@ -61,6 +61,7 @@ fn kernel_setup() {
     assert!(pd_init_result >= 0);
     entry_init();
     load_PD(init_PD);
+    printf!("Enabling paging...\n");
     enable_paging();
 
     fs_init();

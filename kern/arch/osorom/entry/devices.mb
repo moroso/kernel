@@ -1,0 +1,13 @@
+//TODO(porting)
+
+fn exception_table_init() {
+}
+
+fn send_int(exception_id: u32, message: *u8, message_len: u32) -> i32 {
+    0
+}
+
+fn int_register(int_num: u32, desc: u32) -> i32 {
+
+    0
+}

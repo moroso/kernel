@@ -1,0 +1,28 @@
+use structures::tcb::gpregs; //TODO(porting)
+
+mod devices;
+
+const SYSCALL: u32 = 0x80;
+
+struct uregs {
+    gpregs: gpregs,
+    esp: u32,
+    eip: u32,
+    eflags: u32,
+    ss: u32,
+    ds: u32,
+    es: u32,
+    cs: u32,
+    //TODO(porting)
+}
+
+fn get_ticks() -> u32 {
+    //TODO(porting)
+    0
+}
+
+fn leave_kernel(ureg: *uregs) { }
+
+fn register(idx: u32, handler: fn(*uregs) -> ()) {}
+
+fn entry_init() {}
