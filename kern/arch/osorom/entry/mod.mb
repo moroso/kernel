@@ -97,9 +97,13 @@ extern "bare" fn isr_asm() {
 
             // Note: here we restore p0 from the low bit of r0.
             "{ r0 <- OVF; p0 <- r0 & 1; r30 <- r30 & long; long 0xfffffffe;}"
+            // Save OVF, and load SP0 (which contains the original value of r0).
             "{ r0 <- SP0; *l(r30 - 0x8c) <- r0; }"
+            // Save the original r0, and load SP1 (which contains the original value of r1).
             "{ r0 <- SP1; *l(r30 - 0x88) <- r0; }"
-            // r0 now has the original r1 value
+            // Save each general-purpose register to memory, and load the coprocessor registers
+            // into them instead.
+            // (Recall that r0 now has the original value of r1.)
             "{ r0 <- EC0; *l(r30 - 0x84) <- r0; }"
             "{ r2 <- EC1; *l(r30 - 0x80) <- r2; }"
             "{ r3 <- EC2; *l(r30 - 0x7c) <- r3; }"
