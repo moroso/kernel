@@ -63,11 +63,16 @@ fn kernel_setup() {
     load_PD(init_PD);
     printf!("Enabling paging...\n");
     enable_paging();
+    printf!("Enabled.\n");
 
     fs_init();
+    printf!("FS enabled.\n");
     timer_init();
+    printf!("Timer enabled.\n");
     sys_init();
+    printf!("Sys_init done.\n");
     enable_interrupts();
+    printf!("Interrupts enabled.\n");
 }
 
 fn create_idle_tcb() {

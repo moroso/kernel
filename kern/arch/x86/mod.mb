@@ -3,6 +3,7 @@ use structures::tcb::context;
 
 mod entry;
 mod drivers;
+mod consts;
 
 const NUM_FASTPATH_REGS: u32  = 5; // number of GPRs being used in fastpath
 

@@ -1,0 +1,1 @@
+const PHYS_MEM_START: u32 = 0;

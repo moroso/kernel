@@ -29,22 +29,7 @@ macro syscall!(idx, syscall) {
     ::sys::register($idx, $syscall as fn(u32, u32, u32, u32, u32) -> i32)
 }
 
-fn syscall_entry(regs: *uregs) {
-    // we're coming from an interrupt gate, so we want to re-enable interrupts
-    // for executing a syscall
-    enable_interrupts();
-    let gp = &regs->gpregs;
-    let f: fn(u32, u32, u32, u32, u32) -> i32 = syscall_table[gp->eax];
-    if f as u32 == 0 {
-        gp->eax = -1 as u32;
-        return ();
-    }
-
-    gp->eax = f(gp->ecx, gp->edx, gp->ebx, gp->esi, gp->edi) as u32;
-}
-
 fn sys_init() {
-    entry::register(entry::SYSCALL, syscall_entry);
     syscall!(1, sys_test_sys);
     syscall!(INT_REPL, repl_handler);
     syscall!(INT_ABSCOND, abscond);

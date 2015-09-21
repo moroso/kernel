@@ -4,7 +4,8 @@ use structures::VM::*;
 use structures::schedule::*;
 use locks::mutex::*;
 use locks::rendezvous::rend_timeout_remove;
-use threadstuffs::abscond::abscond;
+use sys::syscall_table;
+use arch::enable_interrupts;
 use arch::drivers::keyboard::keyboard_handler;
 mod devices;
 
@@ -55,6 +56,20 @@ fn entry_setup() {
     }
 }
 
+fn syscall_entry(regs: *uregs) {
+    // we're coming from an interrupt gate, so we want to re-enable interrupts
+    // for executing a syscall
+    enable_interrupts();
+    let gp = &regs->gpregs;
+    let f: fn(u32, u32, u32, u32, u32) -> i32 = syscall_table[gp->eax];
+    if f as u32 == 0 {
+        gp->eax = -1 as u32;
+        return ();
+    }
+
+    gp->eax = f(gp->ecx, gp->edx, gp->ebx, gp->esi, gp->edi) as u32;
+}
+
 fn register(idx: u32, handler: fn(*uregs) -> ()) {
     assert!(idx < MAX_FAULT_NUMS);
     assert!(fault_table[idx] as u32 == 0);
@@ -64,6 +79,7 @@ fn register(idx: u32, handler: fn(*uregs) -> ()) {
 fn entry_init() {
     entry_setup();
 
+    register(SYSCALL, syscall_entry);
     register(PAGE_FAULT, page_fault_handler);
     register(TIMER_INTER, timer_handler);
     register(KBD_INTER, keyboard_handler);
@@ -77,62 +93,14 @@ struct exception_record {
 }
 extern static user_copy_handler: exception_record;
 
-//TODO(porting): figure out how interrupts/faults will work.
 extern fn get_cr2() -> u32;
 
 fn page_fault_handler(regs: *uregs) {
-    // If this happened at the try address userspace copy, then return
-    // to the catch address.
-    if regs->cs == consts::KERNEL_CS && regs->eip == user_copy_handler.try {
-        regs->eip = user_copy_handler.catch;
-        return ();
-    }
-
-    let PD: *PD_t = &(get_tcb()->proc->PD);
-    kmut_lock(&PD->mut);
-    let log_addr: *u8 = get_cr2() as *u8;
-    let frame_addr: **u8 = log_to_phys(log_addr, PD);
-
-    // if page is COW page, copy info onto new frame and replace
-    if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
-        cow_copy(log_addr, PD);
-    } else {
-        let tid: u32 = -1;
-        if (get_tcb() != null) {
-            tid = get_tcb()->tid;
-        }
-        if (is_kernel_addr(log_addr)) {
-            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid, get_tcb()->proc->pid,
-                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD) );
-            assert!(false);
-        }
-
-
-        if (frame_addr == null || *frame_addr == null) {
-            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- PAGE UNMAPPED\n", tid, get_tcb()->proc->pid,
-                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD));
-
-        } else if (!has_flags(*frame_addr, USER_SUPER_BIT)) {
-            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- INVALID ADDRESS \n", tid, get_tcb()->proc->pid,
-                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD));
-
-        } else if (!has_flags(*frame_addr, READ_WRITE_BIT)) {
-            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- READ ONLY PAGE \n", tid, get_tcb()->proc->pid,
-                    log_addr, regs->eip, regs->esp,*log_to_phys(regs->esp as *u8, PD));
-
-        } else { 
-            kmut_unlock(&PD->mut);
-            return ();
-        }
-
-        kmut_unlock(&PD->mut);
-        abscond(-1);
-    }
-    kmut_unlock(&PD->mut);
-
+    page_fault_handler_common(regs->cs == consts::KERNEL_CS,
+                              &regs->eip,
+                              regs->esp,
+                              get_cr2() as *u8);
 }
-
-
 
 fn timer_handler(regs: *uregs) {
     ticks += 1;

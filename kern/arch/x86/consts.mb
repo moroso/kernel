@@ -1,0 +1,4 @@
+use consts::PAGE_SIZE;
+
+/* leave the 0 page unmapped */
+const PHYS_MEM_START: u32 = PAGE_SIZE;

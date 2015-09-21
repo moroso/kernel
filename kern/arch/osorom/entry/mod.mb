@@ -1,8 +1,29 @@
 use structures::tcb::gpregs; //TODO(porting)
+use sys::MAX_SYSCALLS;
+use utils::stdlib::mos_memset;
+use structures::VM::page_fault_handler_common;
+
+use arch::drivers::timer::TIMER;
 
 mod devices;
 
 const SYSCALL: u32 = 0x80;
+
+const EPC_USERMODE: u32 = 0x1;
+
+enum exception_t {
+    EXC_NO_ERROR,
+    EXC_PAGEFAULT_ON_FETCH,
+    EXC_ILLEGAL_INSTRUCTION,
+    EXC_INSUFFICIENT_PERMISSIONS,
+    EXC_DUPLICATE_DESTINATION,
+    EXC_PAGEFAULT_ON_DATA_ACCESS,
+    EXC_INVALID_PHYSICAL_ADDRESS,
+    EXC_DIVIDE_BY_ZERO,
+    EXC_INTERRUPT,
+    EXC_SYSCALL,
+    EXC_BREAK,
+}
 
 struct uregs {
     gpregs: gpregs,
@@ -14,6 +35,8 @@ struct uregs {
     es: u32,
     cs: u32,
     //TODO(porting)
+
+    r: u32[32],
 }
 
 fn get_ticks() -> u32 {
@@ -23,6 +46,168 @@ fn get_ticks() -> u32 {
 
 fn leave_kernel(ureg: *uregs) { }
 
-fn register(idx: u32, handler: fn(*uregs) -> ()) {}
 
-fn entry_init() {}
+
+fn register(idx: u32, handler: fn(*uregs) -> ()) {
+    // TODO?
+}
+
+fn entry_init() {
+    set_exception_handler(isr_asm);
+}
+
+
+extern "bare" fn set_exception_handler(addr: fn() -> ()) {
+    asm!("{ EHA <- r0; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn get_exception_handler_address() -> u32 {
+    asm!("{ r0 <- EHA; }"
+         "{ b r31 + 1; }");
+}
+
+extern "bare" fn isr_asm() {
+    // This is our interrupt handler wrapper. It is responsible for saving all state
+    // that needs to be saved, and then calling the main interrupt handler.
+    asm!(   "{ SP0 <- r0; }"
+            "{ r0 <- SP2; }"
+            "{ SP1 <- r1; r0 <- *l(r0); }"
+            // r0 contains the starting address of the current kstack.
+            // We stash the value of p0 in the lowest bit of it for later.
+            "{ r1 <- EPC; p0? r0 <- r0 | 1; }"
+            // p0 now stores whether we were in kernel mode when this happened.
+            "{ p0 <- r1 & 1 }"
+            // If we were in userspace, we read the kstack address from a special
+            // memory location (and it's now in r0). If we're in the kernel, r30
+            // already contains a pointer to a valid part of the active kstack.
+            "{  p0? *l(r30 + 0x78) <- r30; "
+            // Note: the lowest two bits of the address for word-sized stores are
+            // ignored, so this is safe even though the low bit of r0 may be set.
+            "  !p0? *l(r0 + 0x78) <- r30; "
+            "   p0? r30 <- r30 + 0x88; "
+            "  !p0? r30 <- r0 + 0x88; }"
+            // We now start saving registers on the stack. Register order is:
+            // (offsets relative to r30)
+            // 0x8c 0x88 0x84    0x10 0xc         0x8         0x4
+            // OVF  r0,  r1, ... r30, r31, [ predicate regs ] EPC.
+            // Note that r30 was just saved, but none of the others have been saved yet.
+            // Error flags are loaded into registers r0 .. r6, with epc in r1.
+            // (It's an odd order, but it's convenient!)
+
+            // Note: here we restore p0 from the low bit of r0.
+            "{ r0 <- OVF; p0 <- r0 & 1; r30 <- r30 & long; long 0xfffffffe;}"
+            "{ r0 <- SP0; *l(r30 - 0x8c) <- r0; }"
+            "{ r0 <- SP1; *l(r30 - 0x88) <- r0; }"
+            // r0 now has the original r1 value
+            "{ r0 <- EC0; *l(r30 - 0x84) <- r0; }"
+            "{ r2 <- EC1; *l(r30 - 0x80) <- r2; }"
+            "{ r3 <- EC2; *l(r30 - 0x7c) <- r3; }"
+            "{ r4 <- EC3; *l(r30 - 0x78) <- r4; }"
+            "{ r5 <- EA0; *l(r30 - 0x74) <- r5; }"
+            "{ r6 <- EA1; *l(r30 - 0x70) <- r6; }"
+            "{ *l(r30 - 0x6c) <- r7; *l(r30 - 0x68) <- r8; r7 <- 3; }"
+
+            // once coprocessor regs are in GPRs we can turn interrupts on.
+            // TODO: Do we actually want to turn them on here? Leaving them off for now
+            // so that the handler can clear interrupt bits if needed.
+            //"{ PFLAGS <- r7; *l(r30 - 0x64) <- r9; }"
+            "{                 *l(r30 - 0x64) <- r9; }"
+
+            "{ *l(r30 - 0x60) <- r10; *l(r30 - 0x5c) <- r11; }"
+            "{ *l(r30 - 0x58) <- r12; *l(r30 - 0x54) <- r13; }"
+            "{ *l(r30 - 0x50) <- r14; *l(r30 - 0x4c) <- r15; }"
+            "{ *l(r30 - 0x48) <- r16; *l(r30 - 0x44) <- r17; }"
+            "{ *l(r30 - 0x40) <- r18; *l(r30 - 0x3c) <- r19; }"
+            // Here we also start saving the predicate registers to r7.
+            "{ *l(r30 - 0x38) <- r20; *l(r30 - 0x34) <- r21; r7 <- 0; }"
+            "{ *l(r30 - 0x40) <- r22; *l(r30 - 0x2c) <- r23; p0? r7 <- r7 | 0b001; }"
+            "{ *l(r30 - 0x28) <- r24; *l(r30 - 0x24) <- r25; p1? r7 <- r7 | 0b010; }"
+            "{ *l(r30 - 0x20) <- r26; *l(r30 - 0x1c) <- r27; p2? r7 <- r7 | 0b100; }"
+            "{ *l(r30 - 0x18) <- r28; *l(r30 - 0x14) <- r29; }"
+            // Remember: r30 was already stored!
+            "{ *l(r30 - 0x0c) <- r31; *l(r30 - 0x08) <- r7; }"
+
+            // Save EPC (which is in r1), and call the actual interrupt handler!
+            // TODO: we'll need to replace this with the mangled name.
+            "{ bl __isr; *l(r30 - 0x04) <- r1; r7 <- r30 - 0x04; }"
+
+            // Now we have to restore all state. r30, r1, and r0 wait until later.
+            "{ r31 <- *l(r30 - 0x0c); r29 <- *l(r30 - 0x14); }"
+            "{ r28 <- *l(r30 - 0x18); r27 <- *l(r30 - 0x1c); }"
+            "{ r26 <- *l(r30 - 0x20); r25 <- *l(r30 - 0x24); }"
+            "{ r24 <- *l(r30 - 0x28); r23 <- *l(r30 - 0x2c); }"
+            "{ r22 <- *l(r30 - 0x30); r21 <- *l(r30 - 0x34); }"
+            "{ r20 <- *l(r30 - 0x38); r19 <- *l(r30 - 0x3c); }"
+            "{ r18 <- *l(r30 - 0x40); r17 <- *l(r30 - 0x44); }"
+            "{ r16 <- *l(r30 - 0x48); r15 <- *l(r30 - 0x4c); }"
+            "{ r14 <- *l(r30 - 0x50); r13 <- *l(r30 - 0x54); }"
+            "{ r12 <- *l(r30 - 0x58); r11 <- *l(r30 - 0x5c); }"
+            "{ r10 <- *l(r30 - 0x60);  r9 <- *l(r30 - 0x64); }"
+            "{  r8 <- *l(r30 - 0x68);  r7 <- *l(r30 - 0x6c); }"
+            "{  r6 <- *l(r30 - 0x70);  r5 <- *l(r30 - 0x74); }"
+            "{  r4 <- *l(r30 - 0x78);  r3 <- *l(r30 - 0x7c); }"
+            // Almost done! We load the saved predicate registers into r0,
+            // disable interrupts, and restore predicates.
+            "{  r2 <- *l(r30 - 0x80);  r0 <- *l(r30 - 0x08); r1 <- 0b10; }"
+            "{ PFLAGS <- r1; p0 <- r0 & 0b001; p1 <- r0 & 0b010; p2 <- r0 & 0b100; }"
+            // Restore EPC, OVF, r1, and r0.
+            "{  r0 <- *l(r30 - 0x88);  r1 <- *l(r30 - 0x04); }"
+            "{ EPC <- r1; r1 <- *l(r30 - 0x8c); }"
+            "{ OVF <- r1; r1 <- *l(r30 - 0x84); }"
+            // Return, and finally restore r30.
+            "{ eret; r30 <- *l(r30 - 0x10); }"
+            );
+    }
+
+fn isr(ec0: exception_t, epc: u32,
+       ec1: exception_t,
+       ec2: exception_t,
+       ec3: exception_t, ea0: u32, ea1: u32,
+       new_epc: *u32, regs: *uregs) {
+    // TODO: *actually* handle the interrupt!
+    printf!("In handler\n");
+    match ec0 {
+        EXC_INTERRUPT => {
+            TIMER->control = 0x06;
+        },
+        _ => { *new_epc += 0x10; },
+    }
+    printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
+}
+
+fn is_pagefault(ec: exception_t) -> bool {
+    match ec {
+        EXC_PAGEFAULT_ON_FETCH => true,
+        EXC_PAGEFAULT_ON_DATA_ACCESS => true,
+        _ => false,
+    }
+}
+
+fn page_fault_handler(ec0: exception_t, epc: u32,
+                      ec1: exception_t,
+                      ec2: exception_t,
+                      ec3: exception_t,
+                      ea0: u32, ea1: u32, new_epc: *u32, regs: *uregs) {
+    let is_kmode: bool = (epc & EPC_USERMODE == 0);
+    let ea: u32;
+
+    if (is_pagefault(ec0)) {
+        ea = ea0;
+    } else {
+        assert!(is_pagefault(ec1));
+        ea = ea1;
+    }
+
+    page_fault_handler_common(is_kmode,
+                              new_epc,
+                              regs->r[30],
+                              ea as *u8);
+}
+
+//TODO(porting)
+struct exception_record {
+    try: u32,
+    catch: u32
+}
+extern static user_copy_handler: exception_record;

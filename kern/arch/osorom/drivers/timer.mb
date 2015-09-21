@@ -1,1 +1,10 @@
+struct timer_t {
+    count: u32,
+    top: u32,
+    control: u32,
+}
+
+static TIMER : *timer_t = 0x80000000 as *timer_t;
+
+
 fn timer_init() {}

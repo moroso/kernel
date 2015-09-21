@@ -16,7 +16,11 @@ use utils::list::*;
 use structures::schedule::{get_tcb, cond_preempt_disable, cond_preempt_enable};
 use locks::mutex::*;
 use video::vid_alloc::*;
+use threadstuffs::abscond::abscond;
 use arch::*;
+use arch::entry::user_copy_handler; //TODO(porting):
+use arch::consts::PHYS_MEM_START;
+
 
 //TODO(porting): the following should probably really be considered arch-specific,
 // though for both of our architectures it doesn't actually matter.
@@ -613,8 +617,7 @@ fn PD_init(PD: *PD_t) -> i32 {
         assert!(PD->PT_entries != null);
         PD->PT_entries[i] = null;
     }
-    let kernel_addr: *u8 = (PAGE_SIZE as *u8);
-    /* leave the 0 page unmapped */
+    let kernel_addr: *u8 = PHYS_MEM_START as *u8;
 
     /* we require an init_PD to be available so we never have to worry about
      * freeing kernel pages */
@@ -687,6 +690,65 @@ fn cow_copy(log_addr: *u8, PD: *PD_t) {
 
     assert!(set_page_result >= 0); // this assert trips if we run out of frames,
     // but should not once we deal with overcommitting
+
+}
+
+fn page_fault_handler_common(kernel_mode: bool,
+                             fault_ip: *u32,
+                             fault_sp: u32, // Only for debugging info.
+                             fault_addr: *u8) {
+    // If this happened at the try address userspace copy, then return
+    // to the catch address.
+    if kernel_mode && *fault_ip == user_copy_handler.try {
+        *fault_ip = user_copy_handler.catch;
+        return ();
+    }
+
+    let PD: *PD_t = &(get_tcb()->proc->PD);
+    kmut_lock(&PD->mut);
+    let log_addr: *u8 = fault_addr;
+    let frame_addr: **u8 = log_to_phys(log_addr, PD);
+
+    // if page is COW page, copy info onto new frame and replace
+    if (frame_addr != null && has_flags(*frame_addr, COW_BIT)) {
+        cow_copy(log_addr, PD);
+    } else {
+        let tid: u32 = -1;
+        if (get_tcb() != null) {
+            tid = get_tcb()->tid;
+        }
+        if (is_kernel_addr(log_addr)) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p)\n", tid, get_tcb()->proc->pid,
+                    log_addr, fault_ip, fault_sp,
+                    *log_to_phys(fault_sp as *u8, PD) );
+            assert!(false);
+        }
+
+
+        if (frame_addr == null || *frame_addr == null) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- PAGE UNMAPPED\n", tid, get_tcb()->proc->pid,
+                    log_addr, fault_ip, fault_sp,
+                    *log_to_phys(fault_sp as *u8, PD));
+
+        } else if (!has_flags(*frame_addr, USER_SUPER_BIT)) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- INVALID ADDRESS \n", tid, get_tcb()->proc->pid,
+                    log_addr, fault_ip, fault_sp,
+                    *log_to_phys(fault_sp as *u8, PD));
+
+        } else if (!has_flags(*frame_addr, READ_WRITE_BIT)) {
+            printf!("Thread %d, proc %d Page Fault on address 0x%x, instruction 0x%x, stack 0x%x (%p) -- READ ONLY PAGE \n", tid, get_tcb()->proc->pid,
+                    log_addr, fault_ip, fault_sp,
+                    *log_to_phys(fault_sp as *u8, PD));
+
+        } else { 
+            kmut_unlock(&PD->mut);
+            return ();
+        }
+
+        kmut_unlock(&PD->mut);
+        abscond(-1);
+    }
+    kmut_unlock(&PD->mut);
 
 }
 
