@@ -14,7 +14,8 @@ use structures::VM::*;
 use structures::schedule::*;
 use threadstuffs::abscond::*;
 use structures::tcb_dir::tcb_dir_add;
-use arch::entry::{uregs, leave_kernel};
+use arch::entry::leave_kernel;
+use arch::regs::{uregs, set_return_code};
 use structures::mailbox::*;
 
 /* function executed by child thread to return to the code the parent was
@@ -22,7 +23,7 @@ use structures::mailbox::*;
 fn child_repl(regs_i: *u8) { 
     let regs = regs_i as *uregs;
     // on success, child returns 0
-    regs->gpregs.eax = 0;
+    set_return_code(regs, 0);
     leave_kernel(regs);
 }
 

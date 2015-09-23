@@ -1,5 +1,4 @@
-use consts;
-use structures::tcb::gpregs;
+use arch::consts::KERNEL_CS;
 use structures::VM::*;
 use structures::schedule::*;
 use locks::mutex::*;
@@ -7,6 +6,7 @@ use locks::rendezvous::rend_timeout_remove;
 use sys::syscall_table;
 use arch::enable_interrupts;
 use arch::drivers::keyboard::keyboard_handler;
+use arch::regs::uregs;
 mod devices;
 
 const MAX_FAULT_NUMS: u32 = 256;
@@ -16,22 +16,7 @@ const TIMER_INTER: u32 = 32;
 const KBD_INTER: u32 = 33;
 const SYSCALL: u32 = 0x80;
 
-struct uregs {
-    ds: u32,
-    es: u32,
 
-    gpregs: gpregs,
-
-    pf_addr: u32,
-    cause: u32,
-
-    error_code: u32,
-    eip: u32,
-    cs: u32,
-    eflags: u32,
-    esp: u32,
-    ss: u32,
-}
 
 static fault_table: (fn(*uregs) -> ())[MAX_FAULT_NUMS];
 
@@ -96,7 +81,7 @@ extern static user_copy_handler: exception_record;
 extern fn get_cr2() -> u32;
 
 fn page_fault_handler(regs: *uregs) {
-    page_fault_handler_common(regs->cs == consts::KERNEL_CS,
+    page_fault_handler_common(regs->cs == KERNEL_CS,
                               &regs->eip,
                               regs->esp,
                               get_cr2() as *u8);

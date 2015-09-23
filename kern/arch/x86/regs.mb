@@ -1,0 +1,30 @@
+use structures::tcb::gpregs;
+
+struct uregs {
+    ds: u32,
+    es: u32,
+
+    gpregs: gpregs,
+
+    pf_addr: u32,
+    cause: u32,
+
+    error_code: u32,
+    eip: u32,
+    cs: u32,
+    eflags: u32,
+    esp: u32,
+    ss: u32,
+}
+
+fn get_sp(ureg: *uregs) -> u32 {
+    ureg->esp
+}
+
+fn set_sp(ureg: *uregs, sp: u32) {
+    ureg->esp = sp;
+}
+
+fn set_return_code(ureg: *uregs, val: u32) {
+    ureg->gpregs.eax = val;
+}

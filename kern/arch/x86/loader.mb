@@ -1,0 +1,16 @@
+use arch::consts::{USER_DS, USER_CS};
+use arch::regs::uregs;
+
+extern fn get_eflags() -> u32;
+
+fn load_set_regs(ureg: *uregs, stack_ptr: u32, entry_point: u32) {
+    // Populate registers after loading a program.
+    ureg->esp = stack_ptr;
+    ureg->eip = entry_point;
+    let eflags: u32 = get_eflags();
+    ureg->eflags = eflags;
+    ureg->ss = USER_DS;
+    ureg->ds = USER_DS;
+    ureg->es = USER_DS;
+    ureg->cs = USER_CS;
+}

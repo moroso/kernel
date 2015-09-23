@@ -4,12 +4,13 @@ use utils::stdlib::mos_memset;
 use structures::VM::page_fault_handler_common;
 
 use arch::drivers::timer::TIMER;
+use arch::regs::uregs;
 
 mod devices;
 
 const SYSCALL: u32 = 0x80;
 
-const EPC_USERMODE: u32 = 0x1;
+const EPC_KERNELMODE: u32 = 0x1;
 
 enum exception_t {
     EXC_NO_ERROR,
@@ -25,31 +26,18 @@ enum exception_t {
     EXC_BREAK,
 }
 
-struct uregs {
-    gpregs: gpregs,
-    esp: u32,
-    eip: u32,
-    eflags: u32,
-    ss: u32,
-    ds: u32,
-    es: u32,
-    cs: u32,
-    //TODO(porting)
-
-    r: u32[32],
-}
-
 fn get_ticks() -> u32 {
     //TODO(porting)
     0
 }
 
-fn leave_kernel(ureg: *uregs) { }
-
-
+fn leave_kernel(ureg: *uregs) {
+    printf!("Leave kernel\n");
+}
 
 fn register(idx: u32, handler: fn(*uregs) -> ()) {
-    // TODO?
+    // Empty: we don't use this mechanism.
+    // Handlers for peripheral interrupts are called by the ISR.
 }
 
 fn entry_init() {
@@ -171,11 +159,13 @@ fn isr(ec0: exception_t, epc: u32,
        new_epc: *u32, regs: *uregs) {
     // TODO: *actually* handle the interrupt!
     printf!("In handler\n");
-    match ec0 {
-        EXC_INTERRUPT => {
-            TIMER->control = 0x06;
-        },
-        _ => { *new_epc += 0x10; },
+    // TODO: fix this when we support == on c-like enums.
+    if ec0 as u32 == EXC_INTERRUPT as u32 {
+        TIMER->control = 0x06;
+    } else if is_pagefault(ec0) || is_pagefault(ec1) {
+        page_fault_handler(ec0, epc, ec1, ec2, ec3, ea0, ea1, new_epc, regs);
+    } else {
+        *new_epc += 0x10;
     }
     printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
 }
@@ -193,7 +183,7 @@ fn page_fault_handler(ec0: exception_t, epc: u32,
                       ec2: exception_t,
                       ec3: exception_t,
                       ea0: u32, ea1: u32, new_epc: *u32, regs: *uregs) {
-    let is_kmode: bool = (epc & EPC_USERMODE == 0);
+    let is_kmode: bool = (epc & EPC_KERNELMODE != 0);
     let ea: u32;
 
     if (is_pagefault(ec0)) {

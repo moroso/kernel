@@ -30,6 +30,10 @@ macro syscall!(idx, syscall) {
 }
 
 fn sys_init() {
+    let i: u32;
+    for (i = 0; i < MAX_SYSCALLS; i += 1) {
+        syscall_table[i] = 0 as fn(u32, u32, u32, u32, u32) -> i32;
+    }
     syscall!(1, sys_test_sys);
     syscall!(INT_REPL, repl_handler);
     syscall!(INT_ABSCOND, abscond);

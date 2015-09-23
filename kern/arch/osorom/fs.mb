@@ -1,0 +1,13 @@
+// The start and end of the linked in fs image.
+//TODO(porting): come up with a better way to link this in.
+// For now, we just concatenate the binary with the filesystem, so the filesystem will appear at
+// the __END__ label.
+extern static __END__: u8;
+
+fn get_fs_img_start() -> *u8 {
+    &__END__ as *u8
+}
+
+fn get_fs_img_end() -> *u8 {
+    0 as *u8
+}

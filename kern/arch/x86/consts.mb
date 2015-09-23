@@ -2,3 +2,11 @@ use consts::PAGE_SIZE;
 
 /* leave the 0 page unmapped */
 const PHYS_MEM_START: u32 = PAGE_SIZE;
+
+/* Segment selectors */
+const KERNEL_CS: u32 = 0x10;     /**< Kernel Code Segment */
+const KERNEL_DS: u32 = 0x18;      /**< Kernel Data Segment */
+const USER_CS: u32 = 0x23;      /**< User Code Segment */
+const USER_DS: u32 = 0x2b;      /**< User Data Segment */
+
+const EF_IF: u32 = 0x00000200;

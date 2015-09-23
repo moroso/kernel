@@ -1,0 +1,13 @@
+// The start and end of the linked in fs image.
+
+
+extern static fs_img_start: u8[0];
+extern static fs_img_end: u8[0];
+
+fn get_fs_img_start() -> *u8 {
+    &fs_img_start as *u8
+}
+
+fn get_fs_img_end() -> *u8 {
+    &fs_img_end as *u8
+}

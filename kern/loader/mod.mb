@@ -10,15 +10,14 @@
 use fs::fs_read;
 use utils::slab_alloc::{slub_alloc, slub_free};
 use utils::buddy_alloc::{frame_alloc, frame_free};
-use consts::{USER_DS, USER_CS, PAGE_SIZE, EF_IF};
+use consts::PAGE_SIZE;
 use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_BIT, KB};
 use structures::schedule::get_tcb;
-use arch::entry::uregs;
+use arch::loader::load_set_regs;
+use arch::regs::uregs;
 use utils::stdlib::mos_memcpy;
 
 mod perform;
-
-extern fn get_eflags() -> u32;
 
 // Header for the bs executable file format
 struct bsexe_header {
@@ -66,14 +65,7 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
     }
 
     /* Populate the ureg with the appropriate info for running the file */
-    ureg->esp = user_esp; // allocated in the for-loop
-    ureg->eip = header.entry_point;
-    let eflags: u32 = get_eflags();
-    ureg->eflags = eflags;
-    ureg->ss = USER_DS;
-    ureg->ds = USER_DS;
-    ureg->es = USER_DS;
-    ureg->cs = USER_CS;
+    load_set_regs(ureg, user_esp, header.entry_point);
 
     0
 }

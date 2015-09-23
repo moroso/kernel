@@ -1,0 +1,6 @@
+use arch::regs::uregs;
+
+fn load_set_regs(ureg: *uregs, stack_ptr: u32, entry_point: u32) {
+    ureg->r[30] = stack_ptr;
+    ureg->ip = entry_point;
+}

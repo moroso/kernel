@@ -1,0 +1,20 @@
+//TODO(porting)
+use structures::tcb::gpregs;
+
+struct uregs {
+    r: u32[32],
+    ip: u32,
+    ovf: u32,
+}
+
+fn get_sp(ureg: *uregs) -> u32 {
+    ureg->r[30]
+}
+
+fn set_sp(ureg: *uregs, sp: u32) {
+    ureg->r[30] = sp;
+}
+
+fn set_return_code(ureg: *uregs, val: u32) {
+    ureg->r[0] = val;
+}

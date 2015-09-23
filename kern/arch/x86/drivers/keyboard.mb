@@ -1,5 +1,6 @@
 //TODO(porting): we probably want entire separate versions of this file per arch.
-use arch::entry::{uregs, pic_acknowledge_any_master};
+use arch::entry::pic_acknowledge_any_master;
+use arch::regs::uregs;
 use utils::macro_util::*;
 use arch::entry::devices::send_int;
 extern fn inb(addr: u32) -> u32;
