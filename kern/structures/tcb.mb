@@ -19,7 +19,7 @@ use structures::desc_table::*;
 use arch::enable_interrupts;
 use arch::thread::{context, fill_context};
 
-fn tbc_init_func() {
+fn tcb_init_func() {
     enable_interrupts();
     preempt_enable();
 }
@@ -125,7 +125,7 @@ fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
     /* make some room for the new context, the return function and its args */
     tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
     tcb->context->return_addr = function as u32;
-    tcb->context->tbc_init_func = tbc_init_func as u32;
+    tcb->context->tcb_init_func = tcb_init_func as u32;
     // Fill out any arch-specific fields in the tcb's context.
     fill_context(tcb);
 

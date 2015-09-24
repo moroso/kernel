@@ -1,4 +1,4 @@
-use structures::tcb::{tcb, tcb_init, tbc_init_func};
+use structures::tcb::{tcb, tcb_init, tcb_init_func};
 use utils::buddy_alloc::frame_alloc;
 use utils::stdlib::mos_memcpy;
 use arch::regs::gpregs;
@@ -8,12 +8,12 @@ extern fn get_eflags() -> u32;
 struct context {
     eflags: u32,
     gpregs: gpregs,
-    tbc_init_func: u32,
+    tcb_init_func: u32,
     return_addr: u32,
 }
 
 fn fill_context(tcb: *tcb) {
     tcb->context->eflags = get_eflags();
-    tcb->context->gpregs.ebp = (&(tcb->context->tbc_init_func) as u32) -
+    tcb->context->gpregs.ebp = (&(tcb->context->tcb_init_func) as u32) -
         sizeof(u32);
 }

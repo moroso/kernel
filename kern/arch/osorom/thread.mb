@@ -1,7 +1,7 @@
-use structures::tcb::{tcb, tcb_init, tbc_init_func};
+use structures::tcb::{tcb, tcb_init, tcb_init_func};
 
 struct context {
-    tbc_init_func: u32,
+    tcb_init_func: u32,
     return_addr: u32,
     //TODO(porting): the rest of the context we need.
 }
