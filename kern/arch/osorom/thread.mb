@@ -1,0 +1,17 @@
+use structures::tcb::{tcb, tcb_init, tbc_init_func};
+
+struct context {
+    tbc_init_func: u32,
+    return_addr: u32,
+    //TODO(porting): the rest of the context we need.
+}
+
+/* given a function, some data and its length, creates a new tcb that, when
+ * switched to, executes function with a pointer to data as its argument */
+fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
+    0 as *tcb
+}
+
+fn fill_context(tcb: *tcb) {
+    //TODO(porting)
+}

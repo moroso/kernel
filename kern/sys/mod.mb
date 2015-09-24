@@ -1,4 +1,4 @@
-use arch::entry;
+use arch::{entry, enable_interrupts};
 use arch::entry::*;
 use shared::syscall_consts::*;
 use threadstuffs::repl::*;
@@ -12,8 +12,6 @@ use ipc::*;
 use structures::VM::*;
 use arch::entry::devices::int_register;
 mod mailbox;
-
-extern fn enable_interrupts();
 
 const MAX_SYSCALLS: u32 = 256;
 

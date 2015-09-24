@@ -1,0 +1,7 @@
+use structures::multiboot::multiboot_info;
+
+extern static __mb_info: *multiboot_info;
+
+fn mb_info() -> *multiboot_info {
+    __mb_info
+}

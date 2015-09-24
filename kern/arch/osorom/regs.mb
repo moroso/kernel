@@ -1,6 +1,3 @@
-//TODO(porting)
-use structures::tcb::gpregs;
-
 struct uregs {
     r: u32[32],
     ip: u32,

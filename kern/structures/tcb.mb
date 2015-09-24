@@ -17,28 +17,7 @@ use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock,
 use locks::rendezvous::*;
 use structures::desc_table::*;
 use arch::enable_interrupts;
-
-extern fn get_eflags() -> u32;
-
-/* this will be outmoded as soon as the new arch comes in */
-struct gpregs {
-    edi: u32,
-    esi: u32,
-    ebp: u32,
-    esp: u32,
-    ebx: u32,
-    edx: u32,
-    ecx: u32,
-    eax: u32,
-}
-
-struct context {
-    eflags: u32,
-    gpregs: gpregs,
-    stored_ebp: u32,
-    tbc_init_func: u32,
-    return_addr: u32,
-}
+use arch::thread::{context, fill_context};
 
 fn tbc_init_func() {
     enable_interrupts();
@@ -49,7 +28,7 @@ struct tcb {
     tid: u32,
     kstack_top: *u8,
 
-    /*** ipc things ***/    
+    /*** ipc things ***/
     last_send: list_head,
 
     link: list_node, // used for putting on run queue
@@ -142,14 +121,13 @@ fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
     tcb_init(tcb);
 
     assert!(tcb->kstack_top != null);
-    
+
     /* make some room for the new context, the return function and its args */
     tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
-    tcb->context->eflags = get_eflags();
-    tcb->context->gpregs.ebp = (&(tcb->context->tbc_init_func) as u32) -
-        sizeof(u32);
     tcb->context->return_addr = function as u32;
     tcb->context->tbc_init_func = tbc_init_func as u32;
+    // Fill out any arch-specific fields in the tcb's context.
+    fill_context(tcb);
 
     /* place data onto the stack a place a pointer to data as an argument to
      * function */
