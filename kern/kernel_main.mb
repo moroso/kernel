@@ -22,12 +22,12 @@ use structures::multiboot::multiboot_info;
 use structures::tcb_dir::*;
 use utils::list::*;
 use video::vid_alloc::vid_init;
-use arch::*;
+use arch::{enable_paging, enable_interrupts};
 use arch::entry::*;
 use arch::entry::devices::*;
 
 fn user_thread(dummy: *u8) {
-
+    printf!("User thread\n");
     let arg_array = ["foo", "bar", null];
     assert!(perform("init", &arg_array[0], false) >= 0);
     assert!(false);
@@ -93,20 +93,29 @@ fn kernel_main(mb_info: *multiboot_info) -> u32 {
     let width = mode_info->XResolution;
     let height = mode_info->YResolution;
     let depth = mode_info->BitsPerPixel / 8;
+    printf!("Vid init...\n");
     vid_init(framebuffer, width, height, depth);
+    printf!("Exc table init...\n");
     exception_table_init();
+    printf!("Done\n");
 
     let new_tcb: *tcb;
     new_tcb = thr_create(user_thread, null, 0);
+    printf!("After thr_create\n");
     tcb_dir_add(new_tcb);
+    printf!("TCB added\n");
     assert!(new_tcb != null);
     let proc1: *proc = slub_alloc(sizeof(proc)) as *proc;
+    printf!("SLUB\n");
     proc_init(proc1, new_tcb, null);
+    printf!("Proc init\n");
     assert!(proc1 != null);
     schedule(new_tcb, QUEUE_FRONT);
 
+    printf!("Idle TCB\n");
     create_idle_tcb();
 
+    printf!("Preempt enable\n");
     preempt_enable();
 
     /*** Switch to the first thread in the run queue and jump to its execution ***/

@@ -7,11 +7,14 @@ const PAGE_SIZE: u32 = 4096;
 /* We give the kernel the first 8MB of space; after that, early_alloc hands out
  * kernel memory, up until a gigabyte, where user memory starts */
 const KERNEL_MEM_START: u32 = 8 * 1024 * 1024;
+/* End of kernel memory. We leave one page between kernel and user
+ * memory for peripherals. */
+const KERNEL_MEM_END: u32 = 1024 * 1024 * 1024 - PAGE_SIZE;
 /* start of user memory */
 const USER_MEM_START: u32 = 1024 * 1024 * 1024;
 const INT_MAX: u32 = 0xffffffff;
 const USER_MEM_END: u32 = INT_MAX;
-const MAX_FRAME_NUM: u32 = ((USER_MEM_START/PAGE_SIZE) + 1);
+const MAX_FRAME_NUM: u32 = KERNEL_MEM_END/PAGE_SIZE;
 
 /* describes tcb state */
 const STATE_RUNNING: u32 = 0;

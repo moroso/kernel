@@ -1,8 +1,11 @@
 use structures::tcb::{tcb, tcb_init, tcb_init_func};
+use arch::regs::uregs;
 
 struct context {
     tcb_init_func: u32,
     return_addr: u32,
+    kmode: bool,
+    regs: uregs,
     //TODO(porting): the rest of the context we need.
 }
 
@@ -13,5 +16,4 @@ fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
 }
 
 fn fill_context(tcb: *tcb) {
-    //TODO(porting)
 }

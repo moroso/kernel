@@ -1,5 +1,6 @@
 use arch::consts::EF_IF;
 use arch::thread::context;
+use structures::VM::PD_t;
 
 mod entry;
 mod drivers;
@@ -65,3 +66,9 @@ extern fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32;
 extern fn invalidate_tlb(frame: *u8);
 
 extern fn set_esp0(n: u32);
+
+fn arch_PD_init(PD: *PD_t) -> i32 {
+    // Nothing to do here; x86 needs no special page directory/table entries.
+
+    0
+}

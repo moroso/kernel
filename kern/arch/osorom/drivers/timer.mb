@@ -1,10 +1,25 @@
+use arch::PERIPHERAL_START;
+
 struct timer_t {
     count: u32,
     top: u32,
     control: u32,
 }
 
-static TIMER : *timer_t = 0x80000000 as *timer_t;
+static TIMER : *timer_t = PERIPHERAL_START as *timer_t;
+const TIMER_CONTROL_TIMER_EN: u32 = 2;
+const TIMER_CONTROL_TIMER_INT_EN: u32 = 1;
+const TIMER_CONTROL_TIMER_INT: u32 = 0;
 
 
-fn timer_init() {}
+fn timer_init() {
+    // Disable timer if it's enabled for some reason.
+    TIMER->control = 0;
+
+    TIMER->count = 0;
+    TIMER->top = 10000000;
+
+    // Run the timer and enable its interrupt.
+    TIMER->control = (1 << TIMER_CONTROL_TIMER_EN)
+                   | (1 << TIMER_CONTROL_TIMER_INT_EN);
+}

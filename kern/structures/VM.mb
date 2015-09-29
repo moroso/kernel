@@ -17,7 +17,7 @@ use structures::schedule::{get_tcb, cond_preempt_disable, cond_preempt_enable};
 use locks::mutex::*;
 use video::vid_alloc::*;
 use threadstuffs::abscond::abscond;
-use arch::*;
+use arch::{arch_PD_init, get_page_directory_address, set_page_directory_address, invalidate_tlb};
 use arch::entry::user_copy_handler; //TODO(porting):
 use arch::consts::PHYS_MEM_START;
 
@@ -114,8 +114,9 @@ fn is_addr_aligned<T>(addr: *T) -> bool {
 fn is_user_addr<T>(addr: *T) -> bool {
     addr as u32 >= USER_MEM_START
 }
+
 fn is_kernel_addr<T>(addr: *T) -> bool {
-    !is_user_addr(addr)
+    addr as u32 < KERNEL_MEM_END
 }
 
 /*** VM Implementation ***/
@@ -328,14 +329,14 @@ fn free_page(log_addr: *u8, PD: *PD_t) {
  * frame: the physical frame being set
  * log_addr: the logical address getting backed by the frame
  * requires that page being set does not already exist in the directory
- * - coll_force: whether func should return with err in the case of a collision
+ * - coll_force: if false, return with err in the case of a collision
  */
 fn set_page(frame: *u8, log_addr: *u8, PD: *PD_t, flags: u32, size: u32, coll_force:
         bool) -> i32 {
     log_addr = get_aligned_addr(log_addr);
     assert!(PD != null);
     let frame_num: u32 = (frame as u32)/PAGE_SIZE;
-    if frame_num <= MAX_FRAME_NUM {
+    if frame_num < MAX_FRAME_NUM {
         assert!(is_kernel_addr(frame));
     }
     assert!(PD->PT_entries != null);
@@ -624,21 +625,17 @@ fn PD_init(PD: *PD_t) -> i32 {
     assert!(init_PD != null);
     if (PD == init_PD) {
         while is_kernel_addr(kernel_addr) {
-            if (get_pd_entry(kernel_addr) == 0) {
-                if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
-                    // we don't free on error because we only hit this case in
-                    // the init stage
-                    return -1;
-                }
-                kernel_addr+=PAGE_SIZE;
-            } else {
-                if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, MB) < 0) {
-                    // we don't free on error because we only hit this case in
-                    // the init stage
-                    return -1;
-                }
-                kernel_addr += (4 * MB);
+            if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
+                // we don't free on error because we only hit this case in
+                // the init stage
+                return -1;
             }
+            kernel_addr += PAGE_SIZE;
+        }
+
+        // Do any arch-specific setup that we'll need.
+        if arch_PD_init(PD) < 0 {
+            return -1;
         }
     } else { // otherwise, just copy the page tables from the init_PD
         while is_kernel_addr(kernel_addr) {

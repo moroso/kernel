@@ -2,7 +2,7 @@ use sys::MAX_SYSCALLS;
 use utils::stdlib::mos_memset;
 use structures::VM::page_fault_handler_common;
 
-use arch::drivers::timer::TIMER;
+use arch::drivers::timer::{TIMER, TIMER_CONTROL_TIMER_INT};
 use arch::regs::uregs;
 
 mod devices;
@@ -160,11 +160,11 @@ fn isr(ec0: exception_t, epc: u32,
     // TODO: *actually* handle the interrupt!
     printf!("In handler\n");
     // TODO: fix this when we support == on c-like enums.
-    if ec0 as u32 == EXC_INTERRUPT as u32 {
+    if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");
-        TIMER->control = 0x06;
+        TIMER->control &= ~(1 << TIMER_CONTROL_TIMER_INT);
     } else if is_pagefault(ec0) || is_pagefault(ec1) {
-        printf!("Pagefault\n");
+        printf!("Pagefault: %x %x (%x)\n", ea0, ea1, epc);
         page_fault_handler(ec0, epc, ec1, ec2, ec3, ea0, ea1, new_epc, regs);
     } else {
         printf!("Other\n");
