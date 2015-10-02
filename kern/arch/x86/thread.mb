@@ -1,7 +1,8 @@
-use structures::tcb::{tcb, tcb_init, tcb_init_func};
-use utils::buddy_alloc::frame_alloc;
+use structures::tcb::{tcb, tcb_init};
+use structures::schedule::preempt_enable;
 use utils::stdlib::mos_memcpy;
 use arch::regs::gpregs;
+use arch::enable_interrupts;
 
 extern fn get_eflags() -> u32;
 
@@ -12,8 +13,31 @@ struct context {
     return_addr: u32,
 }
 
-fn fill_context(tcb: *tcb) {
+fn tcb_init_func() {
+    enable_interrupts();
+    preempt_enable();
+}
+
+fn fill_context(tcb: *tcb, function: fn(*u8) -> (), data: *u8, len: u32) {
+    /* make some room for the new context, the return function and its args */
+    tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
+
+    /* Set up the stack and registers. This will return into
+     * tcb_init_func, which in turn will return into "function".
+     */
+    tcb->context->return_addr = function as u32;
+    tcb->context->tcb_init_func = tcb_init_func as u32;
     tcb->context->eflags = get_eflags();
     tcb->context->gpregs.ebp = (&(tcb->context->tcb_init_func) as u32) -
         sizeof(u32);
+
+    /* place data onto the stack a place a pointer to data as an argument to
+     * function */
+    let arg_addr = ((&(tcb->context->return_addr) as u32) + 2 * sizeof(u32)) as *u32;
+    let data_addr = (arg_addr+1) as *u32;
+
+    mos_memcpy(data_addr, data as *u32, len);
+    *arg_addr = data_addr as u32;
 }
+
+extern fn actually_switch_contexts_with_asm(new_esp: *context, old_esp: **context);

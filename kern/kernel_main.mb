@@ -34,10 +34,11 @@ fn user_thread(dummy: *u8) {
 }
 
 fn idle(dummy: *u8) {
+    printf!("Idle starting\n");
     while (true) {
 
         scheduler_update(-1);
-        //printf!("idle\n");
+        printf!("idle\n");
     }
 }
 

@@ -86,7 +86,8 @@ extern "bare" fn set_esp0(n: u32) {
 }
 
 //TODO(porting): actually implement these.
-fn actually_switch_contexts_with_asm(new_esp: *context, old_esp: **context) {}
+
+
 fn fastpath_send_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]) {}
 fn fastpath_recv_switch(new_esp: *context, old_esp: **context, buffer: u32[NUM_FASTPATH_REGS]) {}
 fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32 { 0 }

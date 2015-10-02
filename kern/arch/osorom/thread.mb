@@ -1,12 +1,12 @@
-use structures::tcb::{tcb, tcb_init, tcb_init_func};
+use structures::tcb::{tcb, tcb_init};
 use arch::regs::uregs;
+use utils::stdlib::mos_memcpy;
+use structures::schedule::preempt_enable;
+use arch::enable_interrupts;
 
 struct context {
-    tcb_init_func: u32,
-    return_addr: u32,
-    kmode: bool,
     regs: uregs,
-    //TODO(porting): the rest of the context we need.
+    //TODO(porting): the rest of the context we need, such as OVF.
 }
 
 /* given a function, some data and its length, creates a new tcb that, when
@@ -15,5 +15,81 @@ fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
     0 as *tcb
 }
 
-fn fill_context(tcb: *tcb) {
+fn fill_context(tcb: *tcb, function: fn(*u8) -> (), data: *u8, len: u32) {
+    printf!("Fill context...\n");
+    // Stack is initialized as
+    // [tcb][data ...][function address][context]
+    let data_ptr: *u8 = ((tcb as *u8) + sizeof(tcb)) as *u8;
+    let func_ptr: *u32 = (data_ptr + len) as *u32;
+    tcb->context = (data_ptr + len + 4) as *context;
+
+    tcb->context->regs.r[0] = data_ptr as u32;
+    tcb->context->regs.r[31] = tcb_init_func as u32 - 0x10;
+
+    *func_ptr = function as u32;
+
+    mos_memcpy(data_ptr as *u32, data as *u32, len);
+    printf!("Done fill context\n");
+}
+
+extern "bare" fn tcb_init_func() {
+    // Save r0. But notably, *don't* save r31; we'll load it from the stack.
+    asm!(
+            "{ *l(r30) <- r0; r30 <- r30 + 4 }"
+            );
+    printf!("TCB init func!\n");
+    enable_interrupts();
+    preempt_enable();
+    asm!(
+            "{ r31 <- *l(r30 - 8); r0 <- *l(r30 - 4); r30 <- r30 - 8; }"
+            "{ b r31 + 1; }"
+            );
+}
+
+extern "bare" fn actually_switch_contexts_with_asm(new_sp: *context,
+                                                   old_sp: **context) {
+    asm!(   // Save previous context.
+            "{ r30 <- r30 + 128; }"
+            "{ *l(r30 - 0x80) <-  r0; *l(r30 - 0x7c) <-  r1; }"
+            "{ *l(r30 - 0x78) <-  r2; *l(r30 - 0x74) <-  r3; }"
+            "{ *l(r30 - 0x70) <-  r4; *l(r30 - 0x6c) <-  r5; }"
+            "{ *l(r30 - 0x68) <-  r6; *l(r30 - 0x64) <-  r7; }"
+            "{ *l(r30 - 0x60) <-  r8; *l(r30 - 0x5c) <-  r9; }"
+            "{ *l(r30 - 0x58) <- r10; *l(r30 - 0x54) <- r11; }"
+            "{ *l(r30 - 0x50) <- r12; *l(r30 - 0x4c) <- r13; }"
+            "{ *l(r30 - 0x48) <- r14; *l(r30 - 0x44) <- r15; }"
+            "{ *l(r30 - 0x40) <- r16; *l(r30 - 0x3c) <- r17; }"
+            "{ *l(r30 - 0x38) <- r18; *l(r30 - 0x34) <- r19; }"
+            "{ *l(r30 - 0x30) <- r20; *l(r30 - 0x2c) <- r21; }"
+            "{ *l(r30 - 0x28) <- r22; *l(r30 - 0x24) <- r23; }"
+            "{ *l(r30 - 0x20) <- r24; *l(r30 - 0x1c) <- r25; }"
+            "{ *l(r30 - 0x18) <- r26; *l(r30 - 0x14) <- r27; }"
+            "{ *l(r30 - 0x10) <- r28; *l(r30 - 0x0c) <- r29; }"
+            "{ *l(r30 - 0x08) <- r30; *l(r30 - 0x04) <- r31; }"
+
+            // Save the current stack pointer to old_sp, and load the new one.
+            "{ r2 <- r30 - 128; }"
+            "{ *l(r1) <- r2; r30 <- r0 + 128; }"
+
+            // Restore registers from new context
+            "{  r0 <- *l(r30 - 0x80);  r1 <- *l(r30 - 0x7c); }"
+            "{  r2 <- *l(r30 - 0x78);  r3 <- *l(r30 - 0x74); }"
+            "{  r4 <- *l(r30 - 0x70);  r5 <- *l(r30 - 0x6c); }"
+            "{  r6 <- *l(r30 - 0x68);  r7 <- *l(r30 - 0x64); }"
+            "{  r8 <- *l(r30 - 0x60);  r9 <- *l(r30 - 0x5c); }"
+            "{ r10 <- *l(r30 - 0x58); r11 <- *l(r30 - 0x54); }"
+            "{ r12 <- *l(r30 - 0x50); r13 <- *l(r30 - 0x4c); }"
+            "{ r14 <- *l(r30 - 0x48); r15 <- *l(r30 - 0x44); }"
+            "{ r16 <- *l(r30 - 0x40); r17 <- *l(r30 - 0x3c); }"
+            "{ r18 <- *l(r30 - 0x38); r19 <- *l(r30 - 0x34); }"
+            "{ r20 <- *l(r30 - 0x30); r21 <- *l(r30 - 0x2c); }"
+            "{ r22 <- *l(r30 - 0x28); r23 <- *l(r30 - 0x24); }"
+            "{ r24 <- *l(r30 - 0x20); r25 <- *l(r30 - 0x1c); }"
+            "{ r26 <- *l(r30 - 0x18); r27 <- *l(r30 - 0x14); }"
+            "{ r28 <- *l(r30 - 0x10); r29 <- *l(r30 - 0x0c); }"
+            "{ nop;                   r31 <- *l(r30 - 0x04); }"
+
+            // Return
+            "{ b r31 + 1; r30 <- r30 - 128; }"
+            );
 }

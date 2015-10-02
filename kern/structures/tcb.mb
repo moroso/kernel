@@ -12,17 +12,10 @@ use structures::proc::*;
 use structures::tcb_dir::*;
 use utils::buddy_alloc::{frame_alloc, frame_free};
 use utils::stdlib::*;
-use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock,
-                           preempt_enable};
+use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock};
 use locks::rendezvous::*;
 use structures::desc_table::*;
-use arch::enable_interrupts;
-use arch::thread::{context, fill_context};
-
-fn tcb_init_func() {
-    enable_interrupts();
-    preempt_enable();
-}
+use arch::thread::{context, fill_context, tcb_init_func};
 
 struct tcb {
     tid: u32,
@@ -121,20 +114,9 @@ fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
 
     assert!(tcb->kstack_top != null);
 
-    /* make some room for the new context, the return function and its args */
-    tcb->context = (tcb->kstack_top as u32 - sizeof(context) - len - 2 * sizeof(u32)) as *context;
-    tcb->context->return_addr = function as u32;
-    tcb->context->tcb_init_func = tcb_init_func as u32;
     // Fill out any arch-specific fields in the tcb's context.
-    fill_context(tcb);
+    fill_context(tcb, function, data, len);
 
-    /* place data onto the stack a place a pointer to data as an argument to
-     * function */
-    let arg_addr = ((&(tcb->context->return_addr) as u32) + 2 * sizeof(u32)) as *u32;
-    let data_addr = (arg_addr+1) as *u32;
-
-    mos_memcpy(data_addr, data as *u32, len);
-    *arg_addr = data_addr as u32;
     tcb
 }
 

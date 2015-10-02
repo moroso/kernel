@@ -9,9 +9,9 @@
 
 // some parts of context.S rely on this being exactly 5
 use structures::tcb::tcb;
-use arch::thread::context;
+use arch::thread::{actually_switch_contexts_with_asm, context};
 use structures::schedule::{is_preempt_enabled, run_queue, get_tcb};
-use arch::{are_ints_enabled, actually_switch_contexts_with_asm, fastpath_send_switch,
+use arch::{are_ints_enabled, fastpath_send_switch,
            fastpath_recv_switch, set_esp0, NUM_FASTPATH_REGS};
 
 /* switches betweeb tcb_cur and tcb_new.  If tcb_cur is non-null, saves its
