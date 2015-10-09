@@ -3,6 +3,9 @@
 *.out
 *.mc.c
 *.swp
+/kernel.bin
+/kernel_exe.bin
+/kernel.lst
 
 # Danger?
 *.c

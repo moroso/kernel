@@ -144,6 +144,7 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
     *(get_sp(&uregs) as *u32) = word_idx;
     set_sp(&uregs, get_sp(&uregs) - sizeof(u32));
 
+    printf!("Perform.leave_kernel\n");
     leave_kernel(&uregs);
 
     assert!(false);

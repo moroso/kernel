@@ -1,0 +1,40 @@
+include progs.mk
+
+# XXX: I feel really dirty doing a recursive make thing for this,
+# but I didn't want it to be built into the hacky bsenv build system.
+# Some of this adapted from 410 makefiles
+
+# Platform shit
+ifeq (Darwin,$(shell uname))
+PREFIX=i386-elf-
+endif
+# In case that didn't catch it and the stuff needs overridden
+-include platform.mk
+
+PROJROOT = $(PWD)
+UDIR = .
+BUILDDIR=build
+
+BSLD = ./bs-ld
+# UGGGGGGGGH
+MBC=../../compiler/mbc
+ARCH ?= osorom
+
+PROG_BINS := $(PROGS:%=$(BUILDDIR)/%)
+
+all: $(BUILDDIR)/fs.img
+
+$(BUILDDIR)/%: %.mb $(MBC)
+	$(MBC) $< --target asm -o $@ --format=bsld --code_start=40000000 --global_start=40100000 --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
+
+GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin)
+.SECONDARY: $(GENERATED_FILES) $(LIB_OBJS)
+
+# We don't want the path in the names in the script, so cd
+$(BUILDDIR)/fs.img: $(PROG_BINS)
+	cd $(BUILDDIR) && ../build-disk -o fs.img $(PROGS)
+
+clean:
+	rm -f $(GENERATED_FILES)
+    # Eh just kill it all
+	rm -f build/*
