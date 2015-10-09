@@ -1,14 +1,12 @@
-MB_FILES=$(shell find kern/ -type f -name '*.mb')
-USER_FILES=$(shell find user/ -type f -name '*.mb')
+rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 
 all: kernel.bin
 
-kernel.bin: kernel_exe.bin user/build/fs.bin
+kernel.bin: kernel_exe.bin user/build-osorom/fs.img
 	cat $^ > $@
 
-kernel_exe.bin: $(MB_FILES)
+kernel_exe.bin: $(call rwildcard,kern,*.mb)
 	../compiler/mbc kern/kernel.mb --lib arch:kern/arch/osorom/mod.mb --target asm -o kernel_exe.bin --list kernel.lst
 
-user/build/fs.bin: $(USER_FILES)
+user/build-osorom/fs.img: $(call rwildcard,user,*.mb Makefile.osorom *.mk)
 	make -f Makefile.osorom -C user
-

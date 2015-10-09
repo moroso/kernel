@@ -13,7 +13,7 @@ endif
 
 PROJROOT = $(PWD)
 UDIR = .
-BUILDDIR=build
+BUILDDIR=build-osorom
 
 BSLD = ./bs-ld
 # UGGGGGGGGH
@@ -21,20 +21,27 @@ MBC=../../compiler/mbc
 ARCH ?= osorom
 
 PROG_BINS := $(PROGS:%=$(BUILDDIR)/%)
+PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
 
 all: $(BUILDDIR)/fs.img
 
-$(BUILDDIR)/%: %.mb $(MBC)
-	$(MBC) $< --target asm -o $@ --format=bsld --code_start=40000000 --global_start=40100000 --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
+$(BUILDDIR):
+	mkdir -p $@
 
-GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin)
+$(BUILDDIR)/%: %.mb $(MBC) |$(BUILDDIR)
+	$(MBC) $< -d --target asm -o $@ --format=bsld --code_start=40000000 --global_start=40100000 --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
+
+# Include all the dependency files for our programs that mbc generates.
+-include $(PROG_DEPS)
+
+GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROG_DEPS)
 .SECONDARY: $(GENERATED_FILES) $(LIB_OBJS)
 
 # We don't want the path in the names in the script, so cd
-$(BUILDDIR)/fs.img: $(PROG_BINS)
+$(BUILDDIR)/fs.img: $(PROG_BINS) |$(BUILDDIR)
 	cd $(BUILDDIR) && ../build-disk -o fs.img $(PROGS)
 
 clean:
 	rm -f $(GENERATED_FILES)
     # Eh just kill it all
-	rm -f build/*
+	rm -rf $(BUILDDIR)

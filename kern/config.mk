@@ -1,16 +1,22 @@
+
+ASM_SRC_FILES = \
+	arch/x86/hacks.S \
+	arch/x86/context.S \
+	arch/x86/entry_stubs_x86.S \
+	arch/x86/entry_x86.S \
+	arch/x86/invalidate_tlb.S \
+	arch/x86/validate_x86.S
+
 # This really nasty config.mk slots into our temporary (?)
 # super hacky build system for testing the kernel on x86.
 
-KERN_GAME_OBJS = kernel.o fs_img.o arch/x86/hacks.o \
-	arch/x86/context.o arch/x86/entry_stubs_x86.o arch/x86/entry_x86.o \
-	arch/x86/invalidate_tlb.o arch/x86/validate_x86.o
-
+KERN_GAME_OBJS := kernel.o fs_img.o $(ASM_SRC_FILES:%.S=%.o)
 
 TABSTOP = 4
 
 MBC=../compiler/mbc
 MBC_TARGET ?= c
-ARCH ?= x86
+ARCH=x86
 
 %.c: %.mb $(MBC)
 	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib arch:kern/arch/$(ARCH)/mod.mb
@@ -30,7 +36,7 @@ rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst 
 # Welp.
 kern/fs_img.o: $(call rwildcard,kern/../user,*.mb *.c *.S *.h Makefile *.mk)
 	make -C kern/../user
-	cp kern/../user/build/fs_img.o $@
+	cp kern/../user/build-x86/fs_img.o $@
 
 user_clean:
 	make -C kern/../user clean

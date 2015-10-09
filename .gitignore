@@ -10,3 +10,6 @@
 # Danger?
 *.c
 *.dep
+
+/user/build-osorom/
+/user/build-x86/
