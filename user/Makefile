@@ -50,22 +50,18 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(BUILDDIR)/%.c: %.mb $(MBC) |$(BUILDDIR)
-	$(dir_guard)
 	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
 
 # XXX: This is screwy.
 #$(BUILDDIR)/%.o: %.S
 %.o: %.S
-	$(dir_guard)
 	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<
 	$(OBJCOPY) -R .comment -R .note $@ $@
 %.o: %.c
-	$(dir_guard)
 	$(CC) $(CFLAGS) $(INCLUDES) -c  -o $@ $<
 	$(OBJCOPY) -R .comment -R .note $@ $@
 
 %.bin: %.o $(LIB_OBJS)
-	$(dir_guard)
 	$(LD) $(LDFLAGS) -o $@ $< $(LIB_OBJS)
 
 %: %.bin
@@ -82,7 +78,7 @@ $(BUILDDIR)/fs.img: $(PROG_BINS) |$(BUILDDIR)
 	cd $(BUILDDIR) && ../build-disk -o fs.img $(PROGS)
 
 $(BUILDDIR)/fs_img.o: $(BUILDDIR)/fs.img |$(BUILDDIR)
-	$(OBJCOPY) -I binary -O elf32-i386 -B i386 --rename-section .data=.rodata --redefine-sym _binary_build_fs_img_start=fs_img_start --redefine-sym _binary_build_fs_img_end=fs_img_end $< $@
+	$(OBJCOPY) -I binary -O elf32-i386 -B i386 --rename-section .data=.rodata --redefine-sym _binary_build_x86_fs_img_start=fs_img_start --redefine-sym _binary_build_x86_fs_img_end=fs_img_end $< $@
 
 
 clean:
