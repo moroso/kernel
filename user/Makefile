@@ -3,8 +3,7 @@ include progs.mk
 LIB_ASM_SRC_FILES = \
 	arch/x86/syscall.S \
 	arch/x86/thr_repl.S \
-	arch/x86/asm.S \
-	arch/x86/mut_asm.S
+	arch/x86/atomic.S
 
 
 # XXX: I feel really dirty doing a recursive make thing for this,
