@@ -21,7 +21,7 @@ use sys::*;
 use structures::multiboot::multiboot_info;
 use structures::tcb_dir::*;
 use utils::list::*;
-use video::vid_alloc::vid_init;
+use arch::drivers::video::vid_init;
 use arch::{enable_paging, enable_interrupts};
 use arch::entry::*;
 use arch::entry::devices::*;
@@ -86,16 +86,11 @@ fn create_idle_tcb() {
     schedule(new_tcb, QUEUE_FRONT);
 }
 
-fn kernel_main(mb_info: *multiboot_info) -> u32 {
+fn kernel_main() -> u32 {
     kernel_setup();
 
-    let mode_info = mb_info->vbe_mode_info;
-    let framebuffer = mode_info->PhysBasePtr;
-    let width = mode_info->XResolution;
-    let height = mode_info->YResolution;
-    let depth = mode_info->BitsPerPixel / 8;
     printf!("Vid init...\n");
-    vid_init(framebuffer, width, height, depth);
+    vid_init();
     printf!("Exc table init...\n");
     exception_table_init();
     printf!("Done\n");

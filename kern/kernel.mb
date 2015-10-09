@@ -1,7 +1,5 @@
 // Main file.
 
-use arch::boot::mb_info;
-
 mod consts;
 mod shared;
 mod utils;
@@ -18,4 +16,4 @@ mod arch;
 
 mod kernel_main;
 
-fn main() -> u32 { kernel_main::kernel_main(mb_info()) }
+fn main() -> u32 { kernel_main::kernel_main() }

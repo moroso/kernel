@@ -1,6 +1,0 @@
-use structures::multiboot::multiboot_info;
-
-//TODO(porting): what are we doing about multiboot_info?
-fn mb_info() -> *multiboot_info {
-    0 as *multiboot_info
-}

@@ -1,0 +1,18 @@
+use arch::boot::__mb_info;
+use consts::PAGE_SIZE;
+use video::vid_alloc::{vid_buffer_addr, vid_buffer_pages};
+
+fn vid_init() {
+    let mode_info = __mb_info->vbe_mode_info;
+    let framebuffer_addr = mode_info->PhysBasePtr;
+    let width = mode_info->XResolution;
+    let height = mode_info->YResolution;
+    let depth = mode_info->BitsPerPixel / 8;
+
+    vid_buffer_addr = framebuffer_addr;
+    let total_bytes = (width as u32) * (height as u32) * (depth as u32);
+    vid_buffer_pages = total_bytes / PAGE_SIZE;
+    if total_bytes & (PAGE_SIZE - 1) != 0 {
+        vid_buffer_pages += 1;
+    }
+}

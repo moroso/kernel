@@ -1,5 +1,4 @@
 use locks::mutex::*;
-use consts::PAGE_SIZE;
 use structures::VM::is_addr_aligned;
 use structures::schedule::*;
 
@@ -7,16 +6,6 @@ static vid_buffer_allocated: bool = false;
 static vid_buffer_addr: *u8;
 static vid_buffer_pages: u32;
 static vid_mut: kmut = KMUT_INIT!(vid_mut);
-
-// assume this stage occurs on init
-fn vid_init(framebuffer_addr: *u8, width: u16, height: u16, depth: u8) {
-    vid_buffer_addr = framebuffer_addr;
-    let total_bytes = (width as u32) * (height as u32) * (depth as u32);
-    vid_buffer_pages = total_bytes / PAGE_SIZE;
-    if total_bytes & (PAGE_SIZE - 1) != 0 {
-        vid_buffer_pages += 1;
-    }
-}
 
 fn vid_alloc() -> *u8 {
     kmut_lock(&vid_mut);
