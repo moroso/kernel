@@ -16,14 +16,14 @@ const PERF_ERR_MEM: i32 = -1;
 const PERF_ERR_ARGS: i32 = -2;
 
 fn perform_handler(filename: *u8, argv: **u8) -> i32 {
-    let filename_kern: u8[MAX_ARG_LEN];  
+    let filename_kern: u8[MAX_ARG_LEN];
     if (copy_from_user(&filename_kern[0], filename, MAX_ARG_LEN) < 0) {
         return PERF_ERR_MEM;
     }
 
     let args_kern: (*u8)[MAX_ARG_NUM];
     let i: u32 = 0;
-    for (i = 0; i < MAX_ARG_NUM; i+=1) { 
+    for (i = 0; i < MAX_ARG_NUM; i+=1) {
         if (copy_from_user(&(args_kern[i]) as *u8, &argv[i] as *u8, sizeof(*u8)) < 0) {
             printf!("HERE %p\n", &argv[i]);
             return PERF_ERR_MEM;
@@ -32,7 +32,7 @@ fn perform_handler(filename: *u8, argv: **u8) -> i32 {
             break;
         }
     }
-    
+
     if (i == MAX_ARG_NUM) {
         return PERF_ERR_ARGS;
     }
@@ -40,7 +40,7 @@ fn perform_handler(filename: *u8, argv: **u8) -> i32 {
     perform(&filename_kern[0], &args_kern[0], true)
 }
 
-fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 { 
+fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
 
     /* kernel-mem buffer for storing arguments.  Really, we should read this
      * into a page directly, but are not doing this because we do not want to expose
@@ -54,21 +54,22 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
     /* reads all strings in argv into buffer */
     if (argv != null || word_idx >= MAX_ARG_NUM) {
         while(argv[word_idx] != null) {
+            // "Staging" area: we copy here, then check that we have room to put it
+            // into arg_buffer, and then copy it there if so.
+            let temp_buffer: u8[MAX_ARG_LEN + 1];
             let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
             let str_len = 0;
 
             if (from_user) {
-                if ((str_len = copy_string_from_user(arg_pointer, argv[word_idx],
+                if ((str_len = copy_string_from_user(&temp_buffer[0], argv[word_idx],
                                 MAX_ARG_LEN)) < 0) {
                     return PERF_ERR_MEM;
                 }
 
             } else {
-                mos_strncpy(arg_pointer, argv[word_idx], mos_strnlen(argv[word_idx],
-                            MAX_ARG_LEN));
-                /* if the arguments extend beyond our buffer length, return with
-                 * failure */
-                str_len = mos_strnlen(argv[word_idx], MAX_ARG_LEN); 
+                mos_strncpy(&temp_buffer[0], argv[word_idx],
+                            mos_strnlen(argv[word_idx], MAX_ARG_LEN));
+                str_len = mos_strnlen(argv[word_idx], MAX_ARG_LEN);
             }
 
             /* if the arguments extend beyond our buffer length, return with
@@ -77,30 +78,32 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
                 return PERF_ERR_ARGS;
             }
 
-            arg_pointer+=str_len + 1;
-            word_idx+=1;
+            mos_strncpy(arg_pointer, &temp_buffer[0], str_len);
+
+            arg_pointer += str_len + 1;
+            word_idx += 1;
         }
     }
 
     let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
 
     let proc: *proc = get_tcb()->proc;
-    let old_entries: **u32 = proc->PD.PT_entries;    
+    let old_entries: **u32 = proc->PD.PT_entries;
     proc->PD.PT_entries = null;
 
     if PD_init(&(proc->PD)) < 0 {
         proc->PD.PT_entries = old_entries;
-        load_PD(&(proc->PD)); 
+        load_PD(&(proc->PD));
         printf!("error\n");
         return -1;
     }
 
-    load_PD(&(proc->PD)); 
+    load_PD(&(proc->PD));
 
     let uregs: uregs;
 
     if (load(&filename[0], &uregs) < 0) {
-        PD_destroy(&(proc->PD), old_entries); 
+        PD_destroy(&(proc->PD), old_entries);
         printf!("error\n");
         return -2;
     }

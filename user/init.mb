@@ -1,6 +1,6 @@
 /* init.mb: called from the kernel to initialize userland.  inits name server,
- * sets its descriptor to NAME_SERVER for all future programs, and runs first 
- * user program.  
+ * sets its descriptor to NAME_SERVER for all future programs, and runs first
+ * user program.
  *
  * TODO when console is in place, program running should get replaced by a shell
  * of some sort
@@ -34,7 +34,7 @@ fn main() -> i32 {
 
     bide(&status);
 
-    
+
     abscond(0);
     0
 }
