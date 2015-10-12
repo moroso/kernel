@@ -1,6 +1,19 @@
+use arch::are_ints_enabled;
 use arch::regs::uregs;
+
+const stack_grows_up: bool = true;
 
 fn load_set_regs(ureg: *uregs, stack_ptr: u32, entry_point: u32) {
     ureg->r[30] = stack_ptr;
-    ureg->ip = entry_point;
+    if are_ints_enabled() {
+        // If interrupts are enabled, make sure to set that bit in EPC.
+        ureg->ip = entry_point | 0x2;
+    } else {
+        ureg->ip = entry_point;
+    }
+}
+
+fn finish_perform(uregs: *uregs, argc: u32, argv: **u8) {
+    uregs->r[0] = argc;
+    uregs->r[1] = argv as u32;
 }

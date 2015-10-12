@@ -4,6 +4,7 @@ use structures::schedule::get_tcb;
 use structures::VM::*;
 use arch::entry::*;
 use arch::regs::{uregs, set_sp, get_sp};
+use arch::loader::{stack_grows_up, finish_perform};
 use loader::*;
 use utils::stdlib::mos_memcpy;
 use utils::string::{mos_strncpy, mos_strnlen};
@@ -85,7 +86,7 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
         }
     }
 
-    let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
+    let num_args = word_idx;
 
     let proc: *proc = get_tcb()->proc;
     let old_entries: **u32 = proc->PD.PT_entries;
@@ -108,46 +109,57 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
         return -2;
     }
 
+    // The space we need for the arguments themselves.
+    let buffer_len: u32 = (arg_pointer as u32) - (&arg_buffer[0] as u32);
+    // How much space we need to reserve for the argument pointers.
+    let arg_ptr_len = num_args * sizeof(u32);
+    // Total length we allocate on the stack.
+    let total_len = buffer_len + arg_ptr_len;
 
     /* copy buffer of strings onto stack */
-    let arg_start: *u8 = (get_sp(&uregs) - buffer_len) as *u8;
+    let arg_start: *u8 = if stack_grows_up {
+        // If the stack grows up, arguments go right after the pointers,
+        // which are right after where the stack pointer points.
+        get_sp(&uregs) + arg_ptr_len as *u8
+    } else {
+        // If the stack grows down, arguments go at the end of the stack,
+        // before where sp points.
+        (get_sp(&uregs) - buffer_len) as *u8
+    };
+
+    // Argument pointers come right before the arguments themselves.
+    let arg_ptrs: *u32 = (arg_start - arg_ptr_len) as *u32;
+
+    // Copy the actual arguments.
     if (from_user) {
-        if (copy_to_user((get_sp(&uregs) - buffer_len) as *u8, &arg_buffer[0],
-                    buffer_len) < 0) {
+        if (copy_to_user(arg_start, &arg_buffer[0], buffer_len) < 0) {
             PD_destroy(&(proc->PD), old_entries);
             return PERF_ERR_MEM;
         }
     } else {
-        mos_memcpy((get_sp(&uregs) - buffer_len) as *u8, &arg_buffer[0], buffer_len);
+        mos_memcpy(arg_start, &arg_buffer[0], buffer_len);
     }
 
     PD_entries_destroy(old_entries);
 
-    /*** here there be dragons ***/
-    set_sp(&uregs, get_sp(&uregs) - 4);
-    set_sp(&uregs, get_sp(&uregs) - buffer_len);
     let arg_addr = arg_start;
 
-    let i:u32;
-    let stack_pointer: *u8 = (get_sp(&uregs) - ((word_idx - 1) * sizeof(u32))) as
-        *u8;
+    let i: u32;
     /* create array of addresses of the aforementioned strings */
-    for (i = 0; i < word_idx; i+=1) {
-        *(stack_pointer as *u32) = arg_addr as u32;
+    for (i = 0; i < num_args; i += 1) {
+        arg_ptrs[i] = arg_addr as u32;
 
-        arg_addr+=mos_strnlen(arg_addr, MAX_ARG_LEN) + 1;
-        set_sp(&uregs, get_sp(&uregs) - sizeof(u32));
-        stack_pointer += sizeof(u32);
+        arg_addr += mos_strnlen(arg_addr, MAX_ARG_LEN) + 1;
     }
 
-    /* place address of array (argv) and argument count (argc) on stack as
-     * arguments to the program getting called */
-    *(get_sp(&uregs) as *u32) = get_sp(&uregs) + sizeof(*u8);
-    set_sp(&uregs, get_sp(&uregs) - sizeof(u32));
-    *(get_sp(&uregs) as *u32) = word_idx;
-    set_sp(&uregs, get_sp(&uregs) - sizeof(u32));
+    if stack_grows_up {
+        set_sp(&uregs, (arg_start + buffer_len) as u32);
+    } else {
+        set_sp(&uregs, (&arg_ptrs[-1]) as u32);
+    }
 
-    printf!("Perform.leave_kernel\n");
+    finish_perform(&uregs, num_args, &arg_ptrs[0] as **u8);
+
     leave_kernel(&uregs);
 
     assert!(false);

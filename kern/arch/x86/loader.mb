@@ -3,6 +3,8 @@ use arch::regs::uregs;
 
 extern fn get_eflags() -> u32;
 
+const stack_grows_up: bool = false;
+
 fn load_set_regs(ureg: *uregs, stack_ptr: u32, entry_point: u32) {
     // Populate registers after loading a program.
     ureg->esp = stack_ptr;
@@ -13,4 +15,12 @@ fn load_set_regs(ureg: *uregs, stack_ptr: u32, entry_point: u32) {
     ureg->ds = USER_DS;
     ureg->es = USER_DS;
     ureg->cs = USER_CS;
+}
+
+fn finish_perform(uregs: *uregs, argc: u32, argv: **u8) {
+    /* place address of array (argv) and argument count (argc) on stack as
+     * arguments to the program getting called */
+    *(uregs->esp as *u32) = argv as u32;
+    *((uregs->esp - 4) as *u32) = argc;
+    uregs->esp -= 8;
 }

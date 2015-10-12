@@ -15,7 +15,8 @@ use mallot::mallot_init;
 use server::new_server;
 
 
-fn main() -> i32 {
+fn main(argc: u32, argv: **u8) -> i32 {
+    printf!("Init starting: %d %s %s\n", argc, argv[0], argv[1]);
 
     mallot_init();
     let mb = mailbox_new();

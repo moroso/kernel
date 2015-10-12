@@ -29,7 +29,7 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(BUILDDIR)/%: %.mb $(MBC) |$(BUILDDIR)
-	$(MBC) $< -d --target asm -o $@ --format=bsld --code_start=40000000 --global_start=40100000 --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
+	$(MBC) $< -d --target asm -o $@ --format=bsld --code_start=40000000 --global_start=40100000 --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb --list $@.list
 
 # Include all the dependency files for our programs that mbc generates.
 -include $(PROG_DEPS)

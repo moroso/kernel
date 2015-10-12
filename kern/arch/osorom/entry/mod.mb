@@ -1,4 +1,4 @@
-use sys::MAX_SYSCALLS;
+use sys::{MAX_SYSCALLS, syscall_table};
 use utils::stdlib::mos_memset;
 use structures::VM::page_fault_handler_common;
 
@@ -30,8 +30,27 @@ fn get_ticks() -> u32 {
     0
 }
 
-fn leave_kernel(ureg: *uregs) {
-    printf!("Leave kernel\n");
+extern "bare" fn leave_kernel(uregs: *uregs) {
+    asm!(
+            "{ r31 <- *l(r0 + 0x7c); r30 <- *l(r0 + 0x78); }"
+            "{ r29 <- *l(r0 + 0x74); r28 <- *l(r0 + 0x70); }"
+            "{ r27 <- *l(r0 + 0x6c); r26 <- *l(r0 + 0x68); }"
+            "{ r25 <- *l(r0 + 0x64); r24 <- *l(r0 + 0x60); }"
+            "{ r23 <- *l(r0 + 0x5c); r22 <- *l(r0 + 0x58); }"
+            "{ r21 <- *l(r0 + 0x54); r20 <- *l(r0 + 0x50); }"
+            "{ r19 <- *l(r0 + 0x4c); r18 <- *l(r0 + 0x48); }"
+            "{ r17 <- *l(r0 + 0x44); r16 <- *l(r0 + 0x40); }"
+            "{ r15 <- *l(r0 + 0x3c); r14 <- *l(r0 + 0x38); }"
+            "{ r13 <- *l(r0 + 0x34); r12 <- *l(r0 + 0x30); }"
+            "{ r11 <- *l(r0 + 0x2c); r10 <- *l(r0 + 0x28); }"
+            "{  r9 <- *l(r0 + 0x24);  r8 <- *l(r0 + 0x20); }"
+            "{  r7 <- *l(r0 + 0x1c);  r6 <- *l(r0 + 0x18); }"
+            "{  r5 <- *l(r0 + 0x14);  r4 <- *l(r0 + 0x10); }"
+            "{  r3 <- *l(r0 + 0x0c);  r2 <- *l(r0 + 0x08); }"
+            "{  r1 <- *l(r0 + 0x80); }"
+            "{ epc <- r1; r1 <- *l(r0 + 0x4); }"
+            "{ eret; r0 <- *l(r0); }"
+            );
 }
 
 fn register(idx: u32, handler: fn(*uregs) -> ()) {
@@ -121,8 +140,18 @@ extern "bare" fn isr_asm() {
             // Remember: r30 was already stored!
             "{ *l(r30 - 0x0c) <- r31; *l(r30 - 0x08) <- r7; }"
 
-            // Save EPC (which is in r1), and call the actual interrupt handler!
-            "{ bl __arch__entry__isr; *l(r30 - 0x04) <- r1; r7 <- r30 - 0x04; }"
+            // Save EPC (which is in r1)
+            "{ *l(r30 - 0x04) <- r1; r7 <- r30 - 0x04; }"
+
+            // Save a pointer to the regs structure.
+            // TODO: this can be optimized.
+            "{ r1 <- r30 - 0x88; }"
+            "{ *l(r30) <- r1; r1 <- *l(r30 - 0x04); r30 <- r30 + 4; }"
+
+            // Call the actual interrupt handler!
+            "{ bl __arch__entry__isr; }"
+
+            "{ r30 <- r30 - 4; }"
 
             // Now we have to restore all state. r30, r1, and r0 wait until later.
             "{ r31 <- *l(r30 - 0x0c); r29 <- *l(r30 - 0x14); }"
@@ -150,7 +179,7 @@ extern "bare" fn isr_asm() {
             // Return, and finally restore r30.
             "{ eret; r30 <- *l(r30 - 0x10); }"
             );
-    }
+}
 
 fn isr(ec0: exception_t, epc: u32,
        ec1: exception_t,
@@ -166,11 +195,22 @@ fn isr(ec0: exception_t, epc: u32,
     } else if is_pagefault(ec0) || is_pagefault(ec1) {
         printf!("Pagefault: %x %x (%x)\n", ea0, ea1, epc);
         page_fault_handler(ec0, epc, ec1, ec2, ec3, ea0, ea1, new_epc, regs);
+    } else if ec0 == EXC_SYSCALL {
+        // TODO: error checking.
+        syscall_table[regs->r[0]](regs->r[1],
+                                  regs->r[2],
+                                  regs->r[3],
+                                  regs->r[4],
+                                  regs->r[5],
+                                  );
+        *new_epc += 0x10;
     } else {
         printf!("Other\n");
         *new_epc += 0x10;
     }
-    printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
+    if ec0 != EXC_SYSCALL {
+        printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
+    }
 }
 
 fn is_pagefault(ec: exception_t) -> bool {

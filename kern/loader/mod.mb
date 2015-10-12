@@ -13,7 +13,7 @@ use utils::buddy_alloc::{frame_alloc, frame_free};
 use consts::PAGE_SIZE;
 use structures::VM::{new_user_range, free_user_range, is_user_addr, READ_WRITE_BIT, KB};
 use structures::schedule::get_tcb;
-use arch::loader::load_set_regs;
+use arch::loader::{load_set_regs, stack_grows_up};
 use arch::regs::uregs;
 use utils::stdlib::mos_memcpy;
 
@@ -42,11 +42,24 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
         printf!("error in loader\n");
         return -2;
     }
-    // allocate an additional page for the user stack
-    let user_esp = header.load_addr + header.mapping_size +  2 * PAGE_SIZE;
+
+    let user_stack_size = 2 * PAGE_SIZE;
+    let user_esp = if stack_grows_up {
+        header.load_addr + header.mapping_size
+    } else {
+        header.load_addr + header.mapping_size + user_stack_size
+    };
+
+    // No matter what, this is the end of the region we need to allocate.
+    let alloc_finish = header.load_addr + header.mapping_size + user_stack_size;
+
+    // Make sure user_esp is aligned to 4 bytes.
+    if user_esp & 3 != 0 {
+        user_esp += (4 - (user_esp & 3));
+    }
 
     /* allocate the full mapping size */
-    if (new_user_range(header.load_addr as *u8, user_esp as *u8,
+    if (new_user_range(header.load_addr as *u8, alloc_finish as *u8,
                        &get_tcb()->proc->PD, READ_WRITE_BIT, KB) < 0) {
         printf!("error in loader\n");
         return -4;
