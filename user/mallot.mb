@@ -58,20 +58,20 @@ fn find_pages(num_pages: u32) -> *u8 {
     let ret: i32;
     mut_lock(&page_lock);
 
-    while((heap_pointer-=PAGE_SIZE) != heap_cur) {
+    while((heap_pointer -= PAGE_SIZE) != heap_cur) {
         if (heap_pointer < USER_MEM_START as *u8) {
-            heap_pointer = heap_end; 
-        }    
+            heap_pointer = heap_end;
+        }
         if ((ret = new_pages(heap_pointer, PAGE_SIZE * num_pages,
                         1024)) >= 0) {
             let new_addr = heap_pointer;
             mut_unlock(&page_lock);
             return new_addr;
         }
-        // if we don't get a collision or wrapping error, return immediately  
+        // if we don't get a collision or wrapping error, return immediately
         // TODO error codes
         if (ret != -6 && ret != -1) {
-            heap_pointer+=PAGE_SIZE;
+            heap_pointer += PAGE_SIZE;
             mut_unlock(&page_lock);
             return null;
         }

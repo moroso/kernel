@@ -16,6 +16,7 @@ use structures::schedule::{get_tcb, is_scheduled, scheduler_unlock};
 use locks::rendezvous::*;
 use structures::desc_table::*;
 use arch::thread::{context, fill_context, tcb_init_func};
+use arch::loader::stack_grows_up;
 
 struct tcb {
     tid: u32,
@@ -74,7 +75,11 @@ fn get_tid() -> u32 {
  * will comprise exactly one page.
  */
 fn tcb_init(tcb: *tcb) {
-    tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
+    if stack_grows_up {
+        tcb->kstack_top = ((tcb as u32) + sizeof(tcb)) as *u8;
+    } else {
+        tcb->kstack_top = (((tcb as u32) + PAGE_SIZE) - 4) as *u8;
+    }
     tcb->context = tcb->kstack_top as *context;
     tcb->state = STATE_NEW;
     tcb->dir_ref = 1; // we decrement by one when tcb goes away

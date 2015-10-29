@@ -15,6 +15,7 @@ use structures::schedule::*;
 use threadstuffs::abscond::*;
 use structures::tcb_dir::tcb_dir_add;
 use arch::entry::leave_kernel;
+use arch::loader::stack_grows_up;
 use arch::regs::{uregs, set_return_code};
 use structures::mailbox::*;
 
@@ -56,7 +57,11 @@ fn thr_repl_handler() -> i32 {
 }
 
 fn repl_handler() -> i32 {
-    let parent_ureg: *uregs = (get_tcb()->kstack_top as *uregs) - 1;
+    let parent_ureg: *uregs = if stack_grows_up {
+        get_tcb()->kstack_top as *uregs
+    } else {
+        (get_tcb()->kstack_top as *uregs) - 1
+    };
     repl(parent_ureg)
 }
 
@@ -64,7 +69,7 @@ fn repl_handler() -> i32 {
 fn repl(parent_regs: *uregs) -> i32 {
 
     let parent_proc = get_tcb()->proc;
-    /* if we don't have only on thread in parent process, return with error */
+    /* if we don't have only one thread in parent process, return with error */
     if (!list_is_singleton(&(parent_proc->peer_tcb_list))) {
         return -1;
     }
@@ -92,16 +97,17 @@ fn repl(parent_regs: *uregs) -> i32 {
     let pd: u32;
     let pt: u32;
     kmut_lock(&parent_proc->PD.mut);
-    for (pd = get_pd_entry(USER_MEM_START as *u8); pd <= get_pd_entry((INT_MAX -
-                    PAGE_SIZE) as *u8); pd += 1) {
+    for (pd = get_pd_entry(USER_MEM_START as *u8);
+         pd <= get_pd_entry((INT_MAX - PAGE_SIZE) as *u8);
+         pd += 1) {
         if (parent_proc->PD.PT_entries[pd] == null) {
             child_proc->PD.PT_entries[pd] = null;
             continue;
         }
 
-        for (pt = get_pt_entry(USER_MEM_START as *u8); pt <= get_pt_entry((INT_MAX -
-                        PAGE_SIZE) as *u8); pt+=1) {
-
+        for (pt = get_pt_entry(USER_MEM_START as *u8);
+             pt <= get_pt_entry((INT_MAX - PAGE_SIZE) as *u8);
+             pt += 1) {
             let page = make_entry(pd, pt, 0) as *u8;
             if (reuse_frame(page, &(parent_proc->PD), &(child_proc->PD)) < 0) {
                 kmut_unlock(&parent_proc->PD.mut);

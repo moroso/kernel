@@ -1,7 +1,10 @@
 use sys::{MAX_SYSCALLS, syscall_table};
 use utils::stdlib::mos_memset;
 use structures::VM::page_fault_handler_common;
+use structures::schedule::{is_preempt_enabled, scheduler_update};
+use locks::rendezvous::rend_timeout_remove;
 
+use arch::enable_interrupts;
 use arch::drivers::timer::{TIMER, TIMER_CONTROL_TIMER_INT};
 use arch::regs::uregs;
 
@@ -23,11 +26,6 @@ enum exception_t {
     EXC_INTERRUPT,
     EXC_SYSCALL,
     EXC_BREAK,
-}
-
-fn get_ticks() -> u32 {
-    //TODO(porting)
-    0
 }
 
 extern "bare" fn leave_kernel(uregs: *uregs) {
@@ -192,17 +190,20 @@ fn isr(ec0: exception_t, epc: u32,
     if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");
         TIMER->control &= ~(1 << TIMER_CONTROL_TIMER_INT);
+        timer_handler(regs);
     } else if is_pagefault(ec0) || is_pagefault(ec1) {
         printf!("Pagefault: %x %x (%x)\n", ea0, ea1, epc);
         page_fault_handler(ec0, epc, ec1, ec2, ec3, ea0, ea1, new_epc, regs);
     } else if ec0 == EXC_SYSCALL {
+        enable_interrupts();
         // TODO: error checking.
-        syscall_table[regs->r[0]](regs->r[1],
-                                  regs->r[2],
-                                  regs->r[3],
-                                  regs->r[4],
-                                  regs->r[5],
-                                  );
+        let result: u32 = syscall_table[regs->r[0]](regs->r[1],
+                                                    regs->r[2],
+                                                    regs->r[3],
+                                                    regs->r[4],
+                                                    regs->r[5],
+                                                    ) as u32;
+        regs->r[0] = result;
         *new_epc += 0x10;
     } else {
         printf!("Other\n");
@@ -212,6 +213,22 @@ fn isr(ec0: exception_t, epc: u32,
         printf!("New EPC = %x, old EPC = %x\n", *new_epc, epc);
     }
 }
+
+static ticks: u32 = 0;
+
+fn timer_handler(regs: *uregs) {
+    ticks += 1;
+
+    if (is_preempt_enabled()) {
+        rend_timeout_remove(ticks);
+        //scheduler_update(-1);
+    }
+}
+
+fn get_ticks() -> u32 {
+    ticks
+}
+
 
 fn is_pagefault(ec: exception_t) -> bool {
     match ec {

@@ -9,17 +9,11 @@ struct context {
     //TODO(porting): the rest of the context we need, such as OVF.
 }
 
-/* given a function, some data and its length, creates a new tcb that, when
- * switched to, executes function with a pointer to data as its argument */
-fn thr_create(function: fn(*u8) -> (), data: *u8, len: u32) -> *tcb {
-    0 as *tcb
-}
-
 fn fill_context(tcb: *tcb, function: fn(*u8) -> (), data: *u8, len: u32) {
-    printf!("Fill context...\n");
+    printf!("Fill context... tcb=%x\n", tcb);
     // Stack is initialized as
     // [tcb][data ...][function address][context]
-    let data_ptr: *u8 = ((tcb as *u8) + sizeof(tcb)) as *u8;
+    let data_ptr: *u8 = tcb->kstack_top;
     let func_ptr: *u32 = (data_ptr + len) as *u32;
     tcb->context = (data_ptr + len + 4) as *context;
 

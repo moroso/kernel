@@ -100,6 +100,7 @@ fn draw_stuff(buf: *u8, color: u32) {
 
 
 fn main() -> i32 {
+    printf!("Console test starting\n");
 
     /*** initialize console server; blocks until server is set up ***/
     let new_mb = mailbox_new();
