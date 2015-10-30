@@ -31,12 +31,11 @@ extern "bare" fn tcb_init_func() {
     asm!(
             "{ *l(r30) <- r0; r30 <- r30 + 4 }"
             );
-    printf!("TCB init func!\n");
     enable_interrupts();
     preempt_enable();
     asm!(
             "{ r31 <- *l(r30 - 8); r0 <- *l(r30 - 4); r30 <- r30 - 8; }"
-            "{ b r31 + 1; }"
+            "{ b r31; }"
             );
 }
 

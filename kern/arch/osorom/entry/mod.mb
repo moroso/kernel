@@ -184,9 +184,9 @@ fn isr(ec0: exception_t, epc: u32,
        ec2: exception_t,
        ec3: exception_t, ea0: u32, ea1: u32,
        new_epc: *u32, regs: *uregs) {
+    regs->ip = (epc & ~0x3) + 0x10;
     // TODO: *actually* handle the interrupt!
     printf!("In handler\n");
-    // TODO: fix this when we support == on c-like enums.
     if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");
         TIMER->control &= ~(1 << TIMER_CONTROL_TIMER_INT);
@@ -264,4 +264,50 @@ struct exception_record {
     try: u32,
     catch: u32
 }
-extern static user_copy_handler: exception_record;
+static user_copy_handler: exception_record = exception_record {
+    try: user_copy_try as u32,
+    catch: user_copy_catch as u32,
+};
+
+extern "bare" fn user_copy_try(to: *u8, from: *u8, n: u32) {
+    asm!(
+        // The try/catch system we use for userspace copies requires that only
+        // the first packet here be able to fault, so it needs to do the reads
+        // and the writes (since user_copy is used for copies to and from
+        // userspace). To do this, writes "lag" reads by one cycle, and we use
+        // p0 and p1 do take care of the boundary conditions.
+        //
+        // The caller is responsible for checking if the number of bytes to copy
+        // is 0. This should only ever be called if there is at least one character
+        // to copy.
+        //
+        // On entering this function:
+        // - p0 should be false.
+        // - p1 should be true.
+        // - r0 should point to the first address to write to
+        // - r1 should point to the first address to read from
+        // - r2 should contain the number of characters to copy.
+        //
+        // Subsequently, when executing the first packet:
+        // - p0 should be true if there are no more characters to read
+        // - p1 should be true if there are no more characters to write
+        // - r0 should point to the next address to write to
+        // - r1 should point to the next address to read from
+        // - r2 should contain the number of characters left to *read*, which will
+        //      be one less than the number of characters left to write.
+            "{ !p0? r3 <- *b(r1); !p1? *b(r0) <- r3; "
+            "  !p0? r1 <- r1 + 1; !p1? r0 <- r0 + 1; }"
+            // At this point, in the first iteration, we've done a single read
+            // and no writes. r3 contains the byte we read.
+            // r0 has not advanced, but r1 has.
+            // r2 still contains the total number of characters to copy.
+            "{ p0 <- r2 <=u 1; p1 <- r2 <=u 0; r2 <- r2 - 1; }"
+            // If there are still characters to write, go back to the loop.
+            "{ !p1? b -2; }"
+            "{ b r31 + 1; r0 <- 0; }"
+            );
+}
+
+extern "bare" fn user_copy_catch() {
+    asm!("{ b r31 + 1; r0 <- ~0; }");
+}
