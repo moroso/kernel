@@ -120,3 +120,7 @@ fn kernel_entry(regs: *uregs) {
 }
 
 extern fn leave_kernel(ureg: *uregs);
+
+// No registers need to be adjusted for the child process in a repl
+// call on x86.
+fn adjust_for_child_repl(regs: *uregs) { }

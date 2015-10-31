@@ -45,10 +45,21 @@ extern "bare" fn leave_kernel(uregs: *uregs) {
             "{  r7 <- *l(r0 + 0x1c);  r6 <- *l(r0 + 0x18); }"
             "{  r5 <- *l(r0 + 0x14);  r4 <- *l(r0 + 0x10); }"
             "{  r3 <- *l(r0 + 0x0c);  r2 <- *l(r0 + 0x08); }"
-            "{  r1 <- *l(r0 + 0x80); }"
+            "{  r1 <- *l(r0 + 0x84); }"
+            // TODO: load predicate registers and OVF.
             "{ epc <- r1; r1 <- *l(r0 + 0x4); }"
             "{ eret; r0 <- *l(r0); }"
             );
+}
+
+fn adjust_for_child_repl(regs: *uregs) {
+    // This function is called just before returning
+    // in the child of a repl call.
+    // Registers from the parent process were copied, but
+    // we can't return to the exact same address or we'd just
+    // call repl again in a right loop. This adjusts ip so that
+    // we return to the next address instead.
+    regs->ip += 0x10;
 }
 
 fn register(idx: u32, handler: fn(*uregs) -> ()) {
@@ -87,6 +98,8 @@ extern "bare" fn isr_asm() {
             // If we were in userspace, we read the kstack address from SP2
             // (whose value is now in r0). If we're in the kernel, r30
             // already contains a pointer to a valid part of the active kstack.
+            // Note that 0x78 is -0x10 from where r30 will be after this instruction;
+            // that is, it's where on the stack r30 should go.
             "{  p0? *l(r30 + 0x78) <- r30; "
             // Note: the lowest two bits of the address for word-sized stores are
             // ignored, so this is safe even though the low bit of r0 may be set.
@@ -184,9 +197,9 @@ fn isr(ec0: exception_t, epc: u32,
        ec2: exception_t,
        ec3: exception_t, ea0: u32, ea1: u32,
        new_epc: *u32, regs: *uregs) {
-    regs->ip = (epc & ~0x3) + 0x10;
-    // TODO: *actually* handle the interrupt!
-    printf!("In handler\n");
+    // TODO: ovf is not actually stored in regs, and should be!
+    // (instead, right now, it's stored just before regs.)
+    // TODO: more things need to be handled here.
     if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");
         TIMER->control &= ~(1 << TIMER_CONTROL_TIMER_INT);

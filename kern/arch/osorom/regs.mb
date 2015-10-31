@@ -1,5 +1,6 @@
 struct uregs {
     r: u32[32],
+    p: u32, // only lower 3 bits actually used.
     ip: u32,
     ovf: u32,
 }
