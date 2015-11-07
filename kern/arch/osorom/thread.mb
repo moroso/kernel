@@ -10,7 +10,6 @@ struct context {
 }
 
 fn fill_context(tcb: *tcb, function: fn(*u8) -> (), data: *u8, len: u32) {
-    printf!("Fill context... tcb=%x\n", tcb);
     // Stack is initialized as
     // [tcb][data ...][function address][context]
     let data_ptr: *u8 = tcb->kstack_top;
@@ -23,7 +22,6 @@ fn fill_context(tcb: *tcb, function: fn(*u8) -> (), data: *u8, len: u32) {
     *func_ptr = function as u32;
 
     mos_memcpy(data_ptr as *u32, data as *u32, len);
-    printf!("Done fill context\n");
 }
 
 extern "bare" fn tcb_init_func() {

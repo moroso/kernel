@@ -98,14 +98,14 @@ extern "bare" fn isr_asm() {
             // If we were in userspace, we read the kstack address from SP2
             // (whose value is now in r0). If we're in the kernel, r30
             // already contains a pointer to a valid part of the active kstack.
-            // Note that 0x78 is -0x10 from where r30 will be after this instruction;
+            // Note that 0x7c is -0x10 from where r30 will be after this instruction;
             // that is, it's where on the stack r30 should go.
-            "{  p0? *l(r30 + 0x78) <- r30; "
+            "{  p0? *l(r30 + 0x7c) <- r30; "
             // Note: the lowest two bits of the address for word-sized stores are
             // ignored, so this is safe even though the low bit of r0 may be set.
-            "  !p0? *l(r0 + 0x78) <- r30; "
-            "   p0? r30 <- r30 + 0x88; "
-            "  !p0? r30 <- r0 + 0x88; }"
+            "  !p0? *l(r0 + 0x7c) <- r30; "
+            "   p0? r30 <- r30 + 0x8c; "
+            "  !p0? r30 <- r0 + 0x8c; }"
             // We now start saving registers on the stack. Register order is:
             // (offsets relative to r30)
             // 0x8c 0x88 0x84    0x10 0xc         0x8         0x4
@@ -113,6 +113,9 @@ extern "bare" fn isr_asm() {
             // Note that r30 was just saved, but none of the others have been saved yet.
             // Error flags are loaded into registers r0 .. r6, with epc in r1.
             // (It's an odd order, but it's convenient!)
+
+            // TODO: Put OVF in the regs structure (at the end), not at the beginning
+            // of the stack. Remember to update repl_handler too!
 
             // Note: here we restore p0 from the low bit of r0.
             "{ r0 <- OVF; p0 <- r0 & 1; r30 <- r30 & long; long 0xfffffffe;}"
@@ -144,7 +147,7 @@ extern "bare" fn isr_asm() {
             "{ *l(r30 - 0x40) <- r18; *l(r30 - 0x3c) <- r19; }"
             // Here we also start saving the predicate registers to r7.
             "{ *l(r30 - 0x38) <- r20; *l(r30 - 0x34) <- r21; r7 <- 0; }"
-            "{ *l(r30 - 0x40) <- r22; *l(r30 - 0x2c) <- r23; p0? r7 <- r7 | 0b001; }"
+            "{ *l(r30 - 0x30) <- r22; *l(r30 - 0x2c) <- r23; p0? r7 <- r7 | 0b001; }"
             "{ *l(r30 - 0x28) <- r24; *l(r30 - 0x24) <- r25; p1? r7 <- r7 | 0b010; }"
             "{ *l(r30 - 0x20) <- r26; *l(r30 - 0x1c) <- r27; p2? r7 <- r7 | 0b100; }"
             "{ *l(r30 - 0x18) <- r28; *l(r30 - 0x14) <- r29; }"
@@ -199,6 +202,7 @@ fn isr(ec0: exception_t, epc: u32,
        new_epc: *u32, regs: *uregs) {
     // TODO: ovf is not actually stored in regs, and should be!
     // (instead, right now, it's stored just before regs.)
+    // Remember to update repl_handler when that's fixed!
     // TODO: more things need to be handled here.
     if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");
@@ -234,7 +238,7 @@ fn timer_handler(regs: *uregs) {
 
     if (is_preempt_enabled()) {
         rend_timeout_remove(ticks);
-        //scheduler_update(-1);
+        scheduler_update(-1);
     }
 }
 
@@ -272,7 +276,6 @@ fn page_fault_handler(ec0: exception_t, epc: u32,
                               ea as *u8);
 }
 
-//TODO(porting)
 struct exception_record {
     try: u32,
     catch: u32
@@ -288,7 +291,7 @@ extern "bare" fn user_copy_try(to: *u8, from: *u8, n: u32) {
         // the first packet here be able to fault, so it needs to do the reads
         // and the writes (since user_copy is used for copies to and from
         // userspace). To do this, writes "lag" reads by one cycle, and we use
-        // p0 and p1 do take care of the boundary conditions.
+        // p0 and p1 to take care of the boundary conditions.
         //
         // The caller is responsible for checking if the number of bytes to copy
         // is 0. This should only ever be called if there is at least one character
