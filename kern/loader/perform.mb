@@ -53,6 +53,7 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
     // TODO args prooobably should be reversed?
 
     /* reads all strings in argv into buffer */
+    // TODO: validate argv.
     if (argv != null || word_idx >= MAX_ARG_NUM) {
         while(argv[word_idx] != null) {
             // "Staging" area: we copy here, then check that we have room to put it
@@ -79,7 +80,7 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
                 return PERF_ERR_ARGS;
             }
 
-            mos_strncpy(arg_pointer, &temp_buffer[0], str_len);
+            mos_strncpy(arg_pointer, &temp_buffer[0], str_len + 1);
 
             arg_pointer += str_len + 1;
             word_idx += 1;
@@ -153,7 +154,7 @@ fn perform(filename: *u8, argv: **u8, from_user: bool) -> i32 {
     }
 
     if stack_grows_up {
-        set_sp(&uregs, (arg_start + buffer_len) as u32);
+        set_sp(&uregs, ROUND_UP!((arg_start + buffer_len) as u32, 4));
     } else {
         set_sp(&uregs, (&arg_ptrs[-1]) as u32);
     }

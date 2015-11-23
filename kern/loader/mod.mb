@@ -45,18 +45,13 @@ fn load(filename: *u8, ureg: *uregs) -> i32 {
 
     let user_stack_size = 2 * PAGE_SIZE;
     let user_esp = if stack_grows_up {
-        header.load_addr + header.mapping_size
+        ROUND_UP!(header.load_addr + header.mapping_size, 4)
     } else {
-        header.load_addr + header.mapping_size + user_stack_size
+        ROUND_DOWN!(header.load_addr + header.mapping_size + user_stack_size, 4)
     };
 
     // No matter what, this is the end of the region we need to allocate.
     let alloc_finish = header.load_addr + header.mapping_size + user_stack_size;
-
-    // Make sure user_esp is aligned to 4 bytes.
-    if user_esp & 3 != 0 {
-        user_esp += (4 - (user_esp & 3));
-    }
 
     /* allocate the full mapping size */
     if (new_user_range(header.load_addr as *u8, alloc_finish as *u8,

@@ -202,7 +202,8 @@ fn isr(ec0: exception_t, epc: u32,
        new_epc: *u32, regs: *uregs) {
     // TODO: ovf is not actually stored in regs, and should be!
     // (instead, right now, it's stored just before regs.)
-    // Remember to update repl_handler when that's fixed!
+    // Remember to update repl_handler and thr_repl_handler
+    // when that's fixed!
     // TODO: more things need to be handled here.
     if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");

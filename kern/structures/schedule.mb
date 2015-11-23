@@ -279,7 +279,7 @@ fn scheduler_update(state: i32) {
                     || state == -1));
         scheduler_unlock(enable);
         return ();
-    } 
+    }
 
     /* if a state was provided, assign it to the running thread */
     if (state != -1) {

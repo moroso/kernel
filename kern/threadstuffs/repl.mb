@@ -36,7 +36,14 @@ fn thr_repl(parent_regs: *uregs) -> *tcb {
 }
 
 fn thr_repl_handler() -> i32 {
-    let parent_ureg: *uregs = (get_tcb()->kstack_top as *uregs) - 1;
+    let parent_ureg: *uregs =
+        if stack_grows_up {
+            // TODO: remove the +4 here when the isa is fixed to put ovf at the end of the
+            // stack instead of the beginning.
+            (get_tcb()->kstack_top + 4) as *uregs
+        } else {
+            (get_tcb()->kstack_top as *uregs) - 1
+        };
     let new_tcb = thr_repl(parent_ureg);
     if (new_tcb != null) {
 

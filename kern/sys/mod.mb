@@ -71,5 +71,6 @@ fn sys_print(s: *u8, n: u32) -> i32 {
         print_char(s[i] as i32);
     }
     kmut_unlock(&debug_print_lock);
+
     0
 }

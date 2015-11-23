@@ -1,3 +1,5 @@
+const stack_grows_up: bool = true;
+
 /* TODO: label support in asm. */
 extern "bare" fn xchg(orig: *u32, val: u32) -> u32 {
     asm!("{ r2 <- *ll(r0); }"
@@ -46,6 +48,11 @@ extern "bare" fn syscall_5(idx: u32, arg1: u32, arg2: u32, arg3: u32, arg4: u32,
 }
 
 extern "bare" fn repl_with_stack(stack: *u8, function: fn(*u8)->(), args: *u8) -> i32 {
-    //TODO(porting): this function needs to be written!
-    0
+    asm!(   // Call repl, storing the new stack pointer in r3 while we do.
+            "{ r3 <- r0; r0 <- 5; }"
+            "{ syscall; }"
+            "{ p0 <- r0 == 0; }"
+            "{ !p0? b r31 + 1; p0? r30 <- r3; p0? r0 <- r2; }"
+            "{ b r1; }"
+         );
 }

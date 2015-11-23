@@ -1,10 +1,10 @@
 /* console/mod.mb: implementation of console client and server functions.  The
  * console allocates frame buffers and is responsible for displaying the frame
  * buffer on the screen
- * 
+ *
  * TODO ensure clients relinquish frame buffers on exit?  we could do an
  * in-kernel registration syscall that does some ref count checks, but the more
- * intelligent thing to do would be to have exception ports/handlers of some sort 
+ * intelligent thing to do would be to have exception ports/handlers of some sort
  * TODO error handling in server if buffer doesn't transfer correctly
  * TODO associate buffers in table with some info (like tid, if there is some
  * method of authentication between client and server?) so that we can make sure
@@ -41,7 +41,7 @@ static VID_BUFFER: *u8 = 0xdeadb000 as *u8;
 static VID_BUFFER_SIZE: u32 = PAGE_SIZE * VID_REGION_SIZE;
 
 // number of buffers the console server can give up.  This can be dynamic if we
-// want 
+// want
 const NUM_BUFS: u32 = 10;
 static buffer_table: (*u8)[NUM_BUFS];
 static table_lock: mut_t = MUTEX_INIT!();
@@ -54,12 +54,12 @@ fn console_worker(mb_arg: *u8) {
 
     /*** setup ***/
     let mb = mb_arg as i32;
-    assert!(mb >= 0); 
+    assert!(mb >= 0);
 
     let active_threads: i32;
     if ((active_threads = server_thread_init(mb as u32)) < 0) {
-        server_thread_exit(&console_server_active, -1); 
-    } 
+        server_thread_exit(&console_server_active, -1);
+    }
 
     // if we are the first thread to wake up, we get designated as the thread
     // that copies the frame buffer to VESA mem
@@ -75,7 +75,7 @@ fn console_worker(mb_arg: *u8) {
             mut_unlock(&buffer_lock);
             yield(-1);
         }
-        server_thread_exit(&console_server_active, 0); 
+        server_thread_exit(&console_server_active, 0);
 
     }
 
@@ -98,7 +98,7 @@ fn console_worker(mb_arg: *u8) {
             printf!("console %c\n", char_new);
             yield(-1);
         }
-        server_thread_exit(&console_server_active, 0); 
+        server_thread_exit(&console_server_active, 0);
 
     }
 
@@ -128,7 +128,7 @@ fn console_worker(mb_arg: *u8) {
 
             }
             // mark the entry so it doesn't get used and we can safely drop the
-            // lock 
+            // lock
             buffer_table[i] = 0x1 as *u8;
             mut_unlock(&table_lock);
 
@@ -139,13 +139,13 @@ fn console_worker(mb_arg: *u8) {
 
                 continue;
 
-            } 
+            }
             buffer_table[i] = request_buffer;
             status = i as i32;
 
             // if there is no buffer currently being displayed, switch
             // automatically  TODO this policy should probably not last once we
-            // have proper infrastructure 
+            // have proper infrastructure
             mut_lock(&buffer_lock);
             if (fb_cur < 0) {
                 fb_cur = i as i32;
@@ -160,18 +160,18 @@ fn console_worker(mb_arg: *u8) {
 
             }
 
-        } 
+        }
 
-    } 
+    }
 
-    server_thread_exit(&console_server_active, 0); 
-} 
+    server_thread_exit(&console_server_active, 0);
+}
 
 /* called from console program to initialize server
  *
  * num_threads: number of worker threads in server
- * mb: mailbox to send a wakeup message to. ignored if mb is negative 
- * returns on failure 
+ * mb: mailbox to send a wakeup message to. ignored if mb is negative
+ * returns on failure
  * requires at least three server threads
  */
 fn console_init(num_threads: u32, mb: i32) -> i32 {
@@ -185,19 +185,19 @@ fn console_init(num_threads: u32, mb: i32) -> i32 {
     mos_memset(&buffer_table[0], 0, NUM_BUFS * sizeof(*u8));
 
     server_init(CONSOLE_SERVER_ID, &console_server_active, num_threads,
-            console_worker, mb, true, -1);        
+            console_worker, mb, true, -1);
     -1
 }
 
 /* sends frame buffer allocation request to console.  On success, the server
  * creates a new frame buffer for the client of size VID_BFFER, which it is able
- * to "switch to" to display the client's buffer contents.  Client blocks until request is serviced by server.  
+ * to "switch to" to display the client's buffer contents.  Client blocks until request is serviced by server.
  * fails if console server is unable or unwilling to allocate buffer.
  *
  * console_mb: mailbox descriptor for the console.  Must be a valid descriptor.
  * buffer: destination for new frame buffer.  Must have VID_BUFFER_SIZE bytes
- * available for transfer 
- * timeout: how long client should wait for request before timing out. 
+ * available for transfer
+ * timeout: how long client should wait for request before timing out.
  */
 fn request_buffer(console_mb: u32, buffer: *u8, timeout: i32) -> i32 {
     let request: console_request;

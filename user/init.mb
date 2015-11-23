@@ -13,7 +13,7 @@ use syslib::{mailbox_new, mailbox_remove, mailbox_move, repl, perform, bide,
 		abscond};
 use mallot::mallot_init;
 use server::new_server;
-
+use thrlib::thr_create;
 
 fn main(argc: u32, argv: **u8) -> i32 {
     printf!("Init starting: %d %s %s\n", argc, argv[0], argv[1]);

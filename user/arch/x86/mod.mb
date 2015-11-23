@@ -1,3 +1,5 @@
+const stack_grows_up: bool = false;
+
 extern fn xchg(orig: *u32, val: u32) -> u32;
 
 extern fn syscall_0(idx: u32) -> u32;
