@@ -1,0 +1,4 @@
+This is where I am building up facilities for graphics stuff. For now,
+for simplicity, I am building it as separate test application for
+running on hosts, but I'm sticking it under user because this is where
+it will go eventually?

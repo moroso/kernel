@@ -1,0 +1,7 @@
+
+
+fn main() -> i32 {
+    printf!("hello, world\n");
+
+    0
+}
