@@ -38,7 +38,7 @@ CFLAGS = -nostdinc \
 	-DMB_FREESTANDING
 INCLUDES = -Iinc
 
-LIB_OBJS=$(LIB_ASM_SRC_FILES:%.S=%.o)
+LIB_OBJS=$(LIB_ASM_SRC_FILES:%.S=$(BUILDDIR)/%.o)
 
 PROG_BINS := $(PROGS:%=$(BUILDDIR)/%)
 PROG_DEPS := $(PROGS:%=$(BUILDDIR)/%.dep)
@@ -51,9 +51,8 @@ $(BUILDDIR):
 $(BUILDDIR)/%.c: %.mb $(MBC) |$(BUILDDIR)
 	$(MBC) $< -d --target $(MBC_TARGET) -o $@ --lib=printf_internal:../../compiler/lib/printf_internal.mb --lib=prelude:prelude.mb --lib=arch:arch/$(ARCH)/mod.mb
 
-# XXX: This is screwy.
-#$(BUILDDIR)/%.o: %.S
-%.o: %.S
+$(BUILDDIR)/%.o: %.S |$(BUILDDIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<
 	$(OBJCOPY) -R .comment -R .note $@ $@
 %.o: %.c
@@ -69,8 +68,8 @@ $(BUILDDIR)/%.c: %.mb $(MBC) |$(BUILDDIR)
 # Include all the dependency files for our programs that mbc generates.
 -include $(PROG_DEPS)
 
-GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c) $(PROG_DEPS) $(LIB_OBJS:%.c=%.o)
-.SECONDARY: $(GENERATED_FILES) $(LIB_OBJS)
+GENERATED_FILES=$(PROGS:%=$(BUILDDIR)/%.bin) $(PROGS:%=$(BUILDDIR)/%.o) $(PROGS:%=$(BUILDDIR)/%.c) $(PROG_DEPS) $(LIB_OBJS)
+.SECONDARY: $(GENERATED_FILES)
 
 # We don't want the path in the names in the script, so cd
 $(BUILDDIR)/fs.img: $(PROG_BINS) |$(BUILDDIR)
