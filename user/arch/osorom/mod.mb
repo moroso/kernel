@@ -11,10 +11,10 @@ extern "bare" fn xchg(orig: *u32, val: u32) -> u32 {
 /* TODO: label support in asm. */
 extern "bare" fn atomic_add(val: *u32, inc_val: u32) -> i32 {
     asm!("{ r2 <- *ll(r0); }"
-         "{ r2 <- r2 + r1; }"
+         "{ r2 <- r2 + r1; r3 <- r2 }"
          "{ *sc(r0) <- r2; }"
          "{ !p0? b atomic_add; }"
-         "{ b r31 + 1; r0 <- r2; }");
+         "{ b r31 + 1; r0 <- r3; }");
 }
 
 extern "bare" fn syscall_0(idx: u32) -> u32 {

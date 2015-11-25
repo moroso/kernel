@@ -517,7 +517,6 @@ fn new_vid_buffer(log_addr: *u8) -> i32 {
     //mos_memset(new_frames, 0, (PAGE_SIZE * vid_buffer_pages) as u32);
 
     let ret: i32;
-    printf!("Starting page alloc\n");
     for (i = 0; i < vid_buffer_pages; i += 1) {
         ret = set_page(new_frames + i * PAGE_SIZE,
                        log_addr + i * PAGE_SIZE,
@@ -751,38 +750,38 @@ fn page_fault_handler_common(kernel_mode: bool,
 
 // this needs locking around the PD's
 /* takes a frame at addr_src in PD_src, and moves it to addr_dest in PD_dest.
- * original mapping is removed 
+ * original mapping is removed
  */
 fn page_transfer(addr_src: *u8, addr_dest: *u8, PD_src: *PD_t, PD_dest: *PD_t, page_share: u32)
     -> i32 {
 
-        // lock PD with smaller address first, so we avoid deadlock
-        assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
-        let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
-        if (frame_src_addr == null || *frame_src_addr == null) {
-            return -2;
-        }
-        let frame_src = *frame_src_addr;
-
-        let frame_size = get_log_addr_size(addr_src, PD_src);
-        let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
-        if (frame_dest_addr != null) {
-            free_page(addr_dest, PD_dest);
-        } 
-
-        inc_frame_ref(frame_src);
-        if (page_share == 0) {
-            // invalidates TLB
-            free_page(addr_src, PD_src); 
-            assert!(*log_to_phys(addr_src, PD_src) == null);
-        }
-        if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
-                    frame_size, false) < 0) {
-            assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
-                        frame_size, false) >= 0);
-        } 
-        dec_frame_ref(frame_src, PD_dest, frame_size);
-
-        0
+    // lock PD with smaller address first, so we avoid deadlock
+    assert!(is_user_addr(addr_src) && is_user_addr(addr_dest));
+    let frame_src_addr: **u8 = log_to_phys(addr_src, PD_src);
+    if (frame_src_addr == null || *frame_src_addr == null) {
+        return -2;
     }
+    let frame_src = *frame_src_addr;
+
+    let frame_size = get_log_addr_size(addr_src, PD_src);
+    let frame_dest_addr: **u8 = log_to_phys(addr_dest, PD_dest);
+    if (frame_dest_addr != null) {
+        free_page(addr_dest, PD_dest);
+    }
+
+    inc_frame_ref(frame_src);
+    if (page_share == 0) {
+        // invalidates TLB
+        free_page(addr_src, PD_src);
+        assert!(*log_to_phys(addr_src, PD_src) == null);
+    }
+    if (set_page(frame_src, addr_dest, PD_dest, get_flags(addr_src),
+                 frame_size, false) < 0) {
+        assert!(set_page(frame_src, addr_src, PD_src, get_flags(addr_src),
+                         frame_size, false) >= 0);
+    }
+    dec_frame_ref(frame_src, PD_dest, frame_size);
+
+    0
+}
 

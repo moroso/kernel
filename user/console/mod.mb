@@ -70,6 +70,8 @@ fn console_worker(mb_arg: *u8) {
             mut_lock(&buffer_lock);
             if (fb_cur >= 0) {
                 // remember to do the proper things for buffer deletions
+                // TODO: on osorom we can just switch the video buffer pointer,
+                // and not have to do these copies.
                 mos_memcpy(VID_BUFFER, buffer_table[fb_cur as u32], VID_BUFFER_SIZE);
             }
             mut_unlock(&buffer_lock);

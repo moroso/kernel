@@ -1,3 +1,30 @@
+use arch::PERIPHERAL_START;
+use consts::PAGE_SIZE;
+use utils::buddy_alloc::frame_alloc_pow2;
+use video::vid_alloc::{vid_buffer_addr, vid_buffer_pages, vid_mut};
+
+use locks::mutex::kmut_init;
+
+struct video_t {
+    fb_addr: *u8,
+}
+
+static VIDEO : *video_t = (PERIPHERAL_START + PAGE_SIZE * 2) as *video_t;
+
+
 fn vid_init() {
-    // TODO!
+    let addr: *u8 = frame_alloc_pow2(12);
+
+    assert!(addr != null);
+
+    VIDEO->fb_addr = addr;
+
+    vid_buffer_addr = addr;
+    vid_buffer_pages = 1875;
+
+    let i: u32 = 0;
+
+    for (i = 0; i < 1875 * 1024; i += 1) {
+        addr[i] = 0xff;
+    }
 }

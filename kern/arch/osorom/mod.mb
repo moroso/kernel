@@ -12,6 +12,7 @@ mod boot;
 mod thread;
 
 const PERIPHERAL_START: u32 = KERNEL_MEM_END;
+const PERIPHERAL_PAGES: u32 = 3;
 
 //TODO(porting): should probably increase this; we have a ton of registers!
 const NUM_FASTPATH_REGS: u32  = 5; // number of GPRs being used in fastpath
@@ -104,8 +105,14 @@ extern "bare" fn userspace_copy(to: *u8, from: *u8, n: u32) -> i32 {
 
 fn arch_PD_init(PD: *PD_t) -> i32 {
     // Direct map peripherals.
-    if (set_page(0x80000000 as *u8, PERIPHERAL_START as *u8, PD, READ_WRITE_BIT, KB, false) < 0) {
-        return -1;
+    let page: u32 = 0;
+
+    for (page = 0; page < PERIPHERAL_PAGES; page += 1) {
+        if (set_page((0x80000000 + page * PAGE_SIZE) as *u8,
+                     (PERIPHERAL_START + page * PAGE_SIZE) as *u8,
+                     PD, READ_WRITE_BIT, KB, false) < 0) {
+            return -1;
+        }
     }
 
     0
