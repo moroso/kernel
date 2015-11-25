@@ -1,0 +1,98 @@
+// Run as something like: ./mandelbrot | pnmtopng > mandelbrot.png
+
+use maths::fixed;
+use maths::fixed::num;
+
+mod maths;
+
+fn mag2(r: num, i: num) -> num {
+    fixed::mult(r, r) + fixed::mult(i, i)
+}
+
+fn mandelbrot_calc(r0: num, i0: num) -> i32 {
+    let k: i32;
+
+    let r = r0;
+    let i = i0;
+
+    for (k = 0; k < 40; k += 1) {
+        if mag2(r, i) >= fixed_int!(4) { return k; }
+
+        let tmp_i = 2*fixed::mult(r, i) + i0;
+        r = fixed::mult(r, r) - fixed::mult(i, i) + r0;
+        i = tmp_i;
+    }
+
+    0
+}
+
+// Color
+struct color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+macro mcolor!(r, g, b) { color { r: $r, g: $g, b: $b, } }
+
+// Make up some colors. This is based on reverse engineering a formula
+// from the list of colors I have in another mandelbrot program I
+// wrote once. I'm not really sure where *that* came from.
+fn pick_color(i: i32) -> color {
+    let c = color {
+        r: ((i / 36) * 36) as u8,
+        g: (((i % 32) / 4) * 36) as u8,
+        b: ((i % 4) * 85) as u8,
+    };
+    c
+}
+
+const R_MIN: num = fixed_dec3!(-2,500);
+const R_MAX: num = fixed_dec3!( 1,450);
+
+
+
+fn fill_mandelbrot_buffer(buf: *color, width: u32, height: u32) {
+    let r_min = R_MIN;
+    let r_range = R_MAX - r_min;
+    let step = r_range / width as i32;
+
+    let i_range = step * height as i32;
+    let i_min = -i_range / 2;
+
+    let x: u32; let y: u32;
+    let i: num = i_min;
+    for (y = 0; y < height; y += 1) {
+        let r: num = r_min;
+        for (x = 0; x < width; x += 1) {
+            let color = mandelbrot_calc(r, i);
+            buf[y*width + x] = pick_color(color);
+
+            r += step;
+        }
+        i += step;
+    }
+}
+
+//
+fn write_ppm(buf: *color, width: u32, height: u32) {
+    printf!("P6\n%d %d 255\n", width, height);
+    let sz = width*height*sizeof(color);
+    let pbuf = buf as *u8;
+    let i = 0;
+    for (; i < sz; i += 1) {
+        printf!("%c", pbuf[i]);
+    }
+}
+
+
+//////
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+static buf: color[WIDTH*HEIGHT];
+
+fn main() -> i32 {
+    fill_mandelbrot_buffer(&buf[0], WIDTH, HEIGHT);
+    write_ppm(&buf[0], WIDTH, HEIGHT);
+
+    0
+}

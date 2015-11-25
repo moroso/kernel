@@ -1,2 +1,4 @@
 build-x86
 test
+mandelbrot
+*.png

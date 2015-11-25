@@ -3,7 +3,7 @@
 
 ASM_SRC_FILES =
 C_SRC_FILES = math64.c
-PROGS = test
+PROGS = test mandelbrot
 
 ##################################################################
 
@@ -40,7 +40,7 @@ PROG_OBJS=$(PROGS:%=$(BUILDDIR)/%.o)
 ALL_OBJS=$(LIB_OBJS) $(PROG_OBJS)
 ALL_DEPS=$(ALL_OBJS:%.o=%.dep)
 
-all: test
+all: $(PROGS)
 
 $(BUILDDIR):
 	mkdir -p $@
@@ -68,5 +68,5 @@ GENERATED_FILES=$(ALL_DEPS) $(PROG_C_FILES) $(ALL_OBJS) $(PROGS:%=$(BUILDDIR)/%)
 .SECONDARY: $(GENERATED_FILES)
 
 clean:
-	rm -f $(GENERATED_FILES) $(PROGS)
+	rm -f $(GENERATED_FILES) $(PROGS) *.png
 	rmdir --ignore-fail-on-non-empty $(BUILDDIR)
