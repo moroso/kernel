@@ -1,7 +1,37 @@
+use maths::fixed;
+use maths::fixed::num;
 
+mod maths;
+
+const nus: i32 = fixed_dec2!(10,25);
+
+fn frac_4d(a: fixed::num) -> u32 {
+    fixed::int_part(fixed::frac_part(a) as num * 10000) as u32
+}
+fn print_num(n: fixed::num) {
+    printf!("0x%08x %d.%04d\n", n, fixed::int_part(n), frac_4d(n));
+}
 
 fn main() -> i32 {
-    printf!("hello, world\n");
+    printf!("hello, world: %d %s\n", 010, stringify!(0010));
+
+    let n: i32 = fixed_dec2!(10,25);
+    let a: i32 = fixed_dec2!(0,50);
+    let half = fixed_frac!(1, 2);
+    print_num(n);
+    print_num(a);
+    print_num(half);
+
+    let a2 = fixed::mult(a, a);
+    print_num(a2);
+    let n2 = fixed::mult(n, n);
+    print_num(n2);
+    let n4 = fixed::mult(n2, n2);
+    print_num(n4); // overflowed
+
+    let n2x2 = fixed::div(n2, half);
+    print_num(n2x2);
+
 
     0
 }

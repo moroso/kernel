@@ -1,0 +1,62 @@
+// Basic library for fixed point arithmetic.
+
+type num = i32;
+const FRAC_BITS: i32 = 18;
+const INT_BITS: i32 = 32-FRAC_BITS;
+const FRAC_MASK: i32 = (1 << FRAC_BITS ) - 1;
+const INT_MASK: i32 = ~FRAC_MASK;
+
+extern fn __smul_32_32(a: i32, b: i32, top_out: *i32, bot_out: *u32);
+extern fn __sdiv_64_32(ntop: i32, nbot: u32, d: i32) -> i32;
+
+// Stupid 2s-complement bithack to compute the sign function instead
+// of a conditional because the mbc constant folder doesn't do
+// conditionals as of this writing.
+macro fixed_sign!(n) { (($n >> 31)*2 + 1) }
+macro fixed_int!(n) { ($n << ::maths::fixed::FRAC_BITS) }
+// XXX: This can't handle numerates that don't fit in INT_BITS
+// bits. This is because we can't handle 64-bit math in-language.
+macro fixed_frac!(n, d) { (fixed_int!($n) / $d) }
+macro fixed_improper!(i, n, d) {
+    (fixed_int!($i) + fixed_frac!(fixed_sign!($i)*$n, $d))
+}
+
+macro fixed_dec1!(i,d) { fixed_improper!($i, $d, 10) }
+macro fixed_dec2!(i,d) { fixed_improper!($i, $d, 100) }
+macro fixed_dec3!(i,d) { fixed_improper!($i, $d, 1000) }
+macro fixed_dec4!(i,d) { fixed_improper!($i, $d, 10000) }
+macro fixed_dec5!(i,d) { fixed_improper!($i, $d, 100000) }
+
+fn int_part(a: num) -> i32 {
+    a >> FRAC_BITS
+}
+fn frac_part(a: num) -> u32 {
+    (a & FRAC_MASK) as u32
+}
+
+fn add(a: num, b: num) -> num {
+    a + b
+}
+fn sub(a: num, b: num) -> num {
+    a - b
+}
+fn neg(a: num) -> num {
+    -a
+}
+
+fn mult(a: num, b: num) -> num {
+    // Need to compute a 64-bit product and then shift
+    let rtop: i32;
+    let rbot: u32;
+    __smul_32_32(a, b, &rtop, &rbot);
+    // What we want is "result >> FRAC_BITS"
+    ((rbot >> FRAC_BITS as u32) as i32) | (rtop << INT_BITS)
+}
+
+fn div(n: num, d: num) -> num {
+    // We want to compute (n << FRAC_BITS) / d
+    // Need to compute a 64-bit product and then shift
+    let ntop: i32 = n >> INT_BITS;
+    let nbot: u32 = (n << FRAC_BITS) as u32;
+    __sdiv_64_32(ntop, nbot, d)
+}

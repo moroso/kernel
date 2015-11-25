@@ -2,7 +2,7 @@
 # stuff.
 
 ASM_SRC_FILES =
-C_SRC_FILES =
+C_SRC_FILES = math64.c
 PROGS = test
 
 ##################################################################
@@ -26,7 +26,7 @@ MBC=../../../compiler/mbc
 MBC_TARGET ?= c
 ARCH ?= x86
 
-CFLAGS = -Wall -g -O1 -m32
+CFLAGS = -Wall -g -O2 -m32
 LDFLAGS = -m32
 INCLUDES = -Iinc
 
