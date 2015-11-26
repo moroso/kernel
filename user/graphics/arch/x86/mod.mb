@@ -1,0 +1,15 @@
+use ::color;
+
+extern fn __smul_32_32(a: i32, b: i32, top_out: *i32, bot_out: *u32);
+extern fn __sdiv_64_32(ntop: i32, nbot: u32, d: i32) -> i32;
+
+//
+fn write_output(buf: *color, width: u32, height: u32) {
+    printf!("P6\n%d %d 255\n", width, height);
+    let sz = width*height*sizeof(color);
+    let pbuf = buf as *u8;
+    let i = 0;
+    for (; i < sz; i += 1) {
+        printf!("%c", pbuf[i]);
+    }
+}

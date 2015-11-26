@@ -46,7 +46,7 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(BUILDDIR)/%.c: %.mb $(MBC) |$(BUILDDIR)
-	$(MBC) $< -d --target $(MBC_TARGET) -o $@
+	$(MBC) $< -d --target $(MBC_TARGET) --lib arch:arch/x86/mod.mb -o $@
 
 $(BUILDDIR)/%.o: %.S |$(BUILDDIR)
 	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<
@@ -60,6 +60,9 @@ $(BUILDDIR)/%.o: %.c |$(BUILDDIR)
 
 %: $(BUILDDIR)/%
 	cp $< $@
+
+%.bin: %.mb $(MBC)
+	$(MBC) $< -d --target asm -o $@ --lib arch:arch/osorom/mod.mb
 
 # Include all the dependency files
 -include $(ALL_DEPS)

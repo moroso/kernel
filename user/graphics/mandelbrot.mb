@@ -1,9 +1,11 @@
 // Run as something like: ./mandelbrot | pnmtopng > mandelbrot.png
 
+use arch::write_output;
 use maths::fixed;
 use maths::fixed::num;
 
 mod maths;
+mod arch;
 
 fn mag2(r: num, i: num) -> num {
     fixed::mult(r, r) + fixed::mult(i, i)
@@ -73,18 +75,6 @@ fn fill_mandelbrot_buffer(buf: *color, width: u32, height: u32) {
     }
 }
 
-//
-fn write_ppm(buf: *color, width: u32, height: u32) {
-    printf!("P6\n%d %d 255\n", width, height);
-    let sz = width*height*sizeof(color);
-    let pbuf = buf as *u8;
-    let i = 0;
-    for (; i < sz; i += 1) {
-        printf!("%c", pbuf[i]);
-    }
-}
-
-
 //////
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -92,7 +82,7 @@ static buf: color[WIDTH*HEIGHT];
 
 fn main() -> i32 {
     fill_mandelbrot_buffer(&buf[0], WIDTH, HEIGHT);
-    write_ppm(&buf[0], WIDTH, HEIGHT);
+    write_output(&buf[0], WIDTH, HEIGHT);
 
     0
 }

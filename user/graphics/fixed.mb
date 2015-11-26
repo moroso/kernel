@@ -1,13 +1,12 @@
 // Basic library for fixed point arithmetic.
 
+use arch::__smul_32_32;
+
 type num = i32;
 const FRAC_BITS: i32 = 18;
 const INT_BITS: i32 = 32-FRAC_BITS;
 const FRAC_MASK: i32 = (1 << FRAC_BITS ) - 1;
 const INT_MASK: i32 = ~FRAC_MASK;
-
-extern fn __smul_32_32(a: i32, b: i32, top_out: *i32, bot_out: *u32);
-extern fn __sdiv_64_32(ntop: i32, nbot: u32, d: i32) -> i32;
 
 // Stupid 2s-complement bithack to compute the sign function instead
 // of a conditional because the mbc constant folder doesn't do
@@ -53,6 +52,7 @@ fn mult(a: num, b: num) -> num {
     ((rbot >> FRAC_BITS as u32) as i32) | (rtop << INT_BITS)
 }
 
+/* Uncomment when we have a proper div on osorom
 fn div(n: num, d: num) -> num {
     // We want to compute (n << FRAC_BITS) / d
     // Need to compute a 64-bit product and then shift
@@ -60,3 +60,4 @@ fn div(n: num, d: num) -> num {
     let nbot: u32 = (n << FRAC_BITS) as u32;
     __sdiv_64_32(ntop, nbot, d)
 }
+*/
