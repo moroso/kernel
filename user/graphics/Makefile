@@ -63,11 +63,11 @@ $(BUILDDIR)/%.o: %.c |$(BUILDDIR)
 %: $(BUILDDIR)/%
 	cp $< $@
 
-%.bin: %.mb $(MBC)
+%.bin: %.mb $(MBC) |$(BUILDDIR)
 	$(MBC) $< -d --target asm -o $@ \
 		--lib arch:arch/osorom/mod.mb \
 		--lib out:arch/osorom/out.mb \
-		--list mandelbrot.list --stack_start 400000
+		--list $@.list --stack_start 400000
 
 # Include all the dependency files
 -include $(ALL_DEPS)
