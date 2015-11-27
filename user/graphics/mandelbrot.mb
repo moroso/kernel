@@ -12,11 +12,35 @@ fn mag2(r: num, i: num) -> num {
     fixed::mult(r, r) + fixed::mult(i, i)
 }
 
+// There are fairly simple formulas for figuring out whether a point
+// is in the main cardioid or the period 2 bulb, so to avoid needing
+// to iterate up to the limit in those fairly large sets of points, we
+// explictly check if we are in them.
+fn in_main_cardioid(r: num, i: num) -> bool {
+    // I copied this from some old code I had. Presumbably I got the
+    // formulas from the internet somewhere.
+    let rshift = r - fixed_dec2!(0,25);
+    let i2 = fixed::mult(i, i);
+    // q = (r - 0.25)^2 + i^2
+    let q = fixed::mult(rshift, rshift) + i2;
+    // In cardioid if: q * (q + (r - 0.25)) < 0.25*i^2
+    fixed::mult(q, q + rshift) < i2/4
+}
+fn in_period_2_bulb(r: num, i: num) -> bool {
+    let rshift = r + fixed_int!(1);
+    // In bulb if: (r + 1)^2 + i^2 < 1/16
+    fixed::mult(rshift, rshift) + fixed::mult(i,i) < fixed_frac!(1, 16)
+}
+
 fn mandelbrot_calc(r0: num, i0: num) -> i32 {
     let k: i32;
 
     let r = r0;
     let i = i0;
+
+    // Skip the iteration if we know it is in a region that can't
+    // escape.
+    if in_main_cardioid(r, i) || in_period_2_bulb(r, i) { return 0; }
 
     for (k = 0; k < 40; k += 1) {
         if mag2(r, i) >= fixed_int!(4) { return k; }
