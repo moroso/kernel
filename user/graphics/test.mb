@@ -2,6 +2,7 @@ use maths::fixed;
 use maths::fixed::num;
 
 mod maths;
+mod arch;
 
 const nus: i32 = fixed_dec2!(10,25);
 
@@ -29,8 +30,15 @@ fn main() -> i32 {
     let n4 = fixed::mult(n2, n2);
     print_num(n4); // overflowed
 
-    let n2x2 = fixed::div(n2, half);
-    print_num(n2x2);
+    //let n2x2 = fixed::div(n2, half);
+    //print_num(n2x2);
+
+    let n5 = fixed_int!(2);
+    print_num(n5);
+    let n6 = fixed::inv_sqrt(n5);
+    print_num(n6);
+    let n7 = fixed::sqrt(n5);
+    print_num(n7);
 
 
     0

@@ -1,11 +1,12 @@
 // Run as something like: ./mandelbrot | pnmtopng > mandelbrot.png
 
-use arch::write_output;
+use out::write_output;
 use maths::fixed;
 use maths::fixed::num;
 
 mod maths;
 mod arch;
+mod out;
 
 fn mag2(r: num, i: num) -> num {
     fixed::mult(r, r) + fixed::mult(i, i)

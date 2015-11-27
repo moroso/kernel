@@ -1,0 +1,27 @@
+use ::color;
+
+
+const vid_reg: u32 = 0x80002000;
+const vid_ptr: u32 = 0x08000000;
+
+fn write_output(buf: *color, width: u32, height: u32) {
+    printf!("Writing...\n");
+    let x: u32;
+    let y: u32;
+    let ptr = vid_ptr as *u8;
+    let pos: u32 = 0;
+
+    *(vid_reg as *u32) = vid_ptr as u32;
+
+    for (y = 0; y < height; y += 1) {
+        for (x = 0; x < width; x += 1) {
+            *(ptr + 0) = buf[pos].r;
+            *(ptr + 1) = buf[pos].g;
+            *(ptr + 2) = buf[pos].b;
+            ptr += 3;
+            pos += 1;
+        }
+    }
+
+    while true {}
+}

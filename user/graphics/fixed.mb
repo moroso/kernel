@@ -52,6 +52,28 @@ fn mult(a: num, b: num) -> num {
     ((rbot >> FRAC_BITS as u32) as i32) | (rtop << INT_BITS)
 }
 
+fn halve(a: num) -> num {
+    a / 2
+}
+
+fn sqrt(a: num) -> num {
+    mult(a, inv_sqrt(a))
+}
+
+fn inv_sqrt(a: num) -> num {
+    // Newton's method.
+
+    let new: num = a;
+    let guess: num;
+
+    do {
+        guess = new;
+        new = mult(halve(guess), fixed_int!(3) - mult(a, mult(guess, guess)));
+    } while (guess != new);
+
+    guess
+}
+
 /* Uncomment when we have a proper div on osorom
 fn div(n: num, d: num) -> num {
     // We want to compute (n << FRAC_BITS) / d
