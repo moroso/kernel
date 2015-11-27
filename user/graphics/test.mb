@@ -10,12 +10,13 @@ fn frac_4d(a: fixed::num) -> u32 {
     fixed::int_part(fixed::frac_part(a) as num * 10000) as u32
 }
 fn print_num(n: fixed::num) {
-    if n >= 0 {
-        printf!("0x%08x %d.%04d\n", n, fixed::int_part(n), frac_4d(n));
+    let frac = frac_4d(n);
+    if n >= 0 || frac == 0 {
+        printf!("0x%08x %d.%04d\n", n, fixed::int_part(n), frac);
     } else {
         printf!("0x%08x -%d.%04d\n", n,
                 -(fixed::int_part(n) + 1),
-                (10000 - (frac_4d(n) as i32)) as u32);
+                (10000 - (frac as i32)) as u32);
     }
 }
 
@@ -49,6 +50,14 @@ fn main() -> i32 {
     let n8 = fixed_dec2!(-10,75);
     print_num(n8);
 
+    let n9 = fixed_dec2!(-10,00);
+    print_num(n9);
+
+    let n10 = fixed_dec2!(-1,00);
+    print_num(n10);
+
+    let n11 = fixed_dec2!(0,-50);
+    print_num(n11);
 
     0
 }
