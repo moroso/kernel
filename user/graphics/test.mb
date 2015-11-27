@@ -30,8 +30,8 @@ fn main() -> i32 {
     let n4 = fixed::mult(n2, n2);
     print_num(n4); // overflowed
 
-    //let n2x2 = fixed::div(n2, half);
-    //print_num(n2x2);
+    let n2x2 = fixed::div(n2, half);
+    print_num(n2x2);
 
     let n5 = fixed_int!(2);
     print_num(n5);

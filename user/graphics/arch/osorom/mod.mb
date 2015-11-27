@@ -6,3 +6,11 @@ extern "bare" fn __smul_32_32(a: i32, b: i32, top_out: *i32, bot_out: *u32) {
             "{ b r31 + 1; }"
             );
 }
+
+extern "bare" fn __sdiv_64_32(ntop: i32, nbot: u32, d: i32) -> i32 {
+    asm!(
+            "{ ovf <- r0; }"
+            "{ r0 <- r1 /sw r2; }"
+            "{ b r31 + 1; }"
+            );
+}

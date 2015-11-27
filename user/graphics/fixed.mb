@@ -1,6 +1,6 @@
 // Basic library for fixed point arithmetic.
 
-use arch::__smul_32_32;
+use arch::{__smul_32_32, __sdiv_64_32};
 
 type num = i32;
 const FRAC_BITS: i32 = 18;
@@ -74,7 +74,6 @@ fn inv_sqrt(a: num) -> num {
     guess
 }
 
-/* Uncomment when we have a proper div on osorom
 fn div(n: num, d: num) -> num {
     // We want to compute (n << FRAC_BITS) / d
     // Need to compute a 64-bit product and then shift
@@ -82,4 +81,3 @@ fn div(n: num, d: num) -> num {
     let nbot: u32 = (n << FRAC_BITS) as u32;
     __sdiv_64_32(ntop, nbot, d)
 }
-*/
