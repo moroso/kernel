@@ -73,8 +73,8 @@ fn pick_color(i: i32) -> color {
     c
 }
 
-const R_MIN: num = fixed_dec3!(-2,500);
-const R_MAX: num = fixed_dec3!( 1,450);
+const R_MIN: num = fixed_dec3!(-2,005);
+const R_MAX: num = fixed_dec3!( 1,070);
 
 
 
