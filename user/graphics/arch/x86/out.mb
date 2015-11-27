@@ -4,10 +4,9 @@ fn setup_output(buf: *color, width: u32, height: u32) {}
 
 fn write_output(buf: *color, width: u32, height: u32) {
     printf!("P6\n%d %d 255\n", width, height);
-    let sz = width*height*sizeof(color);
-    let pbuf = buf as *u8;
+    let sz = width * height;
     let i = 0;
     for (; i < sz; i += 1) {
-        printf!("%c", pbuf[i]);
+        printf!("%c%c%c", buf[i].r, buf[i].g, buf[i].b);
     }
 }

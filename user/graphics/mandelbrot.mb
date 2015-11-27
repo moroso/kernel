@@ -29,11 +29,11 @@ fn mandelbrot_calc(r0: num, i0: num) -> i32 {
     0
 }
 
-// Color
+// Color - our framebuffers want it in BGR form
 struct color {
-    r: u8,
-    g: u8,
     b: u8,
+    g: u8,
+    r: u8,
 }
 macro mcolor!(r, g, b) { color { r: $r, g: $g, b: $b, } }
 
