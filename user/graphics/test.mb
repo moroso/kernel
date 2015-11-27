@@ -46,7 +46,7 @@ fn main() -> i32 {
     let n7 = fixed::sqrt(n5);
     print_num(n7);
 
-    let n8 = fixed_dec2!(-10,50);
+    let n8 = fixed_dec2!(-10,75);
     print_num(n8);
 
 
