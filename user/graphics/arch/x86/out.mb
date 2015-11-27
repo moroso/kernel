@@ -1,6 +1,7 @@
 use ::color;
 
-//
+fn setup_output(buf: *color, width: u32, height: u32) {}
+
 fn write_output(buf: *color, width: u32, height: u32) {
     printf!("P6\n%d %d 255\n", width, height);
     let sz = width*height*sizeof(color);

@@ -1,6 +1,6 @@
 // Run as something like: ./mandelbrot | pnmtopng > mandelbrot.png
 
-use out::write_output;
+use out::{setup_output,write_output};
 use maths::fixed;
 use maths::fixed::num;
 
@@ -82,6 +82,7 @@ const HEIGHT: u32 = 600;
 static buf: color[WIDTH*HEIGHT];
 
 fn main() -> i32 {
+    setup_output(&buf[0], WIDTH, HEIGHT);
     fill_mandelbrot_buffer(&buf[0], WIDTH, HEIGHT);
     write_output(&buf[0], WIDTH, HEIGHT);
 
