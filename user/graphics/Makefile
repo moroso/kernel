@@ -63,11 +63,14 @@ $(BUILDDIR)/%.o: %.c |$(BUILDDIR)
 %: $(BUILDDIR)/%
 	cp $< $@
 
+# FIXME osorom builds just dumped in this directory
 %.bin: %.mb $(MBC) |$(BUILDDIR)
 	$(MBC) $< -d --target asm -o $@ \
 		--lib arch:arch/osorom/mod.mb \
 		--lib out:arch/osorom/out.mb \
 		--list $@.list --stack_start 400000
+# deps for osorom builds
+-include $(PROGS:%=%.dep)
 
 # Include all the dependency files
 -include $(ALL_DEPS)
