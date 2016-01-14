@@ -13,6 +13,7 @@ mod sys;
 mod ipc;
 mod video;
 mod arch;
+mod udriv;
 
 mod kernel_main;
 

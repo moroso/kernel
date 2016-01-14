@@ -1,0 +1,118 @@
+/** udriv/mod.mb: the driver table and functions for creating and using
+ * userspace drivers
+ *
+ * Assumes one driver per IDT entry (this may need to change as we become more
+ * sophisticated)
+ * 
+ * drivers are per-process; there is only one process (driver) to a device
+ *
+ * Note: uses IPC mailbox as receipt mechanism.  It's possible IPC should have some
+ * edits due to this (since IPC sends require some buffering in the kernel), but
+ * that will require some thought.  For now, we drop interrupts on OOM
+ *
+ * Author: Amanda M. Watson
+*/
+
+use locks::rw::*;
+use sys::mailbox::*;
+use structures::schedule::get_tcb;
+
+// driver table (constant) //
+struct dt_region_t
+{
+  addr: u8,
+  size: u32,
+}
+
+struct dt_entry_t
+{
+    driv_id: u32,
+    // list of inbs to be performed
+    inb_regions: *dt_region_t,
+    region_cnt: u32,
+}
+
+const NUM_DIR_ENTRIES: u32 = 16;
+
+// we don't currently support static array initialization, but should at some
+// point
+static driver_table: dt_entry_t[NUM_DIR_ENTRIES];
+
+// registration table //
+
+struct regt_entry_t
+{
+  driv_entry: *dt_entry_t,
+  reg_mb: i32, // registered mailbox for receipt, < 0 if no registration
+  reg_pid: i32, // pid of registered proc
+}
+
+// max IDT index (TODO define in terms of a system constant)
+const IDT_MAX: u32 = 256;
+
+static reg_table: regt_entry_t[IDT_MAX];
+static reg_table_lock: krw = KRW_INIT!(reg_table_lock);
+
+// errors //
+
+const ERR_UDRIV_INVALID: i32 = -1;
+const ERR_UDRIV_REG: i32 = -2;
+const ERR_UDRIV_INTERNAL: i32 = -3;
+
+
+
+fn udriv_init() -> i32
+{
+  // initialize reg table with driver table (set all others to have a NULL dt
+  // entry) 
+
+  0
+}
+
+// register a driver (per-process)
+// returns error if driver is already registered or does not exist, mailbox ID otherwise
+fn udriv_register(driv_id: u32) -> i32
+{
+    if (driv_id > IDT_MAX)
+    {
+        return ERR_UDRIV_INVALID;
+    }
+
+    krw_write_lock(&reg_table_lock);  
+    let reg_entry: *regt_entry_t = &reg_table[driv_id];
+    // if there is no driver info at this entry
+    if (reg_entry->driv_entry == null)
+    {
+        krw_write_unlock(&reg_table_lock);  
+        return ERR_UDRIV_INVALID;
+    }
+
+    if (reg_entry->reg_mb >= 0)
+    {
+        assert!(reg_entry->reg_pid >= 0);
+        krw_write_unlock(&reg_table_lock);  
+        return ERR_UDRIV_REG;
+    }
+
+    assert!(reg_entry->reg_pid < 0);
+
+    let mb_id = mailbox_new();
+    if (mb_id < 0)
+    {
+        krw_write_unlock(&reg_table_lock);  
+        return ERR_UDRIV_INTERNAL;
+    }
+
+    reg_entry->reg_mb = mb_id; 
+    reg_entry->reg_pid = get_tcb()->pid;
+
+    krw_write_unlock(&reg_table_lock);  
+
+    mb_id as i32
+}
+// TODO don't let users simply dereg mailboxes with drivers attached to them
+fn udriv_deregister(driv_id: u32) -> i32
+{
+  
+
+}
