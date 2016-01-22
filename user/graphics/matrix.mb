@@ -1,0 +1,75 @@
+/* matrix.mb
+ *
+ * Basic library for 4x4 matrices.  Will be added to as needed
+ *
+ * Author: Amanda M. Watson
+**/
+
+use maths::fixed;
+use maths::fixed::num;
+
+mod maths;
+mod arch;
+
+const MAT4_DIM: u32 = 4; // sorry
+
+type mat4_t = fixed::num[MAT4_DIM][MAT4_DIM];
+
+fn add(matA: mat4_t, matB: mat4_t) -> mat4_t 
+{
+    let matRet: mat4_t;
+  
+    let i: u32;
+    let j: u32;
+    for (i = 0; i < MAT4_DIM; i+=1)
+    {
+        for (j = 0; j < MAT4_DIM; j+=1)
+        {
+            matRet[i][j] = fixed::add(matA[i][j], matB[i][j]);    
+        }
+    } 
+
+    matRet
+
+} 
+
+fn sub(matA: mat4_t, matB: mat4_t) -> mat4_t 
+{
+    let matRet: mat4_t;
+  
+    let i: u32;
+    let j: u32;
+    for (i = 0; i < MAT4_DIM; i+=1)
+    {
+        for (j = 0; j < MAT4_DIM; j+=1)
+        {
+            matRet[i][j] = fixed::sub(matA[i][j], matB[i][j]);    
+        }
+    } 
+    
+    matRet
+} 
+
+fn mult(matA: mat4_t, matB: mat4_t) -> mat4_t 
+{
+    let matRet: mat4_t;
+
+    matRet[0][0] = fixed::add(fixed::mult(matA[0][0], matB[0][0]),
+            fixed::add(matA[0][1], matB[1][0]));
+
+    matRet[0][1] = fixed::add(fixed::mult(matA[0][0], matB[0][1]),
+            fixed::mult(matA[0][1], matB[1][1])); 
+
+    matRet[1][0] = fixed::add(fixed::mult(matA[1][0], matB[0][0]),
+            fixed::mult(matA[1][1], matB[0][1]));
+    matRet[1][1] = fixed::add(fixed::mult(matA[1][0], matB[0][1]),
+            fixed::mult(matA[1][1], matB[1][1])); 
+
+    matRet
+} 
+
+
+
+
+
+
