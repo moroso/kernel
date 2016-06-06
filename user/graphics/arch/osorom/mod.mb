@@ -1,9 +1,8 @@
 extern "bare" fn __smul_32_32(a: i32, b: i32, top_out: *i32, bot_out: *u32) {
     asm!(
             "{ r0 <- r0 *s r1; }"
-            "{ r1 <- OVF; }"
-            "{ *l(r2) <- r1; *l(r3) <- r0; }"
-            "{ b r31 + 1; }"
+            "{ r1 <- OVF; *l(r3) <- r0; }"
+            "{ b r31 + 1; *l(r2) <- r1; }"
             );
 }
 
