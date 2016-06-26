@@ -113,6 +113,6 @@ fn udriv_register(driv_id: u32) -> i32
 // TODO don't let users simply dereg mailboxes with drivers attached to them
 fn udriv_deregister(driv_id: u32) -> i32
 {
-  
+  0
 
 }
