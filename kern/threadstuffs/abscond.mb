@@ -24,6 +24,12 @@ static dead_tcb: *tcb = null;
 static abscond_lock: kmut = KMUT_INIT!(abscond_lock);
 
 fn abscond(status: u32)  {
+    /*
+    Ὅσον ζῇς φαίνου
+    μηδὲν ὅλως σὺ λυποῦ
+    πρὸς ὀλίγον ἐστὶ τὸ ζῆν
+    τὸ τέλος ὁ χρόνος ἀπαιτεῖ
+    */
 
     let tcb: *tcb = get_tcb();
     let proc: *proc = tcb->proc;
