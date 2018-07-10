@@ -92,9 +92,9 @@ extern "bare" fn isr_asm() {
             "{ SP1 <- r1; }"
             // r0 contains the starting address of the current kstack.
             // We stash the value of p0 in the lowest bit of it for later.
-            "{ r1 <- EPC; p0? r0 <- r0 | 1; }"
+            "{ r1 <- EPC; p0? r0 <- r0 | 1; }"  // Trust me, I'm an engineer.
             // p0 now stores whether we were in kernel mode when this happened.
-            "{ p0 <- r1 & 1 }"
+            "{ p0 <- r1 & 1 }"                  // I think I'll put this bit right here!
             // If we were in userspace, we read the kstack address from SP2
             // (whose value is now in r0). If we're in the kernel, r30
             // already contains a pointer to a valid part of the active kstack.
