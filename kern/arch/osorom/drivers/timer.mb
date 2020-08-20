@@ -1,4 +1,6 @@
 use arch::PERIPHERAL_START;
+use consts::PAGE_SIZE;
+use arch::drivers::ictl;
 
 struct timer_t {
     count: u32,
@@ -6,11 +8,11 @@ struct timer_t {
     control: u32,
 }
 
-static TIMER : *timer_t = PERIPHERAL_START as *timer_t;
-const TIMER_CONTROL_TIMER_EN: u32 = 2;
-const TIMER_CONTROL_TIMER_INT_EN: u32 = 1;
-const TIMER_CONTROL_TIMER_INT: u32 = 0;
+// We use the first timer, which is peripheral instance 8.
+const TIMER_IDX: u32 = 8;
 
+static TIMER : *timer_t = (PERIPHERAL_START + PAGE_SIZE * TIMER_IDX) as *timer_t;
+const TIMER_EN_BIT: u32 = 0;
 
 fn timer_init() {
     // Disable timer if it's enabled for some reason.
@@ -20,6 +22,10 @@ fn timer_init() {
     TIMER->top = 10000000;
 
     // Run the timer and enable its interrupt.
-    TIMER->control = (1 << TIMER_CONTROL_TIMER_EN)
-                   | (1 << TIMER_CONTROL_TIMER_INT_EN);
+    TIMER->control = ((1) << TIMER_EN_BIT);
+    ictl::enable_interrupt(TIMER_IDX, 0);
+}
+
+fn ack_interrupt() {
+    ictl::ack_interrupt(TIMER_IDX, 0);
 }

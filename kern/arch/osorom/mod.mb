@@ -12,7 +12,7 @@ mod boot;
 mod thread;
 
 const PERIPHERAL_START: u32 = KERNEL_MEM_END;
-const PERIPHERAL_PAGES: u32 = 3;
+const PERIPHERAL_PAGES: u32 = 16;
 
 //TODO(porting): should probably increase this; we have a ton of registers!
 const NUM_FASTPATH_REGS: u32  = 5; // number of GPRs being used in fastpath

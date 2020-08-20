@@ -78,6 +78,8 @@ extern "bare" fn actually_switch_contexts_with_asm(new_sp: *context,
             "{ r24 <- *l(r30 - 0x20); r25 <- *l(r30 - 0x1c); }"
             "{ r26 <- *l(r30 - 0x18); r27 <- *l(r30 - 0x14); }"
             "{ r28 <- *l(r30 - 0x10); r29 <- *l(r30 - 0x0c); }"
+            // Note: we could save a packet here by loading r31 earlier,
+            // and then loading (say) r29 in the same packet as the return.
             "{ nop;                   r31 <- *l(r30 - 0x04); }"
 
             // Return

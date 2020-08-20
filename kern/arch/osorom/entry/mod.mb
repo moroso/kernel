@@ -5,7 +5,8 @@ use structures::schedule::{is_preempt_enabled, scheduler_update};
 use locks::rendezvous::rend_timeout_remove;
 
 use arch::enable_interrupts;
-use arch::drivers::timer::{TIMER, TIMER_CONTROL_TIMER_INT};
+use arch::drivers::timer;
+use arch::drivers::timer::TIMER;
 use arch::regs::uregs;
 
 mod devices;
@@ -207,7 +208,7 @@ fn isr(ec0: exception_t, epc: u32,
     // TODO: more things need to be handled here.
     if ec0 == EXC_INTERRUPT {
         printf!("Interrupt\n");
-        TIMER->control &= ~(1 << TIMER_CONTROL_TIMER_INT);
+        timer::ack_interrupt();
         timer_handler(regs);
     } else if is_pagefault(ec0) || is_pagefault(ec1) {
         printf!("Pagefault: %x %x (%x)\n", ea0, ea1, epc);

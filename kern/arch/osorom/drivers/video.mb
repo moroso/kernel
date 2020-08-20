@@ -7,24 +7,30 @@ use locks::mutex::kmut_init;
 
 struct video_t {
     fb_addr: *u8,
+    status: u32,
 }
 
-static VIDEO : *video_t = (PERIPHERAL_START + PAGE_SIZE * 2) as *video_t;
+const VIDEO_IDX: u32 = 5;
+static VIDEO : *video_t = (PERIPHERAL_START + PAGE_SIZE * VIDEO_IDX) as *video_t;
 
 
 fn vid_init() {
+    printf!("Allocating video buffer...\n");
     let addr: *u8 = frame_alloc_pow2(12);
 
     assert!(addr != null);
 
+    printf!("Setting addr...\n");
     VIDEO->fb_addr = addr;
 
     vid_buffer_addr = addr;
-    vid_buffer_pages = 1875;
+    vid_buffer_pages = 225;
 
     let i: u32 = 0;
 
-    for (i = 0; i < 1875 * 1024; i += 1) {
+    printf!("Clearing vram...\n");
+    for (i = 0; i < 225 * 4096; i += 1) {
         addr[i] = 0xff;
     }
+    printf!("Done\n");
 }
