@@ -1,11 +1,7 @@
 const stack_grows_up: bool = true;
 
-/* TODO: label support in asm. */
 extern "bare" fn xchg(orig: *u32, val: u32) -> u32 {
-    asm!("{ r2 <- *ll(r0); }"
-         "{ *sc(r0) <- r1; }"
-         "{ !p0? b xchg; }"
-         "{ b r31 + 1; r0 <- r2; }");
+    asm!("{ r0 <- *l(r0); *l(r0) <- r1; }");
 }
 
 /* TODO: label support in asm. */
