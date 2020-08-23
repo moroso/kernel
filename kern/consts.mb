@@ -11,8 +11,9 @@ const KERNEL_MEM_START: u32 = 8 * 1024 * 1024;
  * memory for peripherals.
  * NOTE: change prelude.ma if this is adjusted!
  */
-// For now, give the kernel 1024MB.
-const KERNEL_MEM_END: u32 = 1024 * 1024 * 1024 - PAGE_SIZE * 16;
+// For now, give the kernel 1024MB, minus one (large) page, which will be
+// used for peripherals.
+const KERNEL_MEM_END: u32 = (1024 - 4) * 1024 * 1024;
 /* start of user memory */
 const USER_MEM_START: u32 = 1024 * 1024 * 1024;
 const INT_MAX: u32 = 0xffffffff;

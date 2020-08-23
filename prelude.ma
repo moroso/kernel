@@ -24,7 +24,7 @@ print_char:
         // a different address than their physical one.
         // See kern/consts.mb for the address.
         { p0 <- r1 & 2; p1 <- r0 == 10; }
-        { !p0? r1 <- long; long 0x80001000; p0? r1 <- long; long 0x3fff1000; }
+        { !p0? r1 <- long; long 0x80001000; p0? r1 <- long; long 0x3fc01000; }
         { *l(r1 + 4) <- r2; *l(r1) <- r0; } // clear txc
   uart_write_loop:
           { r0 <- *b(r1 + 4); }

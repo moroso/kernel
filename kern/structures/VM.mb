@@ -130,6 +130,7 @@ fn load_PD(PD: *PD_t) {
                 !ptr_too_low!(*log_to_phys(4096 as *u8, PD)))) {
         printf!("tcb: %p\n", get_tcb());
         printf!("tid %d\n", get_tcb()->tid);
+        printf!("0x1000 -> %x\n", log_to_phys(4096 as *u8, PD));
     }
 
     assert!(!ptr_too_low!(log_to_phys(4096 as *u8, PD))  &&
@@ -624,12 +625,24 @@ fn PD_init(PD: *PD_t) -> i32 {
     assert!(init_PD != null);
     if (PD == init_PD) {
         while is_kernel_addr(kernel_addr) {
-            if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
-                // we don't free on error because we only hit this case in
-                // the init stage
-                return -1;
+            if (get_pd_entry(kernel_addr) == 0) {
+                // TODO: I don't think there's much reason we *have* to
+                // set the first bunch of pages as 4K pages. (But asserts
+                // later fail if we don't, as things are right now.)
+                if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, KB) < 0) {
+                    // we don't free on error because we only hit this case in
+                    // the init stage
+                    return -1;
+                }
+                kernel_addr += PAGE_SIZE;
+            } else {
+                if (kernel_direct_map(kernel_addr, PD, READ_WRITE_BIT, MB) < 0) {
+                    // we don't free on error because we only hit this case in
+                    // the init stage
+                    return -1;
+                }
+                kernel_addr += (4 * MB);
             }
-            kernel_addr += PAGE_SIZE;
         }
 
         // Do any arch-specific setup that we'll need.
@@ -642,6 +655,9 @@ fn PD_init(PD: *PD_t) -> i32 {
                 init_PD->PT_entries[get_pd_entry(kernel_addr)];
             kernel_addr += (4 * MB);
         }
+        // And the peripheral pages.
+        PD->PT_entries[get_pd_entry(kernel_addr)] =
+            init_PD->PT_entries[get_pd_entry(kernel_addr)];
     }
     0
 }
