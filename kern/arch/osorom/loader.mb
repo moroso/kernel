@@ -13,7 +13,17 @@ fn load_set_regs(ureg: *uregs, stack_ptr: u32, entry_point: u32) {
     }
 }
 
+// TODO: actually flush the right address.
+// (For now, in the CPU, flush always clears the entire cache so
+// we're good for the time being...)
+extern "bare" fn flush_cache() {
+    asm!("{ flush.data r0; }"
+         "{ b r31 + 1; }"
+    );
+}
+
 fn finish_perform(uregs: *uregs, argc: u32, argv: **u8) {
     uregs->r[0] = argc;
     uregs->r[1] = argv as u32;
+    flush_cache();
 }
