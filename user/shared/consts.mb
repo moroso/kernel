@@ -5,5 +5,5 @@ const PAGE_SIZE: u32 = 4096;
 // The size of a video region. If we ever change the video mode, this will have
 // to be changed as well.
 // TODO: some syscall that will give us video info, so we can compute this.
-const VID_REGION_SIZE: u32 = 352;
+const VID_REGION_SIZE: u32 = 225;
 
