@@ -58,12 +58,12 @@ fn draw_stuff(buf: *u8, color: u32) {
                         b);
 
 
-                putpixel(buf, (2*i), 530 + j, r, g, b);
-                putpixel(buf, (2*i+1), 530 + j, r, g, b);
+                putpixel(buf, (2*i), 410 + j, r, g, b);
+                putpixel(buf, (2*i+1), 410 + j, r, g, b);
 
-                putpixel(buf, (screen_width - 0x100) +  255 - (2*i), 530 + j, r,
+                putpixel(buf, (screen_width - 0x100) +  255 - (2*i), 410 + j, r,
                         g, b);
-                putpixel(buf, (screen_width - 0x100) +  255 - (2*i+1), 530 + j,
+                putpixel(buf, (screen_width - 0x100) +  255 - (2*i+1), 410 + j,
                         r, g, b);
 
 
@@ -83,12 +83,12 @@ fn draw_stuff(buf: *u8, color: u32) {
 
 
 
-            putpixel(buf, (2*i), 530 + j, i as u8, (i/4) as u8,  (i/2) as u8);
-            putpixel(buf, (2*i+1), 530 + j, i as u8, (i/4) as u8, (i/2) as u8);
+            putpixel(buf, (2*i), 410 + j, i as u8, (i/4) as u8,  (i/2) as u8);
+            putpixel(buf, (2*i+1), 410 + j, i as u8, (i/4) as u8, (i/2) as u8);
 
-            putpixel(buf, (screen_width - 0x100) +  255 - (2*i), 530 + j, i as
+            putpixel(buf, (screen_width - 0x100) +  255 - (2*i), 410 + j, i as
                     u8, (i/4) as u8,  (i/2) as u8);
-            putpixel(buf, (screen_width - 0x100) +  255 - (2*i+1), 530 + j, i as
+            putpixel(buf, (screen_width - 0x100) +  255 - (2*i+1), 410 + j, i as
                     u8, (i/4) as u8, (i/2) as u8);
 
 
